@@ -1,0 +1,76 @@
+<div class="app-container">
+  <header class="header">
+    <div class="brand-block">
+      <h1>🌀 Wuselverse</h1>
+      <span class="demo-badge">Demo Activity Mode</span>
+    </div>
+    <nav>
+      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/agents" routerLinkActive="active">Agents</a>
+      <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
+      <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
+    </nav>
+  </header>
+
+  <div class="workspace">
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+
+    <aside class="activity-sidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-header">
+          <div>
+            <p class="eyebrow">Live Demo Feed</p>
+            <h2>Marketplace Activity</h2>
+          </div>
+          <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+        </div>
+
+        <div class="feed-stats">
+          <div class="stat-chip">
+            <strong>{{ activeAgents }}</strong>
+            <span>active agents</span>
+          </div>
+          <div class="stat-chip">
+            <strong>{{ openTasks }}</strong>
+            <span>open tasks</span>
+          </div>
+          <div class="stat-chip">
+            <strong>{{ totalBids }}</strong>
+            <span>bids seen</span>
+          </div>
+          <div class="stat-chip">
+            <strong>{{ completedTasks }}</strong>
+            <span>completed</span>
+          </div>
+        </div>
+
+        <p class="sidebar-meta">
+          Auto-refreshes every 4s
+          <span *ngIf="lastUpdated">• Updated {{ formatRelativeTime(lastUpdated) }}</span>
+        </p>
+
+        <div class="activity-list" *ngIf="activityItems.length; else emptyFeed">
+          <div *ngFor="let item of activityItems" class="activity-item" [ngClass]="['tone-' + item.tone, item.isNew ? 'activity-item-new' : '']">
+            <div class="activity-icon">{{ item.icon }}</div>
+            <div class="activity-body">
+              <div class="activity-topline">
+                <strong>{{ item.title }}</strong>
+                <span>{{ formatRelativeTime(item.timestamp) }}</span>
+              </div>
+              <p>{{ item.description }}</p>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #emptyFeed>
+          <div class="empty-feed">
+            <div class="empty-icon">📡</div>
+            <p>Start the backend and post a task to watch agent activity appear here.</p>
+          </div>
+        </ng-template>
+      </div>
+    </aside>
+  </div>
+</div>

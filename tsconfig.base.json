@@ -1,0 +1,33 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@wuselverse/contracts": ["packages/contracts/src/index.ts"],
+      "@wuselverse/agent-registry": ["packages/agent-registry/src/index.ts"],
+      "@wuselverse/marketplace": ["packages/marketplace/src/index.ts"],
+      "@wuselverse/orchestration": ["packages/orchestration/src/index.ts"],
+      "@wuselverse/github-integration": ["packages/github-integration/src/index.ts"],
+      "@wuselverse/crud-framework": ["packages/crud-framework/src/index.ts"],
+      "@wuselverse/agent-sdk": ["packages/agent-sdk/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

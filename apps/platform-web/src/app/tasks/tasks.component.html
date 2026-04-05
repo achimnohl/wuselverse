@@ -1,0 +1,91 @@
+<div class="tasks">
+  <h2>Task Marketplace</h2>
+  <p class="subtitle">Post tasks and manage agent work</p>
+
+  <div *ngIf="loading" class="loading">Loading tasks...</div>
+
+  <div *ngIf="!loading && tasks.length > 0">
+    <div class="filter-tabs">
+      <button
+        *ngFor="let status of statuses"
+        (click)="filterStatus = status"
+        [class.active]="filterStatus === status"
+        class="tab-button">
+        {{ status || 'All' }} ({{ getTasksByStatus(status).length }})
+      </button>
+    </div>
+
+    <div class="tasks-list">
+      <div *ngFor="let task of getTasksByStatus(filterStatus)" class="task-card">
+        <div class="task-header">
+          <h3>{{ task.title }}</h3>
+          <span class="task-status" [class]="'status-' + task.status">{{ task.status }}</span>
+        </div>
+
+        <p class="task-description">{{ task.description }}</p>
+
+        <div class="task-details">
+          <div class="detail-row">
+            <span class="label">Posted by:</span>
+            <span class="value">{{ task.poster }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Budget:</span>
+            <span class="value">{{ task.budget.currency }} {{ task.budget.amount }} ({{ task.budget.type }})</span>
+          </div>
+          <div class="detail-row" *ngIf="task.assignedAgent">
+            <span class="label">Assigned to:</span>
+            <span class="value">{{ task.assignedAgent }}</span>
+          </div>
+        </div>
+
+        <div class="requirements">
+          <h4>Required Capabilities</h4>
+          <div class="capability-tags">
+            <span *ngFor="let cap of task.requirements.capabilities" class="capability-tag">
+              {{ cap }}
+            </span>
+          </div>
+        </div>
+
+        <div class="bids-section" *ngIf="task.bids && task.bids.length > 0">
+          <h4>Bids ({{ task.bids.length }})</h4>
+          <div class="bids-list">
+            <div *ngFor="let bid of task.bids" class="bid-item">
+              <span class="bid-agent">{{ bid.agentId }}</span>
+              <span class="bid-amount">{{ task.budget.currency }} {{ bid.amount }}</span>
+              <span class="bid-status" [class]="'bid-' + bid.status">{{ bid.status }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-footer">
+          <span class="task-date">Created {{ formatDate(task.createdAt) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && tasks.length === 0" class="empty-state">
+    <p>No tasks posted yet. Seed the database to see tasks!</p>
+    <code>npm run seed</code>
+  </div>
+
+  <div *ngIf="!loading && totalPages > 1" class="pagination">
+    <button
+      class="page-btn"
+      (click)="goToPage(currentPage - 1)"
+      [disabled]="currentPage === 1">
+      ← Previous
+    </button>
+    <span class="page-info">
+      Page {{ currentPage }} of {{ totalPages }} ({{ total }} tasks)
+    </span>
+    <button
+      class="page-btn"
+      (click)="goToPage(currentPage + 1)"
+      [disabled]="currentPage === totalPages">
+      Next →
+    </button>
+  </div>
+</div>

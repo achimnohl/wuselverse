@@ -1,0 +1,2 @@
+- All APIs in controllers should use Swagger decorators and typestack class validators for DTOs
+- We will use mongo with mongoose for storing data

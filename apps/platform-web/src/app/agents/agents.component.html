@@ -1,0 +1,114 @@
+<div class="agents">
+  <h2>Agent Registry</h2>
+  <p class="subtitle">Browse and manage autonomous agents in the marketplace</p>
+
+  <div *ngIf="loading" class="loading">Loading agents...</div>
+
+  <div *ngIf="!loading && agents.length > 0" class="agents-grid">
+    <div *ngFor="let agent of agents" class="agent-card">
+      <div class="agent-header">
+        <h3>{{ agent.name }}</h3>
+        <span class="agent-status" [class]="'status-' + agent.status">{{ agent.status }}</span>
+      </div>
+      <p class="agent-description">{{ agent.description }}</p>
+
+      <div class="agent-details">
+        <div class="detail-item">
+          <span class="label">Owner:</span>
+          <span class="value">{{ agent.owner }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Rating:</span>
+          <span class="value">
+            <span *ngIf="agent.rating">⭐ {{ agent.rating.toFixed(1) }}</span>
+            <span *ngIf="!agent.rating">⭐ No rating yet</span>
+            ({{ agent.successCount }} jobs)
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Reputation:</span>
+          <span class="value">{{ agent.reputation?.score || 0 }}/100</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Pricing:</span>
+          <span class="value">{{ agent.pricing?.amount || 0 }} {{ agent.pricing?.currency || 'USD' }}/{{ agent.pricing?.type || 'fixed' }}</span>
+        </div>
+      </div>
+
+      <div class="capabilities">
+        <h4>Capabilities</h4>
+        <div class="capability-tags">
+          <span *ngFor="let cap of agent.capabilities" class="capability-tag">
+            {{ cap.skill }}
+          </span>
+        </div>
+      </div>
+
+      <div class="agent-protocols" *ngIf="agent.mcpEndpoint || agent.githubAppId">
+        <span *ngIf="agent.mcpEndpoint" class="protocol-badge">MCP</span>
+        <span *ngIf="agent.githubAppId" class="protocol-badge">GitHub App</span>
+      </div>
+
+      <div class="agent-actions">
+        <button
+          class="btn-audit"
+          (click)="toggleAuditLog(agent.id)"
+          [disabled]="!canViewAudit(agent)">
+          {{ expandedAgentId === agent.id ? '▼' : '▶' }} Audit Log
+        </button>
+      </div>
+
+      <div *ngIf="expandedAgentId === agent.id" class="audit-log-section">
+        <div *ngIf="loadingAudit" class="audit-loading">Loading audit log...</div>
+        <div *ngIf="auditError" class="audit-error">{{ auditError }}</div>
+        <div *ngIf="!loadingAudit && !auditError && auditLogs.length > 0" class="audit-entries">
+          <div *ngFor="let log of auditLogs" class="audit-entry">
+            <div class="audit-header">
+              <span class="audit-action" [class]="'action-' + log.action">{{ log.action }}</span>
+              <span class="audit-timestamp">{{ formatTimestamp(log.timestamp) }}</span>
+            </div>
+            <div class="audit-details">
+              <div class="audit-actor">Actor: <strong>{{ log.actorId }}</strong></div>
+              <div *ngIf="log.changedFields.length > 0" class="audit-fields">
+                Changed: {{ log.changedFields.join(', ') }}
+              </div>
+              <div *ngIf="log.newValues['status']" class="audit-status">
+                Status: {{ log.previousValues['status'] || 'none' }} → {{ log.newValues['status'] }}
+              </div>
+              <div *ngIf="log.newValues['complianceDecision']" class="audit-compliance">
+                Compliance: <strong>{{ log.newValues['complianceDecision'] }}</strong>
+                <br /><em>{{ log.newValues['complianceReason'] }}</em>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="!loadingAudit && !auditError && auditLogs.length === 0" class="audit-empty">
+          No audit log entries found.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && agents.length === 0" class="empty-state">
+    <p>No agents registered yet. Seed the database to see agents!</p>
+    <code>npm run seed</code>
+  </div>
+
+  <div *ngIf="!loading && totalPages > 1" class="pagination">
+    <button
+      class="page-btn"
+      (click)="goToPage(currentPage - 1)"
+      [disabled]="currentPage === 1">
+      ← Previous
+    </button>
+    <span class="page-info">
+      Page {{ currentPage }} of {{ totalPages }} ({{ total }} agents)
+    </span>
+    <button
+      class="page-btn"
+      (click)="goToPage(currentPage + 1)"
+      [disabled]="currentPage === totalPages">
+      Next →
+    </button>
+  </div>
+</div>

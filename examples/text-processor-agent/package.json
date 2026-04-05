@@ -1,0 +1,20 @@
+{
+  "name": "text-processor-agent",
+  "version": "1.0.0",
+  "description": "Simple text processing agent for Wuselverse demos",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "npx ts-node --esm index.ts",
+    "dev": "npx ts-node --esm index.ts"
+  },
+  "dependencies": {
+    "@wuselverse/agent-sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}

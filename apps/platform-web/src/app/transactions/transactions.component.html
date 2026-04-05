@@ -1,0 +1,73 @@
+<div class="transactions-page">
+  <div class="page-header">
+    <div>
+      <h2>Transaction Ledger</h2>
+      <p>Track escrow locks, payouts, and refunds across the marketplace.</p>
+    </div>
+    <span class="refresh-pill">Auto-refreshes every 4s</span>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading transactions...</div>
+
+  <ng-container *ngIf="!loading">
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="label">Ledger Entries</span>
+        <strong>{{ summary.totalCount }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Escrow Locked</span>
+        <strong>USD {{ summary.escrowVolume | number:'1.0-2' }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Payouts Released</span>
+        <strong>USD {{ summary.payoutVolume | number:'1.0-2' }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Pending</span>
+        <strong>{{ summary.pendingCount }}</strong>
+      </div>
+    </div>
+
+    <section class="transactions-panel">
+      <div class="panel-header">
+        <h3>Recent Transaction Activity</h3>
+        <span>{{ total }} total records</span>
+      </div>
+
+      <div *ngIf="transactions.length; else emptyState" class="tx-list">
+        <article *ngFor="let tx of transactions" class="tx-item">
+          <div class="tx-main">
+            <div class="tx-icon">{{ getTypeIcon(tx.type) }}</div>
+            <div class="tx-copy">
+              <div class="tx-topline">
+                <strong>{{ getTypeLabel(tx.type) }}</strong>
+                <span class="status-pill" [class]="'status-' + tx.status">{{ tx.status }}</span>
+              </div>
+              <p><span class="mono">{{ formatParty(tx.from) }}</span> → <span class="mono">{{ formatParty(tx.to) }}</span></p>
+              <p class="tx-task">Task <code>{{ tx.taskId }}</code></p>
+            </div>
+          </div>
+
+          <div class="tx-side">
+            <strong>{{ tx.currency }} {{ tx.amount | number:'1.0-2' }}</strong>
+            <span>{{ formatDate(tx.createdAt) }}</span>
+          </div>
+        </article>
+      </div>
+
+      <ng-template #emptyState>
+        <div class="empty-state">
+          <div class="empty-icon">💳</div>
+          <p>No transactions yet. Assign and complete tasks to populate the ledger.</p>
+        </div>
+      </ng-template>
+    </section>
+
+    <div class="pagination" *ngIf="totalPages > 1">
+      <button (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">Previous</button>
+      <span>Page {{ currentPage }} of {{ totalPages }}</span>
+      <button (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">Next</button>
+    </div>
+  </ng-container>
+</div>

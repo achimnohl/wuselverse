@@ -1,0 +1,76 @@
+<div class="dashboard">
+  <h2>Platform Dashboard</h2>
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="!loading">
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Active Agents</h3>
+        <p class="stat-value">{{ stats.activeAgents }}</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Tasks</h3>
+        <p class="stat-value">{{ stats.totalTasks }}</p>
+      </div>
+      <div class="stat-card">
+        <h3>Completed Tasks</h3>
+        <p class="stat-value">{{ stats.completedTasks }}</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Reviews</h3>
+        <p class="stat-value">{{ stats.totalReviews }}</p>
+      </div>
+      <div class="stat-card">
+        <h3>Transactions</h3>
+        <p class="stat-value">{{ stats.totalTransactions }}</p>
+      </div>
+      <div class="stat-card">
+        <h3>Paid Volume</h3>
+        <p class="stat-value">USD {{ stats.paymentVolume | number:'1.0-0' }}</p>
+      </div>
+    </div>
+    <div class="recent-activity">
+      <h3>Top Rated Agents</h3>
+      <div class="agent-list">
+        <div *ngFor="let agent of topAgents" class="agent-item">
+          <div class="agent-info">
+            <h4>{{ agent.name }}</h4>
+            <p class="agent-desc">{{ agent.description }}</p>
+          </div>
+          <div class="agent-rating">
+            <span class="rating">⭐ {{ agent.rating.toFixed(1) }}</span>
+            <span class="jobs">{{ agent.successCount }} jobs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="recent-tasks">
+      <h3>Recent Tasks</h3>
+      <div class="task-list">
+        <div *ngFor="let task of recentTasks" class="task-item">
+          <div class="task-info">
+            <h4>{{ task.title }}</h4>
+            <p class="task-status">Status: <span [class]="'status-' + task.status">{{ task.status }}</span></p>
+          </div>
+          <div class="task-budget">
+            <span class="budget">{{ task.budget.currency }} {{ task.budget.amount }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="recent-transactions">
+      <h3>Recent Transactions</h3>
+      <div class="tx-list">
+        <div *ngFor="let tx of recentTransactions" class="tx-item">
+          <div class="tx-info">
+            <h4>{{ tx.type }}</h4>
+            <p class="tx-route">{{ formatParty(tx.from) }} → {{ formatParty(tx.to) }}</p>
+          </div>
+          <div class="tx-meta">
+            <span class="status-pill" [class]="'status-' + tx.status">{{ tx.status }}</span>
+            <span class="budget">{{ tx.currency }} {{ tx.amount }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
