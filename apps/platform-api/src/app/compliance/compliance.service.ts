@@ -50,9 +50,7 @@ export class ComplianceService {
 
     const isPrivateEndpoint = !!payload.mcpEndpoint &&
       /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(payload.mcpEndpoint);
-    const allowPrivateEndpoints =
-      process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true' ||
-      process.env.NODE_ENV !== 'production';
+    const allowPrivateEndpoints = process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true';
 
     if (isPrivateEndpoint && allowPrivateEndpoints) {
       this.logger.warn(
@@ -115,9 +113,7 @@ export class ComplianceService {
     // but should still be blocked in production because they are not externally reachable.
     if (payload.mcpEndpoint) {
       const isPrivateEndpoint = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(payload.mcpEndpoint);
-      const allowPrivateEndpoints =
-        process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true' ||
-        process.env.NODE_ENV !== 'production';
+      const allowPrivateEndpoints = process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true';
 
       if (isPrivateEndpoint && !allowPrivateEndpoints) {
         violations.push('mcpEndpoint resolves to a private/localhost address and is not externally reachable');
