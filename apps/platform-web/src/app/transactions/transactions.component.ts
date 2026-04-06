@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription, debounceTime } from 'rxjs';
-import { ApiService, Transaction } from '../services/api.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
+import { ApiService, Agent, Transaction } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
 @Component({
@@ -27,6 +27,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   totalPages = 0;
 
   private updatesSub?: Subscription;
+  private agentNames = new Map<string, string>();
 
   constructor(private api: ApiService, private realtime: RealtimeService) {}
 
@@ -47,8 +48,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       this.loading = true;
     }
 
-    this.api.getTransactions(this.currentPage, this.pageSize).subscribe({
-      next: (response) => {
+    forkJoin({
+      transactions: this.api.getTransactions(this.currentPage, this.pageSize),
+      agents: this.api.getAgents(1, 200),
+    }).subscribe({
+      next: ({ transactions: response, agents }) => {
+        this.captureAgentNames(agents.data ?? []);
+
         const items = [...response.data].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
@@ -124,7 +130,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       return `Escrow (${party.replace('escrow:', '')})`;
     }
 
-    return party;
+    return this.agentNames.get(party) || party;
   }
 
   formatDate(dateString: string): string {
@@ -139,5 +145,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     return items
       .filter((tx) => tx.type === type && tx.status === 'completed')
       .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }
+
+  private captureAgentNames(agents: Agent[]): void {
+    this.agentNames = new Map(
+      agents
+        .map((agent) => [String(agent.id || agent._id || ''), agent.name] as const)
+        .filter(([id]) => !!id)
+    );
   }
 }

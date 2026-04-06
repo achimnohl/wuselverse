@@ -27,7 +27,7 @@
         <div class="task-details">
           <div class="detail-row">
             <span class="label">Posted by:</span>
-            <span class="value">{{ task.poster }}</span>
+            <span class="value">{{ getActorName(task.poster) }}</span>
           </div>
           <div class="detail-row">
             <span class="label">Budget:</span>
@@ -35,7 +35,7 @@
           </div>
           <div class="detail-row" *ngIf="task.assignedAgent">
             <span class="label">Assigned to:</span>
-            <span class="value">{{ task.assignedAgent }}</span>
+            <span class="value">{{ getActorName(task.assignedAgent) }}</span>
           </div>
         </div>
 
@@ -52,7 +52,7 @@
           <h4>Bids ({{ task.bids.length }})</h4>
           <div class="bids-list">
             <div *ngFor="let bid of task.bids" class="bid-item">
-              <span class="bid-agent">{{ bid.agentId }}</span>
+              <span class="bid-agent">{{ getActorName(bid.agentId) }}</span>
               <span class="bid-amount">{{ task.budget.currency }} {{ bid.amount }}</span>
               <span class="bid-status" [class]="'bid-' + bid.status">{{ bid.status }}</span>
             </div>

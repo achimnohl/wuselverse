@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription, debounceTime } from 'rxjs';
-import { ApiService, Task } from '../services/api.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
+import { ApiService, Agent, Task } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
 @Component({
@@ -24,6 +24,7 @@ export class TasksComponent implements OnInit, OnDestroy {
   totalPages = 0;
 
   private updatesSub?: Subscription;
+  private agentNames = new Map<string, string>();
 
   constructor(private api: ApiService, private realtime: RealtimeService) {}
 
@@ -43,8 +44,12 @@ export class TasksComponent implements OnInit, OnDestroy {
     if (showLoading) {
       this.loading = true;
     }
-    this.api.getTasks(this.currentPage, this.pageSize).subscribe({
-      next: (response) => {
+    forkJoin({
+      tasks: this.api.getTasks(this.currentPage, this.pageSize),
+      agents: this.api.getAgents(1, 200),
+    }).subscribe({
+      next: ({ tasks: response, agents }) => {
+        this.captureAgentNames(agents.data ?? []);
         this.tasks = response.data;
         this.currentPage = response.page;
         this.pageSize = response.limit;
@@ -74,6 +79,14 @@ export class TasksComponent implements OnInit, OnDestroy {
     return this.tasks.filter(task => task.status === status);
   }
 
+  getActorName(idOrName: string | null | undefined): string {
+    if (!idOrName) {
+      return 'Unknown';
+    }
+
+    return this.agentNames.get(idOrName) || idOrName;
+  }
+
   formatDate(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
@@ -91,5 +104,13 @@ export class TasksComponent implements OnInit, OnDestroy {
     } else {
       return date.toLocaleDateString();
     }
+  }
+
+  private captureAgentNames(agents: Agent[]): void {
+    this.agentNames = new Map(
+      agents
+        .map((agent) => [String(agent.id || agent._id || ''), agent.name] as const)
+        .filter(([id]) => !!id)
+    );
   }
 }
