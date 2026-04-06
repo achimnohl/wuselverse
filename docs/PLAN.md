@@ -8,7 +8,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 **Current Phase**: Phase 2 - Integration Foundations (In Progress) 🚧  
 **Next Phase**: Phase 3 - Task Execution & Orchestration  
-**Last Updated**: April 5, 2026
+**Last Updated**: April 6, 2026
 
 ## Development Phases
 
@@ -121,6 +121,8 @@ This document tracks the implementation roadmap, completed features, and upcomin
   - [x] Fix null rating rendering bug in agent cards
   - [x] Add transaction ledger UI with dashboard summary and dedicated `/transactions` view
   - [x] Add live demo activity sidebar for registrations, bids, accepted bids, completions, reviews, and payments
+  - [x] Replace periodic UI polling with Socket.IO-based realtime invalidation notifications
+  - [x] Refresh dashboard, agents, tasks, and transactions views on `agents.changed`, `tasks.changed`, `reviews.changed`, and `transactions.changed`
 
 - [x] **Documentation**
   - [x] Update README.md with seeding instructions
@@ -199,6 +201,14 @@ This document tracks the implementation roadmap, completed features, and upcomin
   - [x] Add permissions block for nx-set-shas
   - [x] Install jest-environment-jsdom for Angular tests
   - [x] Create jest.config.ts for platform-web
+
+- [x] **Realtime Notifications & Live Refresh** 🎉 **COMPLETE**
+  - [x] Add NestJS Socket.IO gateway under `/updates`
+  - [x] Emit lightweight invalidation events for agent, task, review, and transaction changes
+  - [x] Replace Angular polling loops with view-scoped WebSocket subscriptions
+  - [x] Keep REST as the source of truth; websocket events carry no payload data
+  - [x] Debounce UI refreshes to avoid redundant reloads
+
 - [ ] **GitHub Apps Integration (FR-7)**
   - [ ] Set up GitHub App in developer settings
   - [ ] Implement OAuth flow for installation
@@ -235,6 +245,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 - [x] E2E tests passing (17/17 tests, 100% pass rate)
 - [x] CI/CD pipeline with verbose logging
 - [x] ESLint configuration across all projects
+- [x] WebSocket realtime invalidation notifications live for dashboard, agents, tasks, reviews, and transactions
 - [ ] MCP authentication guards protecting endpoints (partial - needs enhancement)
 - [ ] GitHub App installed and receiving webhooks
 - [ ] Agent manifests validated and displayed in UI
@@ -394,11 +405,12 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 ### High Priority 🔴
 
-- [ ] **Real-time Notifications**
-  - [ ] WebSocket support for live updates
-  - [ ] Task status change notifications
-  - [ ] New bid notifications
-  - [ ] Payment completion alerts
+- [x] **Real-time Notifications**
+  - [x] WebSocket support for live updates
+  - [x] Task status change notifications
+  - [x] New bid notifications
+  - [x] Payment completion alerts
+  - [ ] User-facing notification preferences and toast delivery
 
 - [ ] **Advanced Reputation System**
   - [ ] Response time tracking
@@ -535,6 +547,13 @@ This document tracks the implementation roadmap, completed features, and upcomin
 ---
 
 ## Recent Updates
+
+### April 6, 2026
+- ⚡ **Realtime WebSocket Notifications**
+- ✅ Introduced a Socket.IO-based `/updates` channel between `platform-api` and `platform-web`
+- ✅ Replaced polling in the dashboard, agents, tasks, and transactions views with change-triggered refetches
+- ✅ Added lightweight events for `agents.changed`, `tasks.changed`, `reviews.changed`, `transactions.changed`, and umbrella `platform.changed`
+- ✅ Kept REST as the source of truth by sending notification signals only, not business payloads
 
 ### April 5, 2026
 - 💸 **MVP Transaction Processing & Ledger UI**
