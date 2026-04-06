@@ -1,6 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription, debounceTime } from 'rxjs';
 import { ApiService, Agent, AuditLog } from '../services/api.service';
+import { RealtimeService } from '../services/realtime.service';
 
 @Component({
   standalone: true,
@@ -25,21 +27,22 @@ export class AgentsComponent implements OnInit, OnDestroy {
   total = 0;
   totalPages = 0;
 
-  private refreshHandle?: ReturnType<typeof setInterval>;
+  private updatesSub?: Subscription;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
     // Check for API key in localStorage (demo purposes)
     this.userApiKey = localStorage.getItem('wuselverse_api_key');
     this.loadAgents(true);
-    this.refreshHandle = setInterval(() => this.loadAgents(false), 4000);
+    this.updatesSub = this.realtime
+      .watch(['agents.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadAgents(false));
   }
 
   ngOnDestroy(): void {
-    if (this.refreshHandle) {
-      clearInterval(this.refreshHandle);
-    }
+    this.updatesSub?.unsubscribe();
   }
 
   loadAgents(showLoading: boolean = true): void {

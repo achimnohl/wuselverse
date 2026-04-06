@@ -3,12 +3,26 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BaseMongoService } from '@wuselverse/crud-framework';
 import { ReviewDocument } from './review.schema';
+import { PlatformEventsService } from '../realtime/platform-events.service';
 import { Review } from '@wuselverse/contracts';
 
 @Injectable()
 export class ReviewsService extends BaseMongoService<ReviewDocument> {
-  constructor(@InjectModel('Review') private reviewModel: Model<ReviewDocument>) {
+  constructor(
+    @InjectModel('Review') private reviewModel: Model<ReviewDocument>,
+    private readonly platformEvents: PlatformEventsService
+  ) {
     super(reviewModel);
+  }
+
+  override async create(createDto: Partial<ReviewDocument>) {
+    const result = await super.create(createDto);
+
+    if (result.success) {
+      this.platformEvents.notifyReviewsChanged();
+    }
+
+    return result;
   }
 
   /**

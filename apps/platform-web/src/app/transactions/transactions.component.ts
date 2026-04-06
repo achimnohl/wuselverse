@@ -1,6 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription, debounceTime } from 'rxjs';
 import { ApiService, Transaction } from '../services/api.service';
+import { RealtimeService } from '../services/realtime.service';
 
 @Component({
   standalone: true,
@@ -24,19 +26,20 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   total = 0;
   totalPages = 0;
 
-  private refreshHandle?: ReturnType<typeof setInterval>;
+  private updatesSub?: Subscription;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
     this.loadTransactions(true);
-    this.refreshHandle = setInterval(() => this.loadTransactions(false), 4000);
+    this.updatesSub = this.realtime
+      .watch(['transactions.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadTransactions(false));
   }
 
   ngOnDestroy(): void {
-    if (this.refreshHandle) {
-      clearInterval(this.refreshHandle);
-    }
+    this.updatesSub?.unsubscribe();
   }
 
   loadTransactions(showLoading: boolean = true): void {

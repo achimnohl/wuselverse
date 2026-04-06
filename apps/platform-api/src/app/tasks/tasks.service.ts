@@ -6,6 +6,7 @@ import { TaskDocument } from './task.schema';
 import { AgentsService } from '../agents/agents.service';
 import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { PlatformEventsService } from '../realtime/platform-events.service';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
 
 @Injectable()
@@ -16,7 +17,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     @InjectModel('Task') private taskModel: Model<TaskDocument>,
     private agentsService: AgentsService,
     private agentMcpClient: AgentMcpClientService,
-    private transactionsService: TransactionsService
+    private transactionsService: TransactionsService,
+    private readonly platformEvents: PlatformEventsService
   ) {
     super(taskModel);
   }
@@ -47,6 +49,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
         taskId: createdTask._id,
         status: createdTask.status
       });
+      this.platformEvents.notifyTasksChanged();
       this.logger.debug('Requesting bids from matching agents');
       this.requestBidsFromMatchingAgents(createdTask).catch((error) => {
         this.logger.error(
@@ -118,7 +121,13 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       totalBids: task.bids.length 
     });
 
-    return this.updateById(taskId, { bids: task.bids });
+    const result = await this.updateById(taskId, { bids: task.bids });
+
+    if (result.success) {
+      this.platformEvents.notifyTasksChanged();
+    }
+
+    return result;
   }
 
   /**
@@ -172,6 +181,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     });
 
     if (updateResult.success) {
+      this.platformEvents.notifyTasksChanged();
+
       try {
         await this.ensureTransactionRecorded({
           taskId,
@@ -306,6 +317,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     if (!updateResult.success || !updateResult.data) {
       throw new Error('Failed to update task');
     }
+
+    this.platformEvents.notifyTasksChanged();
 
     const acceptedBid = task.bids?.find((bid) => bid.status === BidStatus.ACCEPTED);
     const settledAmount = acceptedBid?.amount ?? task.budget?.amount ?? 0;

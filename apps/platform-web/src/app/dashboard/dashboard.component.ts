@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Agent, Task, Review, Transaction } from '../services/api.service';
-import { forkJoin } from 'rxjs';
+import { RealtimeService } from '../services/realtime.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -24,19 +25,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentTasks: Task[] = [];
   recentTransactions: Transaction[] = [];
 
-  private refreshHandle?: ReturnType<typeof setInterval>;
+  private updatesSub?: Subscription;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
     this.loadDashboard(true);
-    this.refreshHandle = setInterval(() => this.loadDashboard(false), 4000);
+    this.updatesSub = this.realtime
+      .watch(['agents.changed', 'tasks.changed', 'reviews.changed', 'transactions.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadDashboard(false));
   }
 
   ngOnDestroy(): void {
-    if (this.refreshHandle) {
-      clearInterval(this.refreshHandle);
-    }
+    this.updatesSub?.unsubscribe();
   }
 
   formatParty(party: string): string {

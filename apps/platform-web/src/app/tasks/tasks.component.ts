@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription, debounceTime } from 'rxjs';
 import { ApiService, Task } from '../services/api.service';
+import { RealtimeService } from '../services/realtime.service';
 
 @Component({
   standalone: true,
@@ -9,7 +11,7 @@ import { ApiService, Task } from '../services/api.service';
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.scss']
 })
-export class TasksComponent implements OnInit {
+export class TasksComponent implements OnInit, OnDestroy {
   loading = true;
   tasks: Task[] = [];
   filterStatus: string | null = null;
@@ -21,14 +23,26 @@ export class TasksComponent implements OnInit {
   total = 0;
   totalPages = 0;
 
-  constructor(private api: ApiService) {}
+  private updatesSub?: Subscription;
+
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
-    this.loadTasks();
+    this.loadTasks(true);
+    this.updatesSub = this.realtime
+      .watch(['tasks.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadTasks(false));
   }
 
-  loadTasks(): void {
-    this.loading = true;
+  ngOnDestroy(): void {
+    this.updatesSub?.unsubscribe();
+  }
+
+  loadTasks(showLoading: boolean = true): void {
+    if (showLoading) {
+      this.loading = true;
+    }
     this.api.getTasks(this.currentPage, this.pageSize).subscribe({
       next: (response) => {
         this.tasks = response.data;
