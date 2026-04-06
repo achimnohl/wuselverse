@@ -1,8 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { forkJoin } from 'rxjs';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
 import { ApiService, Agent, Review, Task } from './services/api.service';
+import { RealtimeService } from './services/realtime.service';
 
 type ActivityKind =
   | 'agent_registered'
@@ -43,7 +44,7 @@ export class AppComponent implements OnInit, OnDestroy {
   completedTasks = 0;
   lastUpdated: string | null = null;
 
-  private pollingHandle?: ReturnType<typeof setInterval>;
+  private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
   private initialized = false;
   private knownAgents = new Map<string, { name: string; status?: string }>();
@@ -56,17 +57,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }>();
   private knownReviews = new Set<string>();
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
     this.refreshActivity();
-    this.pollingHandle = setInterval(() => this.refreshActivity(), 4000);
+    this.updatesSub = this.realtime
+      .watch(['agents.changed', 'tasks.changed', 'reviews.changed', 'transactions.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.refreshActivity());
   }
 
   ngOnDestroy(): void {
-    if (this.pollingHandle) {
-      clearInterval(this.pollingHandle);
-    }
+    this.updatesSub?.unsubscribe();
 
     this.animationTimeouts.forEach((handle) => clearTimeout(handle));
     this.animationTimeouts = [];

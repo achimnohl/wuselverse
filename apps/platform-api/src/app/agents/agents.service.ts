@@ -8,6 +8,7 @@ import { AgentDocument } from './agent.schema';
 import { AgentApiKeyDocument } from './agent-api-key.schema';
 import { AgentAuditLogDocument, AuditAction } from './agent-audit-log.schema';
 import { ComplianceService } from '../compliance/compliance.service';
+import { PlatformEventsService } from '../realtime/platform-events.service';
 
 @Injectable()
 export class AgentsService extends BaseMongoService<AgentDocument> {
@@ -17,7 +18,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     @InjectModel('Agent') private agentModel: Model<AgentDocument>,
     @InjectModel('AgentApiKey') private apiKeyModel: Model<AgentApiKeyDocument>,
     @InjectModel('AgentAuditLog') private auditLogModel: Model<AgentAuditLogDocument>,
-    private readonly complianceService: ComplianceService
+    private readonly complianceService: ComplianceService,
+    private readonly platformEvents: PlatformEventsService
   ) {
     super(agentModel);
   }
@@ -100,6 +102,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       sessionId: null,
     });
 
+    this.platformEvents.notifyAgentsChanged();
+
     this.logger.log('Starting async compliance check', { agentId });
 
     // Run compliance asynchronously so the registration response is instant
@@ -144,6 +148,7 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
         actorId: owner,
         sessionId: sessionId ?? null,
       });
+      this.platformEvents.notifyAgentsChanged();
     }
     return result;
   }
@@ -168,6 +173,7 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
         actorId: owner,
         sessionId: null,
       });
+      this.platformEvents.notifyAgentsChanged();
     }
     return result;
   }
@@ -199,6 +205,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       actorId: owner,
       sessionId: null,
     });
+
+    this.platformEvents.notifyAgentsChanged();
 
     return { apiKey: rawKey };
   }
@@ -257,6 +265,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       actorId: 'system:admin',
       sessionId: null,
     });
+
+    this.platformEvents.notifyAgentsChanged();
 
     return { success: true, data: { agentId, status: newStatus, reason: reason ?? null } };
   }
@@ -318,10 +328,16 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     const successRate = reputation.successfulJobs / reputation.totalJobs;
     reputation.score = Math.round(successRate * 100);
 
-    return this.updateById(agentId, {
+    const result = await this.updateById(agentId, {
       reputation,
       successCount: reputation.successfulJobs,
     });
+
+    if (result.success) {
+      this.platformEvents.notifyAgentsChanged();
+    }
+
+    return result;
   }
 
   private async runComplianceCheck(agentId: string, agent: AgentDocument): Promise<void> {
@@ -371,6 +387,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       actorId: 'system:compliance',
       sessionId: null,
     });
+
+    this.platformEvents.notifyAgentsChanged();
 
     if (result.decision !== 'approved') {
       this.logger.warn(

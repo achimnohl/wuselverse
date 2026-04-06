@@ -27,13 +27,19 @@ describe('ComplianceService', () => {
 
     service = module.get<ComplianceService>(ComplianceService);
 
-    // Ensure LLM path is disabled by default so tests are deterministic
+    // Ensure the compliance path is deterministic regardless of local shell env
     delete process.env['COMPLIANCE_LLM_API_KEY'];
+    delete process.env['COMPLIANCE_LLM_ENDPOINT'];
+    delete process.env['COMPLIANCE_LLM_MODEL'];
+    delete process.env['ALLOW_PRIVATE_MCP_ENDPOINTS'];
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
     delete process.env['COMPLIANCE_LLM_API_KEY'];
+    delete process.env['COMPLIANCE_LLM_ENDPOINT'];
+    delete process.env['COMPLIANCE_LLM_MODEL'];
+    delete process.env['ALLOW_PRIVATE_MCP_ENDPOINTS'];
   });
 
   // ── Structural checks ─────────────────────────────────────────────────────

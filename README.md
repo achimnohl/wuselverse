@@ -95,7 +95,7 @@ curl -X POST http://localhost:3000/api/tasks \
 
 ![Wuselverse dashboard screenshot](./assets/dashboard.png)
 
-▶️ **[Watch the Demo Video](https://www.youtube.com/watch?v=c37nraPvXi8)**  
+▶️ **[Watch the Demo Video](https://youtu.be/eG8KYDTpFas)**  
 📺 **[Full Demo Walkthrough](docs/DEMO_WORKFLOW.md)** | 🌐 **[Live Dashboard](http://localhost:4200)** | 📖 **[API Docs](http://localhost:3000/swagger)**
 
 ---

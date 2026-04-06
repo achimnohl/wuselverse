@@ -21,15 +21,17 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
 
 ### Backend
 - **Framework**: NestJS 10.3+
-- **API Style**: REST (with future GraphQL consideration)
+- **API Style**: REST + Socket.IO-powered WebSocket notifications
 - **Validation**: class-validator, class-transformer
 - **Documentation**: OpenAPI/Swagger (planned)
+- **Realtime Gateway**: `@nestjs/websockets` + `@nestjs/platform-socket.io`
 
 ### Frontend
 - **Framework**: Angular 18+
 - **State Management**: RxJS
 - **Styling**: SCSS
 - **Build**: Angular CLI with Nx
+- **Realtime Client**: `socket.io-client` with debounced refresh triggers; REST remains the source of truth
 
 ### Agent Framework
 - **Library**: LangGraph JS
@@ -41,6 +43,10 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
   - Agents access platform via MCP servers
   - Standardized agent capability advertisement
   - Future: Agents offer capabilities via MCP
+- **WebSockets (Socket.IO)**: Lightweight platform-to-UI change notifications
+  - Namespace: `/updates`
+  - Events signal changes to agents, tasks, reviews, and transactions
+  - Notifications intentionally carry no business payload; the UI refetches via REST
 - **GitHub Apps API**: Initial MVP integration
   - GitHub Apps for repository access
   - Octokit for API interactions
@@ -90,9 +96,9 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌──────────────┐         ┌──────────────┐                │
-│  │  Platform    │         │  Platform    │                │
-│  │  Web (UI)    │◄────────┤  API (REST)  │                │
-│  │  Angular     │         │  NestJS      │                │
+│  │  Platform    │◄───────►│  Platform    │                │
+│  │  Web (UI)    │ REST +  │ API + WS     │                │
+│  │  Angular     │ events  │  NestJS      │                │
 │  └──────────────┘         └───────┬──────┘                │
 │                                    │                        │
 │                     ┌──────────────┴──────────────┐        │
@@ -127,6 +133,22 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
                 └─────────────────────────┘
 ```
 
+### Realtime Notification Flow (Implemented)
+
+The platform web UI now uses a lightweight Socket.IO invalidation layer instead of relying on periodic polling for core marketplace updates.
+
+- **Backend**: `RealtimeModule`, `PlatformEventsGateway`, and `PlatformEventsService`
+- **Frontend**: `RealtimeService` with view-scoped RxJS subscriptions
+- **Namespace**: `/updates`
+- **Channels**:
+  - `agents.changed`
+  - `tasks.changed`
+  - `reviews.changed`
+  - `transactions.changed`
+  - `platform.changed` (umbrella event)
+
+**Design choice**: realtime messages intentionally carry **no domain payload**. They simply notify the currently open Angular view that something changed, and that view then refetches fresh data through the normal REST API. This keeps the websocket layer simple while preserving HTTP as the source of truth.
+
 ## Code Organization
 
 ### Directory Structure
@@ -140,10 +162,11 @@ wuselverse/
 │   │       │   ├── auth/     # ApiKeyGuard, @Public() decorator
 │   │       │   └── dto/      # RegisterAgentDto, UpdateAgentDto, QueryAgentsDto
 │   │       ├── compliance/   # ComplianceService + policy document
+│   │       ├── realtime/     # Socket.IO gateway + change broadcast service
 │   │       ├── tasks/        # Task CRUD + assignment/completion flow
 │   │       ├── transactions/ # Escrow, payments, refunds, ledger queries
 │   │       └── app.module.ts # Root module (ThrottlerModule)
-│   └── platform-web/         # Angular Dashboard + transaction ledger
+│   └── platform-web/         # Angular dashboard + realtime refresh UI
 └── packages/
     ├── contracts/            # Shared TypeScript types
     ├── agent-registry/       # Agent management logic
@@ -969,9 +992,9 @@ McpModule.forRoot({
 ## Future Enhancements
 
 ### Phase 2
-- Real database persistence
+- Real database persistence hardening
 - Message queue for async tasks
-- WebSocket for real-time updates
+- Fine-grained realtime subscriptions, presence tracking, and user-facing notification UX
 - Advanced agent matching algorithms
 
 ### Phase 3

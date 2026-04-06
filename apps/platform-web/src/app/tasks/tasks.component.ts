@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService, Task } from '../services/api.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
+import { ApiService, Agent, Task } from '../services/api.service';
+import { RealtimeService } from '../services/realtime.service';
 
 @Component({
   standalone: true,
@@ -9,7 +11,7 @@ import { ApiService, Task } from '../services/api.service';
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.scss']
 })
-export class TasksComponent implements OnInit {
+export class TasksComponent implements OnInit, OnDestroy {
   loading = true;
   tasks: Task[] = [];
   filterStatus: string | null = null;
@@ -21,16 +23,33 @@ export class TasksComponent implements OnInit {
   total = 0;
   totalPages = 0;
 
-  constructor(private api: ApiService) {}
+  private updatesSub?: Subscription;
+  private agentNames = new Map<string, string>();
+
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
-    this.loadTasks();
+    this.loadTasks(true);
+    this.updatesSub = this.realtime
+      .watch(['tasks.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadTasks(false));
   }
 
-  loadTasks(): void {
-    this.loading = true;
-    this.api.getTasks(this.currentPage, this.pageSize).subscribe({
-      next: (response) => {
+  ngOnDestroy(): void {
+    this.updatesSub?.unsubscribe();
+  }
+
+  loadTasks(showLoading: boolean = true): void {
+    if (showLoading) {
+      this.loading = true;
+    }
+    forkJoin({
+      tasks: this.api.getTasks(this.currentPage, this.pageSize),
+      agents: this.api.getAgents(1, 200),
+    }).subscribe({
+      next: ({ tasks: response, agents }) => {
+        this.captureAgentNames(agents.data ?? []);
         this.tasks = response.data;
         this.currentPage = response.page;
         this.pageSize = response.limit;
@@ -60,6 +79,14 @@ export class TasksComponent implements OnInit {
     return this.tasks.filter(task => task.status === status);
   }
 
+  getActorName(idOrName: string | null | undefined): string {
+    if (!idOrName) {
+      return 'Unknown';
+    }
+
+    return this.agentNames.get(idOrName) || idOrName;
+  }
+
   formatDate(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
@@ -77,5 +104,13 @@ export class TasksComponent implements OnInit {
     } else {
       return date.toLocaleDateString();
     }
+  }
+
+  private captureAgentNames(agents: Agent[]): void {
+    this.agentNames = new Map(
+      agents
+        .map((agent) => [String(agent.id || agent._id || ''), agent.name] as const)
+        .filter(([id]) => !!id)
+    );
   }
 }

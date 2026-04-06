@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Agent, Task, Review, Transaction } from '../services/api.service';
-import { forkJoin } from 'rxjs';
+import { RealtimeService } from '../services/realtime.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -24,19 +25,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentTasks: Task[] = [];
   recentTransactions: Transaction[] = [];
 
-  private refreshHandle?: ReturnType<typeof setInterval>;
+  private updatesSub?: Subscription;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
     this.loadDashboard(true);
-    this.refreshHandle = setInterval(() => this.loadDashboard(false), 4000);
+    this.updatesSub = this.realtime
+      .watch(['agents.changed', 'tasks.changed', 'reviews.changed', 'transactions.changed'])
+      .pipe(debounceTime(150))
+      .subscribe(() => this.loadDashboard(false));
   }
 
   ngOnDestroy(): void {
-    if (this.refreshHandle) {
-      clearInterval(this.refreshHandle);
-    }
+    this.updatesSub?.unsubscribe();
   }
 
   formatParty(party: string): string {
@@ -45,6 +47,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     return party.startsWith('escrow:') ? `Escrow (${party.replace('escrow:', '')})` : party;
+  }
+
+  private enrichAgentsWithRatings(agents: Agent[], reviews: Review[]): Agent[] {
+    const reviewStats = new Map<string, { total: number; sum: number }>();
+
+    for (const review of reviews) {
+      const current = reviewStats.get(review.to) || { total: 0, sum: 0 };
+      current.total += 1;
+      current.sum += Number(review.rating || 0);
+      reviewStats.set(review.to, current);
+    }
+
+    return agents.map((agent) => {
+      const agentId = String(agent.id || agent._id || '');
+      const stats = reviewStats.get(agentId);
+
+      if (!stats || stats.total === 0) {
+        return agent;
+      }
+
+      return {
+        ...agent,
+        rating: Math.round((stats.sum / stats.total) * 10) / 10,
+      };
+    });
   }
 
   private loadDashboard(showLoading: boolean): void {
@@ -59,9 +86,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       transactions: this.api.getTransactions(1, 20)
     }).subscribe({
       next: (data) => {
-        const agents = data.agents.data;
-        const tasks = data.tasks.data;
         const reviews = data.reviews.data;
+        const agents = this.enrichAgentsWithRatings(data.agents.data, reviews);
+        const tasks = data.tasks.data;
         const transactions = [...data.transactions.data].sort(
           (a: Transaction, b: Transaction) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );

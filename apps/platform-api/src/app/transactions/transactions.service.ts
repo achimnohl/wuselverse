@@ -3,12 +3,26 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BaseMongoService } from '@wuselverse/crud-framework';
 import { TransactionDocument } from './transaction.schema';
+import { PlatformEventsService } from '../realtime/platform-events.service';
 import { Transaction, TransactionType, TransactionStatus } from '@wuselverse/contracts';
 
 @Injectable()
 export class TransactionsService extends BaseMongoService<TransactionDocument> {
-  constructor(@InjectModel('Transaction') private transactionModel: Model<TransactionDocument>) {
+  constructor(
+    @InjectModel('Transaction') private transactionModel: Model<TransactionDocument>,
+    private readonly platformEvents: PlatformEventsService
+  ) {
     super(transactionModel);
+  }
+
+  override async create(createDto: Partial<TransactionDocument>) {
+    const result = await super.create(createDto);
+
+    if (result.success) {
+      this.platformEvents.notifyTransactionsChanged();
+    }
+
+    return result;
   }
 
   /**
@@ -93,6 +107,8 @@ export class TransactionsService extends BaseMongoService<TransactionDocument> {
       throw new Error('Transaction not found');
     }
 
+    this.platformEvents.notifyTransactionsChanged();
+
     return this.toResponseObject(updated);
   }
 
@@ -112,6 +128,8 @@ export class TransactionsService extends BaseMongoService<TransactionDocument> {
     if (!updated) {
       throw new Error('Transaction not found');
     }
+
+    this.platformEvents.notifyTransactionsChanged();
 
     return this.toResponseObject(updated);
   }
