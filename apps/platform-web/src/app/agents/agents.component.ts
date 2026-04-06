@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription, debounceTime } from 'rxjs';
-import { ApiService, Agent, AuditLog } from '../services/api.service';
+import { Subscription, debounceTime, forkJoin } from 'rxjs';
+import { ApiService, Agent, AuditLog, Review } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
 @Component({
@@ -50,9 +50,12 @@ export class AgentsComponent implements OnInit, OnDestroy {
       this.loading = true;
     }
 
-    this.api.getAgents(this.currentPage, this.pageSize).subscribe({
-      next: (response) => {
-        this.agents = response.data;
+    forkJoin({
+      agents: this.api.getAgents(this.currentPage, this.pageSize),
+      reviews: this.api.getReviews(1, 500),
+    }).subscribe({
+      next: ({ agents: response, reviews }) => {
+        this.agents = this.enrichAgentsWithRatings(response.data, reviews.data ?? []);
         this.currentPage = response.page;
         this.pageSize = response.limit;
         this.total = response.total;
@@ -130,5 +133,30 @@ export class AgentsComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  }
+
+  private enrichAgentsWithRatings(agents: Agent[], reviews: Review[]): Agent[] {
+    const reviewStats = new Map<string, { total: number; sum: number }>();
+
+    for (const review of reviews) {
+      const current = reviewStats.get(review.to) || { total: 0, sum: 0 };
+      current.total += 1;
+      current.sum += Number(review.rating || 0);
+      reviewStats.set(review.to, current);
+    }
+
+    return agents.map((agent) => {
+      const agentId = String(agent.id || agent._id || '');
+      const stats = reviewStats.get(agentId);
+
+      if (!stats || stats.total === 0) {
+        return agent;
+      }
+
+      return {
+        ...agent,
+        rating: Math.round((stats.sum / stats.total) * 10) / 10,
+      };
+    });
   }
 }

@@ -49,6 +49,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return party.startsWith('escrow:') ? `Escrow (${party.replace('escrow:', '')})` : party;
   }
 
+  private enrichAgentsWithRatings(agents: Agent[], reviews: Review[]): Agent[] {
+    const reviewStats = new Map<string, { total: number; sum: number }>();
+
+    for (const review of reviews) {
+      const current = reviewStats.get(review.to) || { total: 0, sum: 0 };
+      current.total += 1;
+      current.sum += Number(review.rating || 0);
+      reviewStats.set(review.to, current);
+    }
+
+    return agents.map((agent) => {
+      const agentId = String(agent.id || agent._id || '');
+      const stats = reviewStats.get(agentId);
+
+      if (!stats || stats.total === 0) {
+        return agent;
+      }
+
+      return {
+        ...agent,
+        rating: Math.round((stats.sum / stats.total) * 10) / 10,
+      };
+    });
+  }
+
   private loadDashboard(showLoading: boolean): void {
     if (showLoading) {
       this.loading = true;
@@ -61,9 +86,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       transactions: this.api.getTransactions(1, 20)
     }).subscribe({
       next: (data) => {
-        const agents = data.agents.data;
-        const tasks = data.tasks.data;
         const reviews = data.reviews.data;
+        const agents = this.enrichAgentsWithRatings(data.agents.data, reviews);
+        const tasks = data.tasks.data;
         const transactions = [...data.transactions.data].sort(
           (a: Transaction, b: Transaction) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );

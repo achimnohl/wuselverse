@@ -1,16 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BaseMongoService } from '@wuselverse/crud-framework';
 import { ReviewDocument } from './review.schema';
 import { PlatformEventsService } from '../realtime/platform-events.service';
+import { AgentsService } from '../agents/agents.service';
 import { Review } from '@wuselverse/contracts';
 
 @Injectable()
 export class ReviewsService extends BaseMongoService<ReviewDocument> {
+  private readonly logger = new Logger(ReviewsService.name);
+
   constructor(
     @InjectModel('Review') private reviewModel: Model<ReviewDocument>,
-    private readonly platformEvents: PlatformEventsService
+    private readonly platformEvents: PlatformEventsService,
+    private readonly agentsService: AgentsService
   ) {
     super(reviewModel);
   }
@@ -19,7 +23,9 @@ export class ReviewsService extends BaseMongoService<ReviewDocument> {
     const result = await super.create(createDto);
 
     if (result.success) {
+      await this.syncAgentRating(String(createDto.to || ''));
       this.platformEvents.notifyReviewsChanged();
+      this.platformEvents.notifyAgentsChanged();
     }
 
     return result;
@@ -94,6 +100,36 @@ export class ReviewsService extends BaseMongoService<ReviewDocument> {
    */
   async hasReviewForTask(taskId: string): Promise<boolean> {
     return this.exists({ taskId });
+  }
+
+  private async syncAgentRating(agentId: string): Promise<void> {
+    if (!agentId) {
+      return;
+    }
+
+    try {
+      const [averageRating, reviews, agentResponse] = await Promise.all([
+        this.getAverageRating(agentId),
+        this.findByAgent(agentId),
+        this.agentsService.findById(agentId),
+      ]);
+
+      if (!agentResponse.success || !agentResponse.data) {
+        return;
+      }
+
+      const reputation = {
+        ...(agentResponse.data.reputation || {}),
+        reviews,
+      };
+
+      await this.agentsService.updateById(agentId, {
+        rating: averageRating > 0 ? averageRating : null,
+        reputation,
+      } as any);
+    } catch (error) {
+      this.logger.warn(`Failed to sync rating for agent ${agentId}: ${(error as Error).message}`);
+    }
   }
 
   private toResponseObject(doc: any): Review {
