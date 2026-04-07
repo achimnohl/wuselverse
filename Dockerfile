@@ -5,15 +5,14 @@ WORKDIR /app
 
 ENV CI=true
 ENV NX_DAEMON=false
-ENV NODE_ENV=production
 
 # Copy the full Nx workspace. The .dockerignore keeps the context small.
 COPY . .
 
-# Install dependencies and build the production API bundle.
-RUN npm ci --legacy-peer-deps
-RUN npx nx reset
-RUN npx nx build platform-api --configuration=production --skip-nx-cache
+# The build stage needs devDependencies (Nx, TypeScript, webpack, etc.).
+RUN npm ci --legacy-peer-deps --include=dev
+RUN ./node_modules/.bin/nx reset
+RUN ./node_modules/.bin/nx build platform-api --configuration=production --skip-nx-cache
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app
