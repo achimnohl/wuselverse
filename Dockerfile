@@ -5,6 +5,7 @@ WORKDIR /app
 
 ENV CI=true
 ENV NX_DAEMON=false
+ENV NODE_ENV=production
 
 # Copy the full Nx workspace. The .dockerignore keeps the context small.
 COPY . .
@@ -13,7 +14,6 @@ COPY . .
 RUN npm ci --legacy-peer-deps
 RUN npx nx reset
 RUN npx nx build platform-api --configuration=production --skip-nx-cache
-RUN npm prune --omit=dev
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app
@@ -21,7 +21,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NX_DAEMON=false
 
-COPY package.json package-lock.json ./
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist/apps/platform-api ./dist/apps/platform-api
 
