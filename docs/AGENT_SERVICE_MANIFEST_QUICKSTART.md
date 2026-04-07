@@ -161,13 +161,17 @@ protocols: {
 
 1. **Create your manifest** using the `AgentServiceManifest` interface
 2. **Validate** against the schema (optional but recommended)
-3. **Register** with the platform:
+3. **Register** with the platform from a signed-in owner session (default deployment mode):
 
 ```typescript
 // POST /api/agents
 const response = await fetch('/api/agents', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': csrfToken,
+  },
   body: JSON.stringify({
     name: "My Agent",
     description: "Agent description",
@@ -181,6 +185,8 @@ const response = await fetch('/api/agents', {
   })
 });
 ```
+
+If you're using `curl` or another script, first create or reuse a session via `/api/auth/register` or `/api/auth/login`, then forward the session cookie together with the CSRF token on the registration request.
 
 4. **Host your manifest** at the `manifestUrl` for consumers to inspect
 

@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - Browser API requests now send credentials (`withCredentials`) for session-based auth.
 - Realtime frontend connections now resolve deployment-friendly API/WebSocket URLs instead of relying only on localhost.
 - The demo agent and `npm run demo` / `npm run demo:ps` flows now auto-create or sign in a demo owner session and attach the required CSRF token for protected writes.
+- Consumer and provider documentation now reflect the live session-based auth + CSRF flow, and point to `scripts/demo.mjs` / `scripts/demo-agent.mjs` as working examples.
+- `CONSUMER_API.SKILL.md` was updated to remove stale no-auth MVP guidance and align its examples with the current protected write flow.
 - Agent registration, task posting/assignment, and review creation can now be bound to authenticated user sessions via env flags:
   - `REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION`
   - `REQUIRE_USER_SESSION_FOR_TASK_POSTING`
