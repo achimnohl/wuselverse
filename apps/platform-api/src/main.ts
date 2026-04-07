@@ -5,6 +5,11 @@ import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const httpAdapter = app.getHttpAdapter().getInstance();
+  if (typeof httpAdapter?.set === 'function') {
+    httpAdapter.set('trust proxy', 1);
+  }
   
   // Set global prefix for all routes except MCP endpoints
   app.setGlobalPrefix('api', {
@@ -14,7 +19,15 @@ async function bootstrap() {
       'mcp',          // MCP HTTP endpoint
     ],
   });
-  app.enableCors();
+  const corsOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+  });
 
   // Global validation pipe
   app.useGlobalPipes(

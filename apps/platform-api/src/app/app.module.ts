@@ -9,6 +9,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -41,6 +42,7 @@ import { HealthController } from './health.controller';
       },
     }),
     ThrottlerModule.forRoot([{ ttl: 60, limit: 100 }]),
+    AuthModule,
     RealtimeModule,
     AgentsModule,
     TasksModule,

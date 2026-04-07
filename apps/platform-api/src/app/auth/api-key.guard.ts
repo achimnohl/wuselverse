@@ -53,7 +53,11 @@ export class ApiKeyGuard implements CanActivate {
       .exec()
       .catch(() => null);
 
-    request.principal = { agentId: apiKey.agentId, owner: apiKey.owner };
+    request.principal = {
+      type: 'agent',
+      agentId: apiKey.agentId,
+      owner: apiKey.owner,
+    };
     return true;
   }
 }

@@ -1,8 +1,10 @@
-import { Controller, Get, Param, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Post, Request, UseGuards, HttpException, HttpStatus, Logger, UnauthorizedException } from '@nestjs/common';
+import { ApiBody, ApiSecurity, ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { AuthService } from '../auth/auth.service';
+import { AdminKeyGuard } from '../auth/admin-key.guard';
 
 const ReviewsCRUDBase = createCRUDController({
   resourceName: 'reviews',
@@ -16,8 +18,39 @@ const ReviewsCRUDBase = createCRUDController({
 export class ReviewsController extends ReviewsCRUDBase {
   private readonly logger = new Logger(ReviewsController.name);
 
-  constructor(private readonly reviewsService: ReviewsService) {
+  constructor(
+    private readonly reviewsService: ReviewsService,
+    private readonly authService: AuthService
+  ) {
     super(reviewsService);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create a review', description: 'Creates a review. When review session auth is enabled, the reviewer identity is bound to the signed-in user.' })
+  @ApiBody({ type: CreateReviewDto })
+  async create(@Body() dto: CreateReviewDto, @Request() req: any) {
+    const requireUserSession = process.env.REQUIRE_USER_SESSION_FOR_REVIEW_POSTING === 'true';
+    const sessionUser = await this.authService.getUserFromRequest(req);
+
+    if (requireUserSession && !sessionUser) {
+      throw new UnauthorizedException('A signed-in user session is required to create reviews.');
+    }
+
+    const payload = {
+      ...dto,
+      from: sessionUser?.id || dto.from,
+    };
+
+    return this.reviewsService.create(payload as any);
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Delete a review (admin only)' })
+  @ApiParam({ name: 'id', description: 'Review ID' })
+  async delete(@Param('id') id: string) {
+    return this.reviewsService.deleteById(id);
   }
 
   @Get('agent/:agentId')
