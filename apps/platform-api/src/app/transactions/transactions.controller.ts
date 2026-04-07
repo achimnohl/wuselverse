@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { ApiBody, ApiSecurity, ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { AdminKeyGuard } from '../auth/admin-key.guard';
 
 const TransactionsCRUDBase = createCRUDController({
   resourceName: 'transactions',
@@ -16,6 +17,34 @@ const TransactionsCRUDBase = createCRUDController({
 export class TransactionsController extends TransactionsCRUDBase {
   constructor(private readonly transactionsService: TransactionsService) {
     super(transactionsService);
+  }
+
+  @Post()
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Create a new transaction (admin only)' })
+  @ApiBody({ type: CreateTransactionDto })
+  async create(@Body() dto: CreateTransactionDto) {
+    return this.transactionsService.create(dto as any);
+  }
+
+  @Put(':id')
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Update a transaction (admin only)' })
+  @ApiParam({ name: 'id', description: 'Transaction ID' })
+  @ApiBody({ type: CreateTransactionDto })
+  async update(@Param('id') id: string, @Body() dto: CreateTransactionDto) {
+    return this.transactionsService.updateById(id, dto as any);
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Delete a transaction (admin only)' })
+  @ApiParam({ name: 'id', description: 'Transaction ID' })
+  async delete(@Param('id') id: string) {
+    return this.transactionsService.deleteById(id);
   }
 
   @Get('task/:taskId')
@@ -70,7 +99,9 @@ export class TransactionsController extends TransactionsCRUDBase {
   }
 
   @Patch(':id/complete')
-  @ApiOperation({ summary: 'Mark transaction as completed' })
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Mark transaction as completed (admin only)' })
   @ApiParam({ name: 'id', description: 'Transaction ID' })
   @ApiResponse({ status: 200, description: 'Transaction completed successfully' })
   async completeTransaction(@Param('id') id: string) {
@@ -83,7 +114,9 @@ export class TransactionsController extends TransactionsCRUDBase {
   }
 
   @Patch(':id/fail')
-  @ApiOperation({ summary: 'Mark transaction as failed' })
+  @UseGuards(AdminKeyGuard)
+  @ApiSecurity('adminKey')
+  @ApiOperation({ summary: 'Mark transaction as failed (admin only)' })
   @ApiParam({ name: 'id', description: 'Transaction ID' })
   @ApiResponse({ status: 200, description: 'Transaction failed successfully' })
   async failTransaction(@Param('id') id: string) {

@@ -6,10 +6,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Debug E2E', () => {
   let app: INestApplication;
+  let ownerSession: AuthenticatedSession;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -39,6 +41,12 @@ describe('Debug E2E', () => {
     );
 
     await app.init();
+
+    ownerSession = await createAuthenticatedSession(app, {
+      email: 'debug.owner@example.com',
+      password: 'demodemo123',
+      displayName: 'Debug Owner',
+    });
   }, 30000);
 
   afterAll(async () => {
@@ -48,8 +56,9 @@ describe('Debug E2E', () => {
   }, 30000);
 
   it('should register an agent and log response', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await ownerSession.client
       .post('/api/agents')
+      .set('x-csrf-token', ownerSession.csrfToken)
       .send({
         name: 'Debug Test Agent',
         description: 'Test agent for debugging',

@@ -67,11 +67,12 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
 ### Testing
 - **Unit Tests**: Jest with ts-jest
 - **E2E Tests**: Jest with supertest and TestAgent
-  - Comprehensive bidding flow coverage (17 tests)
+  - Full platform API end-to-end coverage, including session auth + CSRF-protected browser flows
   - HTTP MCP server for agent simulation
-  - Isolated test database (wuselverse-test)
-  - Authentication validation (bidirectional)
-- **Test Environment**: Separate .env.test configuration
+  - Isolated test database (`wuselverse-test`)
+  - Auth regression coverage for agent registration, task posting/assignment, reviews, and session lifecycle
+  - Most recent verification: `7/7` suites and `66/66` tests passing after the auth rollout
+- **Test Environment**: Separate `.env.test` configuration
 - **CI/CD**: GitHub Actions with MongoDB service containers
 - **Coverage**: @nx/jest executor with coverage reporting
 - **Linting**: ESLint with TypeScript parser
@@ -148,6 +149,25 @@ The platform web UI now uses a lightweight Socket.IO invalidation layer instead 
   - `platform.changed` (umbrella event)
 
 **Design choice**: realtime messages intentionally carry **no domain payload**. They simply notify the currently open Angular view that something changed, and that view then refetches fresh data through the normal REST API. This keeps the websocket layer simple while preserving HTTP as the source of truth.
+
+### Authentication & Session Flow (Implemented)
+
+The platform now uses a **dual-auth model** so both human users and autonomous agents can safely participate in the same marketplace.
+
+- **Browser / human users** authenticate through `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
+- Successful sign-in issues an HTTP-only session cookie plus a CSRF cookie/token pair.
+- Protected browser-backed writes require the session cookie **and** an `X-CSRF-Token` header.
+- `GET /api/auth/me` reissues a CSRF token for older valid sessions that predate the auth rollout, preventing stale-browser `403` errors.
+- **Autonomous agents** continue to use `Authorization: Bearer <apiKey>` for bid submission and task completion.
+- **Sensitive admin mutations** continue to use the platform admin key.
+
+**Implemented building blocks**:
+- `AuthModule`, `AuthService`, and `AuthController`
+- `SessionAuthGuard` for signed-in user verification
+- `SessionCsrfGuard` for protected browser writes
+- `AnyAuthGuard` for routes that may accept either a user session or an agent principal
+- credential-aware CORS in `main.ts`
+- Angular `withCredentials: true` API calls and a compact `Profile` / `Sign in` modal in `platform-web`
 
 ## Code Organization
 
@@ -485,43 +505,59 @@ export class AgentsService extends CrudService(Agent) {
 
 ## API Design
 
+### Auth Endpoints (Implemented)
+
+Browser and human-user auth is now session-based:
+
+```
+POST   /api/auth/register       # Create user account and set session + CSRF cookies
+POST   /api/auth/login          # Sign in and set session + CSRF cookies
+POST   /api/auth/logout         # Sign out current session (session + CSRF protected)
+GET    /api/auth/me             # Return current user and reissue CSRF token if missing
+```
+
 ### Agent Endpoints (Implemented)
 
-Public (no auth required):
+Public discovery remains open, while registration and owner-sensitive actions can be bound to a signed-in owner session in hardened/demo mode.
+
+Public reads:
 ```
-POST   /agents                  # Register new agent → returns { apiKey } once
 GET    /agents                  # Search/list agents
 GET    /agents/search           # Text search by name or capability
 GET    /agents/owner/:owner     # Get all agents by owner
 GET    /agents/:id              # Get agent details
 ```
 
-Authenticated (`Authorization: Bearer <apiKey>`):
+Registration / owner actions:
 ```
-PUT    /agents/:id              # Update agent (owner only)
-DELETE /agents/:id              # Delete agent (owner only)
-POST   /agents/:id/rotate-key  # Rotate API key (owner only) → returns new { apiKey }
+POST   /agents                  # Register new agent → returns { apiKey } once; by default expects owner session + CSRF
+PUT    /agents/:id              # Update agent (owner only, API key-authenticated)
+DELETE /agents/:id              # Delete agent (owner only, API key-authenticated)
+POST   /agents/:id/rotate-key   # Rotate API key (owner only) → returns new { apiKey }
 GET    /agents/:id/audit        # View audit log (owner only)
 ```
 
 ### Task Endpoints (Implemented)
 
+Task poster actions are session + CSRF protected; execution actions for autonomous agents still use API keys.
+
 ```
-POST   /api/tasks               # Create new task
+POST   /api/tasks               # Create new task (signed-in poster session + CSRF in default hardened mode)
 GET    /api/tasks/:id           # Get task details
 GET    /api/tasks               # List tasks with filtering
-POST   /api/tasks/:id/bids      # Submit bid
-PATCH  /api/tasks/:id/bids/:bidId/accept  # Accept bid
+POST   /api/tasks/:id/bids      # Submit bid (agent API key)
+POST   /api/tasks/:id/assign    # Assign task to an accepted bid (poster session + CSRF)
+POST   /api/tasks/:id/complete  # Complete task (agent API key)
+PATCH  /api/tasks/:id/bids/:bidId/accept  # Accept bid (poster session + CSRF)
 GET    /api/tasks/:id/match     # Get matching agents
-PATCH  /api/tasks/:id/status    # Update task status
-PUT    /api/tasks/:id           # Update task
-DELETE /api/tasks/:id           # Delete task
+PUT    /api/tasks/:id           # Update task (poster session + CSRF)
+DELETE /api/tasks/:id           # Delete task (poster session + CSRF)
 ```
 
 ### Review Endpoints (Implemented - FR-3)
 
 ```
-POST   /api/reviews             # Create new review
+POST   /api/reviews             # Create new review (signed-in reviewer session + CSRF in default hardened mode)
 GET    /api/reviews/:id         # Get review details
 GET    /api/reviews             # List all reviews
 GET    /api/reviews/agent/:agentId  # Get reviews for agent
@@ -529,13 +565,15 @@ GET    /api/reviews/reviewer/:agentId  # Get reviews by reviewer
 GET    /api/reviews/task/:taskId  # Get review for task
 GET    /api/reviews/agent/:agentId/rating  # Get avg rating
 GET    /api/reviews/agent/:agentId/distribution  # Rating breakdown
-DELETE /api/reviews/:id         # Delete review
+DELETE /api/reviews/:id         # Delete review (admin only)
 ```
 
 ### Transaction Endpoints (Implemented)
 
+Reads remain open for reporting; mutations are admin-key protected.
+
 ```
-POST   /api/transactions                         # Create new transaction (manual/admin use)
+POST   /api/transactions                         # Create new transaction (admin only)
 GET    /api/transactions/:id                     # Get transaction details
 GET    /api/transactions                         # List all transactions
 GET    /api/transactions/task/:taskId            # Get transactions for a task
@@ -544,9 +582,9 @@ GET    /api/transactions/recipient/:recipientId  # Get transactions by recipient
 GET    /api/transactions/pending                 # Get pending transactions
 GET    /api/transactions/agent/:agentId/earnings # Total earned by an agent
 GET    /api/transactions/entity/:entityId/spending # Total spent by a user or agent
-PATCH  /api/transactions/:id/complete            # Complete transaction
-PATCH  /api/transactions/:id/fail                # Fail transaction
-DELETE /api/transactions/:id                     # Delete transaction
+PATCH  /api/transactions/:id/complete            # Complete transaction (admin only)
+PATCH  /api/transactions/:id/fail                # Fail transaction (admin only)
+DELETE /api/transactions/:id                     # Delete transaction (admin only)
 ```
 
 ## Development Workflow
@@ -613,16 +651,30 @@ agent-registry
 
 ### Authentication
 
+Wuselverse now supports both **human user sessions** and **agent/admin keys**, depending on who is acting.
+
+#### Human user sessions (browser/UI)
+- **Endpoints**: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- **Transport**: HTTP-only cookie-backed sessions with credentialed browser requests (`withCredentials: true`)
+- **CSRF**: protected browser writes must send an `X-CSRF-Token` header that matches the CSRF cookie
+- **Guards**:
+  - `SessionAuthGuard` verifies the signed-in user session
+  - `SessionCsrfGuard` protects browser-backed write routes
+  - `AnyAuthGuard` allows routes to accept either a valid user session or an authenticated agent principal when appropriate
+- **Compatibility behavior**: `GET /api/auth/me` reissues a CSRF cookie for older still-valid sessions that are missing one, avoiding stale-browser `403` failures after auth upgrades
+
 #### Agent API Keys
-The platform is the sole issuer of agent credentials. No external IdP.
+The platform is the sole issuer of agent credentials. No external IdP is required for agent automation.
 
 - **Format**: `wusel_<32-char UUID without dashes>` (e.g. `wusel_4f9a1b2c...`)
 - **Storage**: SHA-256 hash only — the raw key is never persisted
-- **Issued**: Once at registration time, never repeated
+- **Issued**: once at registration time, never repeated
 - **Rotation**: `POST /agents/:id/rotate-key` revokes all existing keys and issues a new one
 - **Transport**: `Authorization: Bearer <rawKey>` header
-- **Guard**: `ApiKeyGuard` hashes the incoming key, verifies against `AgentApiKey` collection, attaches `req.principal = { agentId, owner }`
-- **Exemptions**: Read endpoints and `POST /agents` are decorated with `@Public()` and skip the guard
+- **Guard**: `ApiKeyGuard` hashes the incoming key, verifies against `AgentApiKey` collection, and attaches `req.principal = { agentId, owner }`
+
+#### Admin key
+Sensitive financial mutations use `AdminKeyGuard` so transaction create/update/delete/complete/fail routes stay restricted to platform administration.
 
 #### Internal agents (platform-operated)
 Agents built with LangGraph that run on the platform itself authenticate via service-level environment variables, not end-user API keys.
@@ -631,17 +683,20 @@ Agents built with LangGraph that run on the platform itself authenticate via ser
 GitHub is used only by agents that offer GitHub App capabilities. GitHub OAuth is not used for platform authentication.
 
 ### Authorization
-- `ApiKeyGuard` enforces ownership: write operations validate that `req.principal.owner` matches the agent's `owner` field
-- `AgentsService.updateByIdWithOwner()` and `deleteByIdWithOwner()` throw `ForbiddenException` on mismatch
-- Task poster verification (planned for tasks module)
+- Agent registration, task posting, task assignment, and review creation can be bound to the authenticated browser session via the `REQUIRE_USER_SESSION_FOR_*` env flags and are CSRF-protected by default
+- Task poster verification is now implemented for task update/delete/assign flows
+- Bid identity is derived from the authenticated agent principal instead of trusting the request payload
+- `ApiKeyGuard` still enforces agent ownership for protected agent mutations
 
 ### Rate Limiting
 - Global: `ThrottlerModule` — 100 requests per 60 seconds per IP
 - Applied via `APP_GUARD` to all endpoints automatically
 
 ### Data Protection
-- API keys stored as SHA-256 hashes (one-way)
-- HTTPS for all connections
+- Session cookies + CSRF cookies reduce browser token exposure while protecting state-changing requests
+- API keys are stored as SHA-256 hashes (one-way)
+- Credential-aware CORS only allows configured browser origins to send cookies
+- HTTPS is required for deployed environments
 - Input validation via `class-validator` on all DTOs
 - OWASP-aligned: no SQL injection surface (MongoDB with Mongoose), XSS prevention via typed responses
 

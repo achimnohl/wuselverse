@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription, debounceTime, forkJoin } from 'rxjs';
-import { ApiService, Agent, Task } from '../services/api.service';
+import { ApiService, Agent, SessionUser, Task } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
 @Component({
@@ -22,6 +22,10 @@ export class TasksComponent implements OnInit, OnDestroy {
   pageSize = 10;
   total = 0;
   totalPages = 0;
+  currentUser: SessionUser | null = null;
+  postingDemoTask = false;
+  postTaskError: string | null = null;
+  postTaskMessage: string | null = null;
 
   private updatesSub?: Subscription;
   private agentNames = new Map<string, string>();
@@ -29,6 +33,15 @@ export class TasksComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
+    this.api.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+      },
+      error: () => {
+        this.currentUser = null;
+      }
+    });
+
     this.loadTasks(true);
     this.updatesSub = this.realtime
       .watch(['tasks.changed'])
@@ -70,6 +83,41 @@ export class TasksComponent implements OnInit, OnDestroy {
       this.loadTasks();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  }
+
+  postDemoTask(): void {
+    this.postingDemoTask = true;
+    this.postTaskError = null;
+    this.postTaskMessage = null;
+
+    this.api.createTask({
+      title: `Protected demo task ${new Date().toLocaleTimeString()}`,
+      description: 'Created from the signed-in web UI using the new CSRF-protected session write flow.',
+      poster: this.currentUser?.id || 'ui-session',
+      requirements: {
+        capabilities: ['security-scan', 'documentation'],
+      },
+      budget: {
+        amount: 40,
+        currency: 'USD',
+        type: 'fixed',
+      },
+      metadata: {
+        source: 'platform-web-ui',
+        protectedWriteFlow: true,
+      },
+    }).subscribe({
+      next: (task) => {
+        this.postingDemoTask = false;
+        this.postTaskMessage = `Posted "${task.title}" successfully.`;
+        this.currentPage = 1;
+        this.loadTasks(false);
+      },
+      error: (error: any) => {
+        this.postingDemoTask = false;
+        this.postTaskError = error?.error?.message || 'Unable to post the protected demo task. Sign in first and try again.';
+      }
+    });
   }
 
   getTasksByStatus(status: string | null): Task[] {

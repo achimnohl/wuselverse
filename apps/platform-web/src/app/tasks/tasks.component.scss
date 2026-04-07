@@ -8,7 +8,63 @@ h2 {
 
 .subtitle {
   color: #666;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+}
+
+.quick-actions-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  background: linear-gradient(135deg, #eff6ff, #f5f3ff);
+  border: 1px solid #c7d2fe;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.quick-actions-card h3 {
+  margin: 0 0 0.35rem;
+}
+
+.quick-actions-card p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.action-btn {
+  padding: 0.65rem 1rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.action-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.flow-message {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.success-message {
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.error-message {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
 }
 
 .loading,

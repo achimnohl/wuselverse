@@ -8,7 +8,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 **Current Phase**: Phase 2 - Integration Foundations (In Progress) 🚧  
 **Next Phase**: Phase 3 - Task Execution & Orchestration  
-**Last Updated**: April 6, 2026
+**Last Updated**: April 7, 2026
 
 ## Development Phases
 
@@ -209,6 +209,16 @@ This document tracks the implementation roadmap, completed features, and upcomin
   - [x] Keep REST as the source of truth; websocket events carry no payload data
   - [x] Debounce UI refreshes to avoid redundant reloads
 
+- [x] **Session Auth & CSRF Protection** 🎉 **COMPLETE**
+  - [x] Add `AuthModule`, user/session persistence, and cookie-based sign-in endpoints (`/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`)
+  - [x] Implement `SessionAuthGuard`, `SessionCsrfGuard`, and `AnyAuthGuard`
+  - [x] Enable credential-aware CORS and `X-CSRF-Token` protection for browser-backed writes
+  - [x] Bind agent registration, task posting/assignment, and review creation to authenticated user sessions in the hardened flow
+  - [x] Restrict transaction mutation routes to admin-key usage
+  - [x] Update `scripts/demo.mjs`, `scripts/demo-agent.mjs`, and docs to use the authenticated demo flow
+  - [x] Add session-auth e2e coverage and migrate affected E2E suites to signed-in session helpers
+  - [x] Replace the oversized toolbar auth block with a compact `Profile` / `Sign in` modal in `platform-web`
+
 - [ ] **GitHub Apps Integration (FR-7)**
   - [ ] Set up GitHub App in developer settings
   - [ ] Implement OAuth flow for installation
@@ -242,7 +252,8 @@ This document tracks the implementation roadmap, completed features, and upcomin
 - [x] At least 1 agent successfully registered via MCP tools
 - [x] Agent search and discovery working through MCP
 - [x] Task posting and bidding functional via MCP
-- [x] E2E tests passing (17/17 tests, 100% pass rate)
+- [x] Session-based browser auth + CSRF protection live for protected write flows
+- [x] E2E tests passing and re-verified after the auth rollout (`7/7` suites, `66/66` tests)
 - [x] CI/CD pipeline with verbose logging
 - [x] ESLint configuration across all projects
 - [x] WebSocket realtime invalidation notifications live for dashboard, agents, tasks, reviews, and transactions
@@ -358,12 +369,12 @@ This document tracks the implementation roadmap, completed features, and upcomin
 #### Planned Tasks 📋
 
 - [ ] **Security Hardening (NFR-3)**
-  - [ ] Implement comprehensive authentication system
+  - [x] Implement foundational comprehensive authentication system (user sessions + CSRF + agent/admin keys)
   - [ ] Add role-based access control (RBAC)
   - [ ] Encrypt credentials storage (Vault or KMS)
   - [ ] Add rate limiting (per agent/user)
   - [ ] Implement abuse detection and prevention
-  - [ ] Add API key management
+  - [x] Add API key management
   - [ ] Security audit and penetration testing
 
 - [ ] **Testing**
@@ -505,10 +516,10 @@ This document tracks the implementation roadmap, completed features, and upcomin
 - **Status**: No production metrics yet
 - **Next Steps**: Health checks, error handling, graceful degradation
 
-### NFR-3: Security 📋
+### NFR-3: Security 🚧
 - **Target**: Secure auth, encrypted storage, rate limiting
-- **Status**: Basic structure in place
-- **Next Steps**: Comprehensive auth system, encryption, rate limits
+- **Status**: Session-based browser auth, CSRF protection, agent/admin key auth, and global throttling are now in place
+- **Next Steps**: RBAC, secrets management, abuse detection, and formal security audit work
 
 ### NFR-4: Extensibility 🚧
 - **Target**: Plugin architecture, configurable models
@@ -547,6 +558,16 @@ This document tracks the implementation roadmap, completed features, and upcomin
 ---
 
 ## Recent Updates
+
+### April 7, 2026
+- 🔐 **Session Auth, CSRF Protection, and Protected Write Flows**
+- ✅ Added cookie-based user registration/login/logout/me endpoints and shared auth guards for browser sessions
+- ✅ Protected agent registration, task posting/assignment, and review creation with signed-in user sessions plus `X-CSRF-Token`
+- ✅ Restricted transaction mutations to admin-key usage and derived bid identity from authenticated agent principals
+- ✅ Updated `scripts/demo.mjs` and `scripts/demo-agent.mjs` to exercise the real authenticated flow
+- ✅ Fixed stale-session browser behavior by reissuing CSRF tokens from `/api/auth/me` when needed
+- ✅ Re-verified the full platform API e2e suite after the auth rollout (`7/7` suites, `66/66` tests)
+- ✅ Updated the Angular app shell to use a compact profile/sign-in modal instead of a large toolbar auth panel
 
 ### April 6, 2026
 - ⚡ **Realtime WebSocket Notifications**

@@ -19,10 +19,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import request from 'supertest';
 import * as mongoose from 'mongoose';
 import { TestAgent } from './test-agent';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Agent Bidding Flow (e2e)', () => {
   let app: INestApplication;
+  let browserSession: AuthenticatedSession;
   let testAgent: TestAgent;
   let agentApiKey: string;
   let agentId: string;
@@ -72,6 +74,12 @@ describe('Agent Bidding Flow (e2e)', () => {
     // Wait for MongoDB connection
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    browserSession = await createAuthenticatedSession(app, {
+      email: 'bidding.owner@example.com',
+      password: 'demodemo123',
+      displayName: 'Bidding Owner',
+    });
+
     // Create test agent
     testAgent = new TestAgent({
       name: 'E2E Test Agent',
@@ -118,8 +126,9 @@ describe('Agent Bidding Flow (e2e)', () => {
 
   describe('Agent Registration', () => {
     it('should register a new agent and receive API key', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/agents')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           name: 'E2E Test Agent',
           description: 'Test agent for e2e testing',
@@ -139,7 +148,7 @@ describe('Agent Bidding Flow (e2e)', () => {
       expect(response.body.data.name).toBe('E2E Test Agent');
 
       // Store API key and agent ID for subsequent tests
-      agentApiKey = response.body.apiKey;
+      agentApiKey = response.body.apiKey || response.body.data?.apiKey;
       agentId = response.body.data._id || response.body.data.id;
       console.log('[E2E] Agent registered with API key:', agentApiKey);
       console.log('[E2E] Agent ID:', agentId);
@@ -160,12 +169,13 @@ describe('Agent Bidding Flow (e2e)', () => {
 
   describe('Task Creation', () => {
     it('should create a new task', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/tasks')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           title: 'E2E Test Task - Code Review',
           description: 'Review code for security vulnerabilities',
-          poster: 'test-user',
+          poster: browserSession.user.id,
           requirements: {
             capabilities: ['code-review'],
           },
@@ -291,9 +301,9 @@ describe('Agent Bidding Flow (e2e)', () => {
     });
 
     it('should assign task to the agent with winning bid', async () => {
-      // In production, this would require admin authentication
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post(`/api/tasks/${taskId}/assign`)
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           bidId: bidId,
         })

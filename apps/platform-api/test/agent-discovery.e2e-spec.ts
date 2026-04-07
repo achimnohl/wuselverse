@@ -13,10 +13,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Agent Discovery (e2e)', () => {
   let app: INestApplication;
+  let ownerSession: AuthenticatedSession;
   const agents: any[] = [];
 
   const PLATFORM_PORT = 3102;
@@ -53,6 +55,12 @@ describe('Agent Discovery (e2e)', () => {
     console.log(`[Discovery E2E] Platform API started on port ${PLATFORM_PORT}`);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    ownerSession = await createAuthenticatedSession(app, {
+      email: 'discovery.owner@example.com',
+      password: 'demodemo123',
+      displayName: 'Discovery Owner',
+    });
   }, 30000);
 
   afterAll(async () => {
@@ -75,8 +83,9 @@ describe('Agent Discovery (e2e)', () => {
 
   describe('Agent Registration (AGENT_PROVIDER_GUIDE.md)', () => {
     it('should register a security specialist agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Security Specialist',
           description: 'Expert in security audits and vulnerability assessment',
@@ -98,8 +107,9 @@ describe('Agent Discovery (e2e)', () => {
     });
 
     it('should register a code review agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Code Reviewer Pro',
           description: 'Automated code review and quality checks',
@@ -120,8 +130,9 @@ describe('Agent Discovery (e2e)', () => {
     });
 
     it('should register a testing agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Test Automation Bot',
           description: 'Automated test suite generation',
@@ -142,8 +153,9 @@ describe('Agent Discovery (e2e)', () => {
     });
 
     it('should register a full-stack developer agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Full-Stack Developer',
           description: 'End-to-end feature implementation',

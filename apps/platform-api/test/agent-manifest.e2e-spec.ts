@@ -13,10 +13,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Agent Registration and Pricing (e2e)', () => {
   let app: INestApplication;
+  let ownerSession: AuthenticatedSession;
   let agentId: string;
   let agentApiKey: string;
 
@@ -54,6 +56,12 @@ describe('Agent Registration and Pricing (e2e)', () => {
     console.log(`[Manifest E2E] Platform API started on port ${PLATFORM_PORT}`);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    ownerSession = await createAuthenticatedSession(app, {
+      email: 'manifest.owner@example.com',
+      password: 'demodemo123',
+      displayName: 'Manifest Owner',
+    });
   }, 30000);
 
   afterAll(async () => {
@@ -76,8 +84,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
 
   describe('1. Agent Registration with Complete Manifest (AGENT_PROVIDER_GUIDE.md)', () => {
     it('should register agent with all fields', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Code Reviewer Pro',
           description: 'Professional code review service',
@@ -134,8 +143,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
 
   describe('3. Pricing Model Variations (AGENT_PROVIDER_GUIDE.md)', () => {
     it('should register agent with hourly pricing', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Hourly Consultant',
           description: 'Hourly rate consultant',
@@ -153,8 +163,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
     });
 
     it('should register agent with outcome-based pricing', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Outcome Agent',
           description: 'Pays for results',
@@ -174,8 +185,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
 
   describe('4. MCP Endpoint Configuration (AGENT_PROVIDER_GUIDE.md)', () => {
     it('should register agent with MCP endpoint', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'MCP Agent',
           description: 'Agent with MCP support',
@@ -188,8 +200,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
     });
 
     it('should work without MCP endpoint (optional)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'No MCP Agent',
           description: 'Agent without MCP',
@@ -203,8 +216,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
 
   describe('5. Validation Tests', () => {
     it('should reject agent registration without required fields', async () => {
-      await request(app.getHttpServer())
+      await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Incomplete Agent',
           // Missing required fields
@@ -213,8 +227,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
     });
 
     it('should reject invalid pricing model', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Invalid Pricing Agent',
           description: 'Test',
@@ -233,8 +248,9 @@ describe('Agent Registration and Pricing (e2e)', () => {
 
   describe('6. Agent Status After Registration', () => {
     it('should have pending status initially (compliance check)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await ownerSession.client
         .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
         .send({
           name: 'Status Test Agent',
           description: 'Testing initial status',

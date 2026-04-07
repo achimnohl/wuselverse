@@ -5,6 +5,11 @@ import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  const httpAdapter = app.getHttpAdapter().getInstance();
+  if (typeof httpAdapter?.set === 'function') {
+    httpAdapter.set('trust proxy', 1);
+  }
   
   // Set global prefix for all routes except MCP endpoints
   app.setGlobalPrefix('api', {
@@ -14,7 +19,31 @@ async function bootstrap() {
       'mcp',          // MCP HTTP endpoint
     ],
   });
-  app.enableCors();
+  const configuredOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const defaultCorsOrigins = [
+    'http://localhost:4200',
+    'http://127.0.0.1:4200',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+  const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultCorsOrigins;
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} is not allowed by CORS.`), false);
+    },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  });
 
   // Global validation pipe
   app.useGlobalPipes(

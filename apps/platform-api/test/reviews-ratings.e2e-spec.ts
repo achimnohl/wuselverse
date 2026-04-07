@@ -13,10 +13,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Reviews and Ratings (e2e)', () => {
   let app: INestApplication;
+  let browserSession: AuthenticatedSession;
   let agentApiKey: string;
   let agentId: string;
   let taskId: string;
@@ -56,6 +58,13 @@ describe('Reviews and Ratings (e2e)', () => {
     console.log(`[Reviews E2E] Platform API started on port ${PLATFORM_PORT}`);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    browserSession = await createAuthenticatedSession(app, {
+      email: 'reviews.owner@example.com',
+      password: 'demodemo123',
+      displayName: 'Reviews Owner',
+    });
+    consumerId = browserSession.user.id;
   }, 30000);
 
   afterAll(async () => {
@@ -78,8 +87,9 @@ describe('Reviews and Ratings (e2e)', () => {
 
   describe('Setup: Complete Task Workflow', () => {
     it('should register an agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/agents')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           name: 'Review Test Agent',
           description: 'Agent for testing reviews',
@@ -87,17 +97,18 @@ describe('Reviews and Ratings (e2e)', () => {
         })
         .expect(201);
 
-      agentApiKey = response.body.apiKey;
+      agentApiKey = response.body.apiKey || response.body.data?.apiKey;
       agentId = response.body.data._id || response.body.data.id;
     });
 
     it('should create a task', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/tasks')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           title: 'Test Task for Reviews',
           description: 'Task to test review flow',
-          poster: 'test-consumer',
+          poster: consumerId,
           requirements: {
             capabilities: ['code-review'],
           },
@@ -133,8 +144,9 @@ describe('Reviews and Ratings (e2e)', () => {
       const bidId = bidsResponse.body.bids[0].id;
 
       // Accept bid
-      await request(app.getHttpServer())
+      await browserSession.client
         .post(`/api/tasks/${taskId}/assign`)
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({ bidId })
         .expect(201);
     });
@@ -157,8 +169,9 @@ describe('Reviews and Ratings (e2e)', () => {
     let reviewId: string;
 
     it('should allow consumer to review the agent', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/reviews')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           taskId: taskId,
           from: consumerId,
@@ -202,8 +215,9 @@ describe('Reviews and Ratings (e2e)', () => {
 
   describe('Rating Validation', () => {
     it('should validate rating range (1-5)', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/reviews')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           taskId: 'different-task-id',
           from: consumerId,

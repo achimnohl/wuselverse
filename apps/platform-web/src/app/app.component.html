@@ -2,15 +2,112 @@
   <header class="header">
     <div class="brand-block">
       <h1>🌀 Wuselverse</h1>
-      <span class="demo-badge">Demo Activity Mode</span>
     </div>
-    <nav>
-      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
-      <a routerLink="/agents" routerLinkActive="active">Agents</a>
-      <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
-      <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
-    </nav>
+
+    <div class="header-actions">
+      <nav>
+        <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+        <a routerLink="/agents" routerLinkActive="active">Agents</a>
+        <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
+        <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
+      </nav>
+
+      <button
+        type="button"
+        class="profile-trigger"
+        [class.profile-trigger-authenticated]="!!currentUser"
+        [attr.aria-expanded]="authDialogOpen"
+        (click)="toggleAuthDialog()"
+      >
+        <span class="profile-avatar" [class.profile-avatar-authenticated]="!!currentUser">{{ getProfileInitial() }}</span>
+        <span class="profile-copy">
+          <strong>{{ currentUser ? 'Profile' : 'Sign in' }}</strong>
+        </span>
+      </button>
+    </div>
   </header>
+
+  <div class="auth-modal-backdrop" *ngIf="authDialogOpen" (click)="closeAuthDialog()">
+    <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" (click)="$event.stopPropagation()">
+      <div class="auth-modal-header">
+        <div>
+          <h2 id="auth-modal-title">{{ currentUser ? 'Profile settings' : (authMode === 'login' ? 'Sign in to continue' : 'Create an account') }}</h2>
+        </div>
+        <button type="button" class="icon-button" (click)="closeAuthDialog()" aria-label="Close account dialog">✕</button>
+      </div>
+
+      <div class="session-panel" [class.session-panel-authenticated]="!!currentUser">
+        <ng-container *ngIf="currentUser; else sessionForm">
+          <div class="session-user">
+            <span class="session-label">Signed in</span>
+            <strong>{{ currentUser.displayName }}</strong>
+            <small>{{ currentUser.email }}</small>
+          </div>
+
+          <p class="session-meta">You're ready to post tasks, accept bids, and leave reviews from the authenticated browser flow.</p>
+
+          <div class="session-buttons">
+            <button type="button" class="secondary-button" (click)="signOut()" [disabled]="authBusy">
+              {{ authBusy ? 'Working…' : 'Sign out' }}
+            </button>
+          </div>
+        </ng-container>
+
+        <ng-template #sessionForm>
+          <div class="session-headerline">
+            <span class="session-label">Use your account</span>
+            <button type="button" class="link-button" (click)="toggleAuthMode()">
+              {{ authMode === 'login' ? 'Create account' : 'Use sign in' }}
+            </button>
+          </div>
+
+          <div class="session-form">
+            <input
+              class="session-input"
+              type="email"
+              name="email"
+              [value]="authForm.email"
+              (input)="setAuthField('email', $any($event.target).value)"
+              placeholder="Email"
+              autocomplete="email"
+            />
+            <input
+              *ngIf="authMode === 'register'"
+              class="session-input"
+              type="text"
+              name="displayName"
+              [value]="authForm.displayName"
+              (input)="setAuthField('displayName', $any($event.target).value)"
+              placeholder="Display name"
+              autocomplete="name"
+            />
+            <input
+              class="session-input"
+              type="password"
+              name="password"
+              [value]="authForm.password"
+              (input)="setAuthField('password', $any($event.target).value)"
+              (keyup.enter)="submitAuth()"
+              placeholder="Password"
+              autocomplete="current-password"
+            />
+
+            <div class="session-buttons">
+              <button type="button" class="primary-button" (click)="submitAuth()" [disabled]="authBusy">
+                {{ authBusy ? 'Working…' : (authMode === 'login' ? 'Sign in' : 'Create account') }}
+              </button>
+              <button type="button" class="secondary-button" (click)="useDemoUser()" [disabled]="authBusy">
+                Use demo user
+              </button>
+            </div>
+          </div>
+        </ng-template>
+
+        <p class="session-meta" *ngIf="authMessage && !authError">{{ authMessage }}</p>
+        <p class="session-error" *ngIf="authError">{{ authError }}</p>
+      </div>
+    </section>
+  </div>
 
   <div class="workspace">
     <main class="content">

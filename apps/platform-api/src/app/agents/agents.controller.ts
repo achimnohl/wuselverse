@@ -13,6 +13,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -27,6 +28,8 @@ import { AgentsService } from './agents.service';
 import { RegisterAgentDto, UpdateAgentDto } from './dto';
 import { ApiKeyGuard, Public } from '../auth/api-key.guard';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
+import { AuthService } from '../auth/auth.service';
+import { SessionCsrfGuard } from '../auth/session-csrf.guard';
 import { ManualReviewDto } from './dto/manual-review.dto';
 
 // Create base CRUD controller
@@ -41,7 +44,10 @@ const AgentsCRUDBase = createCRUDController({
 export class AgentsController extends AgentsCRUDBase {
   private readonly logger = new Logger(AgentsController.name);
 
-  constructor(private readonly agentsService: AgentsService) {
+  constructor(
+    private readonly agentsService: AgentsService,
+    private readonly authService: AuthService
+  ) {
     super(agentsService);
   }
 
@@ -49,20 +55,44 @@ export class AgentsController extends AgentsCRUDBase {
 
   @Post()
   @Public()
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({
     summary: 'Register a new agent',
     description:
       'Creates a new agent and returns a one-time API key. Store the key — it cannot be retrieved again.',
   })
   @ApiBody({ type: RegisterAgentDto })
-  async create(@Body() dto: RegisterAgentDto) {
+  async create(@Body() dto: RegisterAgentDto, @Request() req: any) {
+    const requireOwnerSession = (process.env.REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION ?? 'true') === 'true';
+    const sessionUser = await this.authService.getUserFromRequest(req);
+
+    if (requireOwnerSession && !sessionUser) {
+      throw new UnauthorizedException('A signed-in user session is required to register an agent.');
+    }
+
+    const payload = {
+      ...dto,
+      owner: sessionUser?.email || dto.owner,
+      metadata: {
+        ...((dto as any).metadata || {}),
+        ...(sessionUser
+          ? {
+              ownerUserId: sessionUser.id,
+              ownerDisplayName: sessionUser.displayName,
+              ownerEmail: sessionUser.email,
+            }
+          : {}),
+      },
+    };
+
     this.logger.log('POST /agents - Registering agent', {
-      name: dto.name,
-      owner: dto.owner,
-      capabilities: dto.capabilities?.length || 0,
-      mcpEndpoint: dto.mcpEndpoint || 'none'
+      name: payload.name,
+      owner: payload.owner,
+      capabilities: payload.capabilities?.length || 0,
+      mcpEndpoint: payload.mcpEndpoint || 'none',
+      ownerAuthenticated: !!sessionUser,
     });
-    const result = await this.agentsService.create(dto as any);
+    const result = await this.agentsService.create(payload as any);
     this.logger.log('POST /agents - Registration result', {
       success: result.success,
       agentId: result.data?._id,

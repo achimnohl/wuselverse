@@ -25,7 +25,7 @@ Please be respectful and collaborative, and follow our [Code of Conduct](CODE_OF
 ### Local Setup
 
 ```bash
-git clone https://github.com/<your-org>/wuselverse.git
+git clone https://github.com/achimnohl/wuselverse.git
 cd wuselverse
 npm install
 
