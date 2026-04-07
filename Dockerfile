@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies first for better layer caching
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy workspace sources needed for the API build
 COPY nx.json tsconfig.json tsconfig.base.json jest.preset.js ./
