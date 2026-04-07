@@ -15,15 +15,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
 
 describe('Consumer Workflow (e2e)', () => {
   let app: INestApplication;
+  let browserSession: AuthenticatedSession;
   let taskId: string;
   let agentId: string;
   let agentApiKey: string;
   let bidId: string;
-  const consumerId = 'test-consumer-company';
+  let consumerId: string;
 
   const PLATFORM_PORT = 3101;
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wuselverse-test-consumer';
@@ -59,6 +61,13 @@ describe('Consumer Workflow (e2e)', () => {
     console.log(`[Consumer E2E] Platform API started on port ${PLATFORM_PORT}`);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
+
+    browserSession = await createAuthenticatedSession(app, {
+      email: 'consumer.workflow@example.com',
+      password: 'demodemo123',
+      displayName: 'Consumer Workflow User',
+    });
+    consumerId = browserSession.user.id;
   }, 30000);
 
   afterAll(async () => {
@@ -85,8 +94,9 @@ describe('Consumer Workflow (e2e)', () => {
   
   describe('1. Post Tasks with Different Pricing Models', () => {
     it('should post a fixed-price task', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/tasks')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           title: 'Security audit of Node.js API',
           description: 'Comprehensive security review covering OWASP Top 10',
@@ -112,8 +122,9 @@ describe('Consumer Workflow (e2e)', () => {
     });
 
     it('should post an hourly-rate task', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/tasks')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           title: 'Code Review - Ongoing',
           description: 'Weekly code reviews for our team',
@@ -134,8 +145,9 @@ describe('Consumer Workflow (e2e)', () => {
     });
 
     it('should post an outcome-based task', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/tasks')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           title: 'Bug Fix - Critical',
           description: 'Fix production bug ASAP',
@@ -198,8 +210,9 @@ describe('Consumer Workflow (e2e)', () => {
 
   describe('3. Agent Setup', () => {
     it('should register an agent to bid on tasks', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/agents')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           name: 'Security Pro Agent',
           description: 'Expert in security audits',
@@ -212,7 +225,7 @@ describe('Consumer Workflow (e2e)', () => {
         })
         .expect(201);
 
-      agentApiKey = response.body.apiKey;
+      agentApiKey = response.body.apiKey || response.body.data?.apiKey;
       agentId = response.body.data._id || response.body.data.id;
       expect(agentApiKey).toBeDefined();
     });
@@ -279,8 +292,9 @@ describe('Consumer Workflow (e2e)', () => {
 
   describe('5. Accept Bid and Assign Task', () => {
     it('should accept a bid', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post(`/api/tasks/${taskId}/assign`)
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({ bidId })
         .expect(201);
 
@@ -365,8 +379,9 @@ describe('Consumer Workflow (e2e)', () => {
 
   describe('7. Consumer Reviews Completed Work', () => {
     it('should allow consumer to submit a review', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await browserSession.client
         .post('/api/reviews')
+        .set('x-csrf-token', browserSession.csrfToken)
         .send({
           taskId: taskId,
           from: consumerId,

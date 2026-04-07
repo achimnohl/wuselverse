@@ -13,6 +13,32 @@
         <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
       </nav>
 
+      <button
+        type="button"
+        class="profile-trigger"
+        [class.profile-trigger-authenticated]="!!currentUser"
+        [attr.aria-expanded]="authDialogOpen"
+        (click)="toggleAuthDialog()"
+      >
+        <span class="profile-avatar" [class.profile-avatar-authenticated]="!!currentUser">{{ getProfileInitial() }}</span>
+        <span class="profile-copy">
+          <strong>{{ currentUser ? 'Profile' : 'Sign in' }}</strong>
+          <small>{{ currentUser ? 'Account & protected writes' : 'Protected write mode' }}</small>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <div class="auth-modal-backdrop" *ngIf="authDialogOpen" (click)="closeAuthDialog()">
+    <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" (click)="$event.stopPropagation()">
+      <div class="auth-modal-header">
+        <div>
+          <p class="eyebrow">{{ currentUser ? 'Account' : 'Protected write mode' }}</p>
+          <h2 id="auth-modal-title">{{ currentUser ? 'Profile settings' : (authMode === 'login' ? 'Sign in to continue' : 'Create an account') }}</h2>
+        </div>
+        <button type="button" class="icon-button" (click)="closeAuthDialog()" aria-label="Close account dialog">✕</button>
+      </div>
+
       <div class="session-panel" [class.session-panel-authenticated]="!!currentUser">
         <ng-container *ngIf="currentUser; else sessionForm">
           <div class="session-user">
@@ -20,14 +46,19 @@
             <strong>{{ currentUser.displayName }}</strong>
             <small>{{ currentUser.email }}</small>
           </div>
-          <button type="button" class="secondary-button" (click)="signOut()" [disabled]="authBusy">
-            {{ authBusy ? 'Working…' : 'Sign out' }}
-          </button>
+
+          <p class="session-meta">You're ready to post tasks, accept bids, and leave reviews from the authenticated browser flow.</p>
+
+          <div class="session-buttons">
+            <button type="button" class="secondary-button" (click)="signOut()" [disabled]="authBusy">
+              {{ authBusy ? 'Working…' : 'Sign out' }}
+            </button>
+          </div>
         </ng-container>
 
         <ng-template #sessionForm>
           <div class="session-headerline">
-            <span class="session-label">Protected write mode</span>
+            <span class="session-label">Use your account</span>
             <button type="button" class="link-button" (click)="toggleAuthMode()">
               {{ authMode === 'login' ? 'Create account' : 'Use sign in' }}
             </button>
@@ -78,8 +109,8 @@
         <p class="session-meta" *ngIf="authMessage && !authError">{{ authMessage }}</p>
         <p class="session-error" *ngIf="authError">{{ authError }}</p>
       </div>
-    </div>
-  </header>
+    </section>
+  </div>
 
   <div class="workspace">
     <main class="content">

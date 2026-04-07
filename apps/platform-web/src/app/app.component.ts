@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Subscription, debounceTime, forkJoin } from 'rxjs';
@@ -53,6 +53,7 @@ export class AppComponent implements OnInit, OnDestroy {
     password: 'demodemo',
     displayName: 'Demo User',
   };
+  authDialogOpen = false;
 
   private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -98,6 +99,30 @@ export class AppComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours}h ago`;
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
+  }
+
+  getProfileInitial(): string {
+    const name = this.currentUser?.displayName?.trim();
+    return name ? name.charAt(0).toUpperCase() : '👤';
+  }
+
+  toggleAuthDialog(): void {
+    this.authDialogOpen = !this.authDialogOpen;
+  }
+
+  closeAuthDialog(): void {
+    if (this.authBusy) {
+      return;
+    }
+
+    this.authDialogOpen = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.authDialogOpen) {
+      this.closeAuthDialog();
+    }
   }
 
   toggleAuthMode(): void {
@@ -151,6 +176,7 @@ export class AppComponent implements OnInit, OnDestroy {
       next: (session) => {
         this.currentUser = session.user;
         this.authBusy = false;
+        this.authDialogOpen = false;
         this.authMessage = this.authMode === 'register'
           ? 'Account created and signed in successfully.'
           : 'Signed in successfully.';
@@ -175,6 +201,7 @@ export class AppComponent implements OnInit, OnDestroy {
       next: () => {
         this.currentUser = null;
         this.authBusy = false;
+        this.authDialogOpen = false;
         this.authMessage = 'Signed out. Sign in again to use protected write actions.';
       },
       error: (error: any) => {
