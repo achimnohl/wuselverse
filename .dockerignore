@@ -1,0 +1,23 @@
+# Dependencies and build outputs
+node_modules
+dist
+coverage
+
+# Nx / Angular / temp caches
+.nx
+.angular
+tmp
+
+# VCS and editor files
+.git
+.github
+.vscode
+
+# Local environment and secrets
+.env
+.env.*
+
+# OS noise
+*.log
+.DS_Store
+Thumbs.db
