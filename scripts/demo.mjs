@@ -37,6 +37,9 @@ const config = {
   maxBidWaitSeconds: Number(argv.maxBidWaitSeconds || process.env.MAX_BID_WAIT_SECONDS || 15),
   maxCompletionWaitSeconds: Number(argv.maxCompletionWaitSeconds || process.env.MAX_COMPLETION_WAIT_SECONDS || 15),
   pauseSeconds: Number(argv.pauseSeconds || process.env.DEMO_PAUSE_SECONDS || 3),
+  demoUserEmail: String(argv.demoUserEmail || process.env.DEMO_USER_EMAIL || process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com'),
+  demoUserPassword: String(argv.demoUserPassword || process.env.DEMO_USER_PASSWORD || process.env.DEMO_OWNER_PASSWORD || 'demodemo'),
+  demoUserDisplayName: String(argv.demoUserDisplayName || process.env.DEMO_USER_DISPLAY_NAME || process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User'),
 };
 
 const colors = {
@@ -69,16 +72,74 @@ async function pauseBetweenSteps() {
   }
 }
 
-async function requestJson(url, options = {}) {
+function isWriteMethod(method = 'GET') {
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
+}
+
+function getSetCookieHeaders(response) {
+  if (typeof response.headers.getSetCookie === 'function') {
+    return response.headers.getSetCookie();
+  }
+
+  const singleCookie = response.headers.get('set-cookie');
+  return singleCookie ? [singleCookie] : [];
+}
+
+function updateCookieJar(cookieJar, setCookieHeaders) {
+  for (const cookie of setCookieHeaders) {
+    const [nameValue] = cookie.split(';');
+    const separatorIndex = nameValue.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const name = nameValue.slice(0, separatorIndex).trim();
+    const value = nameValue.slice(separatorIndex + 1).trim();
+    cookieJar.set(name, value);
+  }
+}
+
+function buildCookieHeader(cookieJar) {
+  return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+}
+
+function createSessionContext() {
+  return {
+    cookies: new Map(),
+    csrfToken: null,
+    user: null,
+  };
+}
+
+async function requestJson(url, options = {}, session = null) {
   const { timeoutMs = 15000, headers = {}, ...rest } = options;
+  const method = String(rest.method || 'GET').toUpperCase();
+  const requestHeaders = {
+    Accept: 'application/json',
+    ...headers,
+  };
+
+  if (session?.cookies?.size) {
+    requestHeaders.Cookie = buildCookieHeader(session.cookies);
+  }
+
+  if (session?.csrfToken && isWriteMethod(method) && !requestHeaders['X-CSRF-Token']) {
+    requestHeaders['X-CSRF-Token'] = session.csrfToken;
+  }
+
   const response = await fetch(url, {
     ...rest,
-    headers: {
-      Accept: 'application/json',
-      ...headers,
-    },
+    headers: requestHeaders,
     signal: AbortSignal.timeout(timeoutMs),
   });
+
+  if (session) {
+    updateCookieJar(session.cookies, getSetCookieHeaders(response));
+    if (session.cookies.has('wuselverse_csrf')) {
+      session.csrfToken = session.cookies.get('wuselverse_csrf');
+    }
+  }
 
   const text = await response.text();
   let payload = null;
@@ -91,12 +152,63 @@ async function requestJson(url, options = {}) {
     }
   }
 
+  if (session && payload?.data?.csrfToken) {
+    session.csrfToken = payload.data.csrfToken;
+  }
+
   if (!response.ok) {
     const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    throw new Error(`${rest.method || 'GET'} ${url} failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ''}`);
+    const error = new Error(`${method} ${url} failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ''}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
 
   return payload;
+}
+
+async function ensureDemoUserSession() {
+  const session = createSessionContext();
+  const registerPayload = {
+    email: config.demoUserEmail,
+    password: config.demoUserPassword,
+    displayName: config.demoUserDisplayName,
+  };
+
+  let authResponse;
+  try {
+    authResponse = await requestJson(`${config.apiBaseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(registerPayload),
+    }, session);
+  } catch (error) {
+    if (error.status !== 409) {
+      throw error;
+    }
+
+    authResponse = await requestJson(`${config.apiBaseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: config.demoUserEmail,
+        password: config.demoUserPassword,
+      }),
+    }, session);
+  }
+
+  const meResponse = await requestJson(`${config.apiBaseUrl}/api/auth/me`, {}, session);
+  session.user = meResponse?.data?.user || authResponse?.data?.user || null;
+
+  if (!session.cookies.get('wuselverse_session')) {
+    throw new Error('Demo sign-in succeeded but no session cookie was issued.');
+  }
+
+  if (!session.csrfToken) {
+    throw new Error('Demo sign-in succeeded but no CSRF token was issued.');
+  }
+
+  return session;
 }
 
 function getTaskData(payload) {
@@ -125,11 +237,16 @@ async function main() {
   try {
     await ensureApiAvailable();
 
-    logStep('[1/5] Creating task...');
+    logStep('[1/6] Signing in demo user...');
+    const demoSession = await ensureDemoUserSession();
+    logOk(`Signed in as ${demoSession.user?.displayName || config.demoUserDisplayName} (${demoSession.user?.email || config.demoUserEmail})`);
+    await pauseBetweenSteps();
+
+    logStep('[2/6] Creating task...');
     const taskPayload = {
       title: 'Reverse my motivational quote',
       description: "Reverse: 'The future is autonomous'",
-      poster: 'demo-user',
+      poster: demoSession.user?.id || config.demoUserEmail,
       requirements: { capabilities: ['text-reverse'] },
       budget: { type: 'fixed', amount: 10, currency: 'USD' },
       metadata: { input: { text: 'The future is autonomous', operation: 'reverse' } },
@@ -139,7 +256,7 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(taskPayload),
-    });
+    }, demoSession);
 
     const createdTask = getTaskData(createResponse);
     const taskId = createdTask?._id ?? createdTask?.id;
@@ -150,7 +267,7 @@ async function main() {
     logOk(`Task created: ${taskId}`);
     await pauseBetweenSteps();
 
-    logStep('[2/5] Waiting for agent to bid...');
+    logStep('[3/6] Waiting for agent to bid...');
     let validBids = [];
 
     for (let attempt = 1; attempt <= config.maxBidWaitSeconds; attempt += 1) {
@@ -179,7 +296,7 @@ async function main() {
     logOk(`Received ${validBids.length} bid(s)`);
     await pauseBetweenSteps();
 
-    logStep('[3/5] Accepting bid...');
+    logStep('[4/6] Accepting bid...');
     const selectedBid = validBids[0];
     const bidId = getBidId(selectedBid);
     if (!bidId) {
@@ -190,12 +307,12 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bidId }),
-    });
+    }, demoSession);
 
     logOk(`Bid accepted: ${bidId}`);
     await pauseBetweenSteps();
 
-    logStep('[4/5] Waiting for agent to complete task...');
+    logStep('[5/6] Waiting for agent to complete task...');
     let completedTask = null;
 
     for (let attempt = 1; attempt <= config.maxCompletionWaitSeconds; attempt += 1) {
@@ -229,10 +346,10 @@ async function main() {
     logInfo(`[RESULT] ${resultText}`);
     await pauseBetweenSteps();
 
-    logStep('[5/5] Submitting review...');
+    logStep('[6/6] Submitting review...');
     const reviewPayload = {
       taskId,
-      from: 'demo-user',
+      from: demoSession.user?.id || config.demoUserEmail,
       to: completedTask.assignedAgent,
       rating: 5,
       comment: 'Perfect! Instant results!',
@@ -242,7 +359,7 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reviewPayload),
-    });
+    }, demoSession);
 
     logOk('Review submitted');
     await pauseBetweenSteps();

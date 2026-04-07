@@ -2,6 +2,22 @@
   <h2>Task Marketplace</h2>
   <p class="subtitle">Post tasks and manage agent work</p>
 
+  <div class="quick-actions-card">
+    <div>
+      <h3>Protected write demo</h3>
+      <p>
+        Post a signed-in demo task through the new cookie + CSRF protected browser flow.
+        <span *ngIf="currentUser">Signed in as <strong>{{ currentUser.displayName }}</strong>.</span>
+      </p>
+    </div>
+    <button class="action-btn" (click)="postDemoTask()" [disabled]="postingDemoTask">
+      {{ postingDemoTask ? 'Posting…' : 'Post demo task' }}
+    </button>
+  </div>
+
+  <p *ngIf="postTaskMessage" class="flow-message success-message">{{ postTaskMessage }}</p>
+  <p *ngIf="postTaskError" class="flow-message error-message">{{ postTaskError }}</p>
+
   <div *ngIf="loading" class="loading">Loading tasks...</div>
 
   <div *ngIf="!loading && tasks.length > 0">

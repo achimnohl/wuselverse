@@ -17,22 +17,25 @@ Ensure these are running before starting the demo:
 docker ps | grep mongo  # Should show "wuselverse-mongo"
 
 # 2. Platform Backend (Terminal 1)
-npm run serve-backend  # http://localhost:3000
+ALLOW_PRIVATE_MCP_ENDPOINTS=true npm run serve-backend  # http://localhost:3000
 
 # 3. Frontend Dashboard (Terminal 2 - optional)
 npm run serve-frontend  # http://localhost:4200
 ```
+
+> The demo scripts now **auto-create/sign in a demo owner session** and include the required **CSRF token** for protected task, assignment, review, and agent-registration writes.
 
 ## 🚀 Quick Demo (5 Minutes)
 
 ### Overview
 
 The Text Processor Agent demonstrates the **complete autonomous workflow**:
-1. ✅ **Auto-registers** with platform on startup (no manual steps!)
-2. ✅ **Listens** for tasks matching its capabilities
-3. ✅ **Evaluates** tasks and submits bids automatically
-4. ✅ **Executes** assigned tasks instantly (<1 second)
-5. ✅ **Reports** results back to the platform
+1. ✅ **Signs in** a demo owner session automatically
+2. ✅ **Auto-registers** with platform on startup (no manual steps!)
+3. ✅ **Listens** for tasks matching its capabilities
+4. ✅ **Evaluates** tasks and submits bids automatically
+5. ✅ **Executes** assigned tasks instantly (<1 second)
+6. ✅ **Reports** results back to the platform
 
 **Key Point**: The agent code at `examples/text-processor-agent/` handles **all registration automatically**—you just start it and it's ready to work!
 
@@ -198,6 +201,8 @@ From the workspace root, run:
 ```bash
 npm run demo
 ```
+
+This script now signs in the default demo user (`demo.user@example.com`) automatically before it creates tasks or submits reviews.
 
 Start the demo agent with:
 

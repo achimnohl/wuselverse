@@ -1,7 +1,10 @@
 param(
   [string]$ApiBaseUrl = "http://localhost:3000",
   [int]$MaxBidWaitSeconds = 15,
-  [int]$MaxCompletionWaitSeconds = 15
+  [int]$MaxCompletionWaitSeconds = 15,
+  [string]$DemoUserEmail = "demo.user@example.com",
+  [string]$DemoUserPassword = "correcthorsebattery",
+  [string]$DemoUserDisplayName = "Demo User"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,6 +23,83 @@ function Ensure-ApiAvailable {
     $null = Invoke-RestMethod -Uri "$ApiBaseUrl/api/health" -Method Get -TimeoutSec 5
   } catch {
     throw "Platform API is not reachable at $ApiBaseUrl. Start it with 'npm run serve-backend'."
+  }
+}
+
+function Get-CookieValue {
+  param(
+    [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession,
+    [string]$CookieName
+  )
+
+  foreach ($candidateUri in @($ApiBaseUrl, "$ApiBaseUrl/", "$ApiBaseUrl/api", "$ApiBaseUrl/api/")) {
+    try {
+      $cookie = $WebSession.Cookies.GetCookies($candidateUri) | Where-Object { $_.Name -eq $CookieName } | Select-Object -First 1
+      if ($cookie) {
+        return $cookie.Value
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return $null
+}
+
+function Get-DemoWriteHeaders([hashtable]$DemoSession) {
+  return @{ 'X-CSRF-Token' = $DemoSession.CsrfToken }
+}
+
+function New-DemoSession {
+  $webSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+  $authResponse = $null
+
+  try {
+    $registerBody = @{
+      email = $DemoUserEmail
+      password = $DemoUserPassword
+      displayName = $DemoUserDisplayName
+    } | ConvertTo-Json
+
+    $authResponse = Invoke-RestMethod -Uri "$ApiBaseUrl/api/auth/register" -Method Post -WebSession $webSession -Body $registerBody -ContentType "application/json"
+  } catch {
+    $statusCode = 0
+    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    }
+
+    if ($statusCode -ne 409) {
+      throw
+    }
+
+    $loginBody = @{
+      email = $DemoUserEmail
+      password = $DemoUserPassword
+    } | ConvertTo-Json
+
+    $authResponse = Invoke-RestMethod -Uri "$ApiBaseUrl/api/auth/login" -Method Post -WebSession $webSession -Body $loginBody -ContentType "application/json"
+  }
+
+  $csrfToken = $authResponse.data.csrfToken
+  if ([string]::IsNullOrWhiteSpace($csrfToken)) {
+    $meResponse = Invoke-RestMethod -Uri "$ApiBaseUrl/api/auth/me" -Method Get -WebSession $webSession
+    if ($meResponse.data.csrfToken) {
+      $csrfToken = $meResponse.data.csrfToken
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($csrfToken)) {
+    $csrfToken = Get-CookieValue -WebSession $webSession -CookieName 'wuselverse_csrf'
+  }
+
+  if ([string]::IsNullOrWhiteSpace($csrfToken)) {
+    throw 'Demo sign-in succeeded but no CSRF token was issued.'
+  }
+
+  return @{
+    WebSession = $webSession
+    CsrfToken = $csrfToken
+    User = $authResponse.data.user
   }
 }
 
@@ -65,24 +145,31 @@ try {
   Write-Host "`n=== WUSELVERSE DEMO: TEXT PROCESSOR AGENT ===" -ForegroundColor Cyan
   Ensure-ApiAvailable
 
-  # 1. Create task
-  Write-Step "[1/5] Creating task..."
+  # 1. Sign in demo user
+  Write-Step "[1/6] Signing in demo user..."
+  $demoSession = New-DemoSession
+  $demoUserId = if ($demoSession.User -and $demoSession.User.id) { [string]$demoSession.User.id } else { $DemoUserEmail }
+  Write-Host "[OK] Signed in as $($demoSession.User.displayName)" -ForegroundColor Green
+  Pause-BetweenSteps
+
+  # 2. Create task
+  Write-Step "[2/6] Creating task..."
   $task = @{
     title = "Reverse my motivational quote"
     description = "Reverse: 'The future is autonomous'"
-    poster = "demo-user"
+    poster = $demoUserId
     requirements = @{ capabilities = @("text-reverse") }
     budget = @{ type = "fixed"; amount = 10; currency = "USD" }
     metadata = @{ input = @{ text = "The future is autonomous"; operation = "reverse" } }
   } | ConvertTo-Json -Depth 5
 
-  $response = Invoke-RestMethod -Uri "$ApiBaseUrl/api/tasks" -Method Post -Body $task -ContentType "application/json"
+  $response = Invoke-RestMethod -Uri "$ApiBaseUrl/api/tasks" -Method Post -Body $task -ContentType "application/json" -WebSession $demoSession.WebSession -Headers (Get-DemoWriteHeaders $demoSession)
   $taskId = $response.data._id
   Write-Host "[OK] Task created: $taskId" -ForegroundColor Green
   Pause-BetweenSteps
 
-  # 2. Wait for bid
-  Write-Step "[2/5] Waiting for agent to bid..."
+  # 3. Wait for bid
+  Write-Step "[3/6] Waiting for agent to bid..."
   $bids = $null
   $bidList = @()
   $validBidList = New-Object System.Collections.Generic.List[object]
@@ -111,8 +198,8 @@ try {
   Write-Host "[OK] Received $bidCount bid(s)" -ForegroundColor Green
   Pause-BetweenSteps
 
-  # 3. Accept bid
-  Write-Step "[3/5] Accepting bid..."
+  # 4. Accept bid
+  Write-Step "[4/6] Accepting bid..."
   $selectedBid = if ($validBidList.Count -gt 0) { $validBidList[0] } else { $null }
   $bidId = Get-BidId $selectedBid
   if ([string]::IsNullOrWhiteSpace($bidId)) {
@@ -122,12 +209,14 @@ try {
   Invoke-RestMethod -Uri "$ApiBaseUrl/api/tasks/$taskId/assign" `
     -Method Post `
     -Body (@{ bidId = $bidId } | ConvertTo-Json) `
-    -ContentType "application/json" | Out-Null
+    -ContentType "application/json" `
+    -WebSession $demoSession.WebSession `
+    -Headers (Get-DemoWriteHeaders $demoSession) | Out-Null
   Write-Host "[OK] Bid accepted" -ForegroundColor Green
   Pause-BetweenSteps
 
-  # 4. Wait for execution
-  Write-Step "[4/5] Waiting for agent to complete task..."
+  # 5. Wait for execution
+  Write-Step "[5/6] Waiting for agent to complete task..."
   $completed = $null
   for ($i = 0; $i -lt $MaxCompletionWaitSeconds; $i++) {
     $completed = Invoke-RestMethod -Uri "$ApiBaseUrl/api/tasks/$taskId" -Method Get
@@ -149,17 +238,17 @@ try {
   Write-Host "[OK] Result: $resultText" -ForegroundColor Cyan
   Pause-BetweenSteps
 
-  # 5. Submit review
-  Write-Step "[5/5] Submitting review..."
+  # 6. Submit review
+  Write-Step "[6/6] Submitting review..."
   $review = @{
     taskId = $taskId
-    from = "demo-user"
+    from = $demoUserId
     to = $completed.data.assignedAgent
     rating = 5
     comment = "Perfect! Instant results!"
   } | ConvertTo-Json
 
-  Invoke-RestMethod -Uri "$ApiBaseUrl/api/reviews" -Method Post -Body $review -ContentType "application/json" | Out-Null
+  Invoke-RestMethod -Uri "$ApiBaseUrl/api/reviews" -Method Post -Body $review -ContentType "application/json" -WebSession $demoSession.WebSession -Headers (Get-DemoWriteHeaders $demoSession) | Out-Null
   Write-Host "[OK] Review submitted" -ForegroundColor Green
   Pause-BetweenSteps
 

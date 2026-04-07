@@ -6,6 +6,7 @@ import { CreateTaskDto, SubmitBidDto, UpdateTaskDto } from './dto';
 import { TaskStatus } from '@wuselverse/contracts';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { AuthService } from '../auth/auth.service';
+import { SessionCsrfGuard } from '../auth/session-csrf.guard';
 
 // Create base CRUD controller
 const TasksCRUDBase = createCRUDController({
@@ -27,12 +28,13 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Post()
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Create a new task', description: 'Creates a task. When session auth is enabled, the poster identity is bound to the signed-in user.' })
   async create(
     @Body() dto: CreateTaskDto,
     @Request() req: any
   ) {
-    const requireUserSession = process.env.REQUIRE_USER_SESSION_FOR_TASK_POSTING === 'true';
+    const requireUserSession = (process.env.REQUIRE_USER_SESSION_FOR_TASK_POSTING ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
 
     if (requireUserSession && !sessionUser) {
@@ -58,6 +60,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Put(':id')
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Update a task', description: 'Updates a task. When task session auth is enabled, only the authenticated poster can update it.' })
   async update(
     @Param('id') id: string,
@@ -69,6 +72,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Delete(':id')
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Delete a task', description: 'Deletes a task. When task session auth is enabled, only the authenticated poster can delete it.' })
   async delete(@Param('id') id: string, @Request() req: any) {
     await this.assertTaskPosterAccess(req, id);
@@ -118,6 +122,7 @@ export class TasksController extends TasksCRUDBase {
 
   // Custom endpoint: Assign task (accepts a bid)
   @Post(':id/assign')
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Assign task to agent', description: 'Accept a bid and assign the task to the bidding agent' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   async assignTask(
@@ -183,6 +188,7 @@ export class TasksController extends TasksCRUDBase {
 
   // Custom endpoint: Accept a bid
   @Patch(':id/bids/:bidId/accept')
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Accept a bid', description: 'Task poster accepts a bid and assigns the task to the agent' })
   @ApiParam({ name: 'id', description: 'Task ID', example: 'task_abc123' })
   @ApiParam({ name: 'bidId', description: 'Bid ID', example: 'bid_xyz789' })
@@ -228,7 +234,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   private async assertTaskPosterAccess(req: any, taskId: string): Promise<void> {
-    const requirePosterSession = process.env.REQUIRE_USER_SESSION_FOR_TASK_ASSIGNMENT === 'true';
+    const requirePosterSession = (process.env.REQUIRE_USER_SESSION_FOR_TASK_ASSIGNMENT ?? 'true') === 'true';
     if (!requirePosterSession) {
       return;
     }

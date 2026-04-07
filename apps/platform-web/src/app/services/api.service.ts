@@ -34,6 +34,7 @@ export interface Task {
   status: string;
   assignedAgent?: string;
   bids: any[];
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +89,7 @@ export interface SessionUser {
 export interface AuthSessionData {
   user: SessionUser;
   expiresAt: string;
+  csrfToken: string | null;
 }
 
 interface APIResponse<T> {
@@ -109,6 +111,7 @@ interface PaginatedResponse<T> {
 })
 export class ApiService {
   private readonly baseUrl = this.resolveBaseUrl();
+  private csrfToken: string | null = null;
 
   constructor(private http: HttpClient) {}
 
@@ -126,28 +129,70 @@ export class ApiService {
     return 'http://localhost:3000/api';
   }
 
-  private withSession(options: Record<string, unknown> = {}) {
+  private withSession(options: { headers?: Record<string, string> } = {}) {
     return { withCredentials: true, ...options };
   }
 
+  private syncCsrfToken(token?: string | null): string | null {
+    if (typeof token === 'string' && token) {
+      this.csrfToken = token;
+    }
+
+    if (typeof document !== 'undefined') {
+      const cookie = document.cookie
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith('wuselverse_csrf='));
+
+      if (cookie) {
+        this.csrfToken = decodeURIComponent(cookie.substring('wuselverse_csrf='.length));
+      }
+    }
+
+    return this.csrfToken;
+  }
+
+  private withProtectedWrite(options: { headers?: Record<string, string> } = {}) {
+    const csrfToken = this.syncCsrfToken();
+    return this.withSession({
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      },
+    });
+  }
+
   getCurrentUser(): Observable<SessionUser> {
-    return this.http.get<APIResponse<{ user: SessionUser }>>(`${this.baseUrl}/auth/me`, this.withSession())
-      .pipe(map(response => response.data.user));
+    return this.http.get<APIResponse<{ user: SessionUser; csrfToken?: string | null }>>(`${this.baseUrl}/auth/me`, this.withSession())
+      .pipe(map(response => {
+        this.syncCsrfToken(response.data.csrfToken || null);
+        return response.data.user;
+      }));
   }
 
   registerUser(payload: { email: string; password: string; displayName: string }): Observable<AuthSessionData> {
     return this.http.post<APIResponse<AuthSessionData>>(`${this.baseUrl}/auth/register`, payload, this.withSession())
-      .pipe(map(response => response.data));
+      .pipe(map(response => {
+        this.syncCsrfToken(response.data.csrfToken);
+        return response.data;
+      }));
   }
 
   loginUser(payload: { email: string; password: string }): Observable<AuthSessionData> {
     return this.http.post<APIResponse<AuthSessionData>>(`${this.baseUrl}/auth/login`, payload, this.withSession())
-      .pipe(map(response => response.data));
+      .pipe(map(response => {
+        this.syncCsrfToken(response.data.csrfToken);
+        return response.data;
+      }));
   }
 
   logoutUser(): Observable<void> {
-    return this.http.post<APIResponse<null>>(`${this.baseUrl}/auth/logout`, {}, this.withSession())
-      .pipe(map(() => undefined));
+    return this.http.post<APIResponse<null>>(`${this.baseUrl}/auth/logout`, {}, this.withProtectedWrite())
+      .pipe(map(() => {
+        this.csrfToken = null;
+        return undefined;
+      }));
   }
 
   // Agents
@@ -172,6 +217,16 @@ export class ApiService {
       .pipe(map(response => response.data));
   }
 
+  createTask(payload: Record<string, unknown>): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks`, payload, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  assignTask(taskId: string, bidId: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/assign`, { bidId }, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
   // Reviews
   getReviews(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Review>> {
     return this.http.get<APIResponse<PaginatedResponse<Review>>>(`${this.baseUrl}/reviews?page=${page}&limit=${limit}`, this.withSession())
@@ -185,6 +240,16 @@ export class ApiService {
 
   getAgentStats(agentId: string): Observable<any> {
     return this.http.get<APIResponse<any>>(`${this.baseUrl}/reviews/agent/${agentId}/stats`, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  createReview(payload: Partial<Review>): Observable<Review> {
+    return this.http.post<APIResponse<Review>>(`${this.baseUrl}/reviews`, payload, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  registerAgent(payload: Record<string, unknown>): Observable<Agent> {
+    return this.http.post<APIResponse<Agent>>(`${this.baseUrl}/agents`, payload, this.withProtectedWrite())
       .pipe(map(response => response.data));
   }
 

@@ -8,10 +8,20 @@ describe('Auth Session Flow (e2e)', () => {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wuselverse-test-auth';
   const PORT = 3110;
 
+  const extractCookieValue = (cookies: string[] | undefined, cookieName: string): string | null => {
+    const rawCookie = cookies?.find((value) => value.startsWith(`${cookieName}=`));
+    if (!rawCookie) {
+      return null;
+    }
+
+    return rawCookie.split(';')[0].split('=').slice(1).join('=');
+  };
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.PORT = String(PORT);
     process.env.MONGODB_URI = MONGODB_URI;
+    process.env.REQUIRE_USER_SESSION_FOR_TASK_POSTING = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -64,8 +74,11 @@ describe('Auth Session Flow (e2e)', () => {
     expect(registerResponse.body.success).toBe(true);
     expect(registerResponse.body.data.user.email).toBe('demo.user@example.com');
 
-    const cookies = registerResponse.headers['set-cookie'];
+    const cookies = registerResponse.headers['set-cookie'] as unknown as string[];
+    const csrfToken = extractCookieValue(cookies, 'wuselverse_csrf');
     expect(cookies).toBeDefined();
+    expect(csrfToken).toBeTruthy();
+    expect(registerResponse.body.data.csrfToken).toBe(csrfToken);
 
     const meResponse = await request(app.getHttpServer())
       .get('/api/auth/me')
@@ -77,6 +90,7 @@ describe('Auth Session Flow (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/auth/logout')
       .set('Cookie', cookies)
+      .set('x-csrf-token', csrfToken as string)
       .expect(200);
 
     await request(app.getHttpServer())
@@ -105,5 +119,75 @@ describe('Auth Session Flow (e2e)', () => {
 
     expect(loginResponse.body.success).toBe(true);
     expect(loginResponse.headers['set-cookie']).toBeDefined();
+  });
+
+  it('reissues a CSRF token for an existing session when the browser only sends the session cookie', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: 'refresh.user@example.com',
+        password: 'refreshpass123',
+        displayName: 'Refresh User',
+      })
+      .expect(201);
+
+    const cookies = (registerResponse.headers['set-cookie'] ?? []) as unknown as string[];
+    const sessionCookie = cookies.find((value) => value.startsWith('wuselverse_session='));
+    expect(sessionCookie).toBeTruthy();
+
+    const meResponse = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', [sessionCookie as string])
+      .expect(200);
+
+    expect(meResponse.body.data.user.email).toBe('refresh.user@example.com');
+    expect(meResponse.body.data.csrfToken).toBeTruthy();
+    const refreshedCookies = (meResponse.headers['set-cookie'] ?? []) as unknown as string[];
+    expect(refreshedCookies.some((value) => value.startsWith('wuselverse_csrf='))).toBe(true);
+  });
+
+  it('rejects session-based task creation without a CSRF token and accepts it with the token', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .send({
+        email: 'csrf.user@example.com',
+        password: 'csrfpass123',
+        displayName: 'CSRF User',
+      })
+      .expect(201);
+
+    const cookies = (registerResponse.headers['set-cookie'] ?? []) as unknown as string[];
+    const csrfToken = extractCookieValue(cookies, 'wuselverse_csrf');
+
+    expect(cookies.length).toBeGreaterThan(0);
+    expect(csrfToken).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .post('/api/tasks')
+      .set('Cookie', cookies)
+      .send({
+        title: 'Protected task without CSRF',
+        description: 'This should be rejected because the CSRF header is missing.',
+        poster: 'should-be-overridden',
+        requirements: { capabilities: ['security-scan'] },
+        budget: { amount: 25, currency: 'USD', type: 'fixed' },
+      })
+      .expect(403);
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/tasks')
+      .set('Cookie', cookies)
+      .set('x-csrf-token', csrfToken as string)
+      .send({
+        title: 'Protected task with CSRF',
+        description: 'This should succeed because the signed-in browser flow includes the CSRF token.',
+        poster: 'should-be-overridden',
+        requirements: { capabilities: ['security-scan'] },
+        budget: { amount: 25, currency: 'USD', type: 'fixed' },
+      })
+      .expect(201);
+
+    expect(createResponse.body.success).toBe(true);
+    expect(createResponse.body.data.poster).toBe(registerResponse.body.data.user.id);
   });
 });

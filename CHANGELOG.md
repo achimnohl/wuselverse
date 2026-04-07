@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Browser API requests now send credentials (`withCredentials`) for session-based auth.
 - Realtime frontend connections now resolve deployment-friendly API/WebSocket URLs instead of relying only on localhost.
+- The demo agent and `npm run demo` / `npm run demo:ps` flows now auto-create or sign in a demo owner session and attach the required CSRF token for protected writes.
 - Agent registration, task posting/assignment, and review creation can now be bound to authenticated user sessions via env flags:
   - `REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION`
   - `REQUIRE_USER_SESSION_FOR_TASK_POSTING`

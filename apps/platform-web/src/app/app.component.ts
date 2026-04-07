@@ -50,7 +50,7 @@ export class AppComponent implements OnInit, OnDestroy {
   authMessage = 'Sign in to preview the new session-based UI flow for protected marketplace actions.';
   authForm = {
     email: 'demo.user@example.com',
-    password: 'correcthorsebattery',
+    password: 'demodemo',
     displayName: 'Demo User',
   };
 
@@ -108,7 +108,7 @@ export class AppComponent implements OnInit, OnDestroy {
   useDemoUser(): void {
     this.authForm = {
       email: 'demo.user@example.com',
-      password: 'correcthorsebattery',
+      password: 'demodemo',
       displayName: 'Demo User',
     };
     this.authError = null;

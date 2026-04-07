@@ -16,6 +16,9 @@ const child = spawn('npm', ['start'], {
     ...process.env,
     PLATFORM_URL: process.env.PLATFORM_URL || 'http://localhost:3000',
     MCP_PORT: process.env.MCP_PORT || '3003',
+    DEMO_OWNER_EMAIL: process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com',
+    DEMO_OWNER_PASSWORD: process.env.DEMO_OWNER_PASSWORD || 'demodemo',
+    DEMO_OWNER_DISPLAY_NAME: process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User',
   },
 });
 

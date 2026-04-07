@@ -33,6 +33,7 @@ interface SessionMetadata {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly sessionCookieName = process.env.SESSION_COOKIE_NAME || 'wuselverse_session';
+  private readonly csrfCookieName = process.env.CSRF_COOKIE_NAME || 'wuselverse_csrf';
   private readonly sessionTtlMs = Number(process.env.SESSION_TTL_MS || 1000 * 60 * 60 * 24 * 7);
 
   constructor(
@@ -122,23 +123,46 @@ export class AuthService {
   }
 
   getSessionTokenFromRequest(request: any): string | null {
-    const cookieHeader = request?.headers?.cookie as string | undefined;
-    if (!cookieHeader) {
-      return null;
-    }
-
-    const cookies = cookieHeader.split(';').map((part) => part.trim());
-    const match = cookies.find((cookie) => cookie.startsWith(`${this.sessionCookieName}=`));
-    if (!match) {
-      return null;
-    }
-
-    const value = match.substring(this.sessionCookieName.length + 1);
-    return decodeURIComponent(value);
+    return this.getCookieValueFromRequest(request, this.sessionCookieName);
   }
 
-  attachSessionCookie(response: any, sessionToken: string): void {
+  getCsrfTokenFromRequest(request: any): string | null {
+    return this.getCookieValueFromRequest(request, this.csrfCookieName);
+  }
+
+  getCsrfHeaderFromRequest(request: any): string | null {
+    const headerValue = request?.headers?.['x-csrf-token'] ?? request?.headers?.['x-xsrf-token'];
+    if (Array.isArray(headerValue)) {
+      return headerValue[0] || null;
+    }
+
+    return typeof headerValue === 'string' ? headerValue : null;
+  }
+
+  issueCsrfToken(): string {
+    return randomBytes(24).toString('hex');
+  }
+
+  getCsrfCookieName(): string {
+    return this.csrfCookieName;
+  }
+
+  attachSessionCookie(response: any, sessionToken: string, csrfToken?: string): void {
     response.cookie(this.sessionCookieName, sessionToken, this.getCookieOptions());
+    this.attachCsrfCookie(response, csrfToken);
+  }
+
+  attachCsrfCookie(response: any, csrfToken?: string): string {
+    const csrfValue = csrfToken || this.issueCsrfToken();
+    response.cookie(this.csrfCookieName, csrfValue, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: this.isSecureCookie(),
+      path: '/',
+      maxAge: this.sessionTtlMs,
+    });
+
+    return csrfValue;
   }
 
   clearSessionCookie(response: any): void {
@@ -148,10 +172,17 @@ export class AuthService {
       secure: this.isSecureCookie(),
       path: '/',
     });
+    response.clearCookie(this.csrfCookieName, {
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: this.isSecureCookie(),
+      path: '/',
+    });
   }
 
   private async createSessionForUser(user: UserDocument, metadata?: SessionMetadata) {
     const rawSessionToken = `sess_${randomUUID().replace(/-/g, '')}`;
+    const csrfToken = this.issueCsrfToken();
     const sessionHash = this.hashSessionToken(rawSessionToken);
     const expiresAt = new Date(Date.now() + this.sessionTtlMs);
 
@@ -167,6 +198,7 @@ export class AuthService {
     return {
       user: this.toSessionUser(user),
       sessionToken: rawSessionToken,
+      csrfToken,
       expiresAt,
     };
   }
@@ -204,6 +236,22 @@ export class AuthService {
 
   private hashSessionToken(sessionToken: string): string {
     return createHash('sha256').update(sessionToken).digest('hex');
+  }
+
+  private getCookieValueFromRequest(request: any, cookieName: string): string | null {
+    const cookieHeader = request?.headers?.cookie as string | undefined;
+    if (!cookieHeader) {
+      return null;
+    }
+
+    const cookies = cookieHeader.split(';').map((part) => part.trim());
+    const match = cookies.find((cookie) => cookie.startsWith(`${cookieName}=`));
+    if (!match) {
+      return null;
+    }
+
+    const value = match.substring(cookieName.length + 1);
+    return decodeURIComponent(value);
   }
 
   private getCookieOptions() {

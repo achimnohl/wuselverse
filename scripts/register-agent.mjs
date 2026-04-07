@@ -35,6 +35,10 @@ Options:
   --server   MCP server URL  (default: http://localhost:3000/mcp)
   --payload  Path to a JSON file containing the agent payload
   --help     Show this message
+
+Notes:
+  - For the local demo flow, prefer 'npm run demo:agent' which handles the demo user session and CSRF automatically.
+  - If the agent exposes a localhost MCP endpoint, start the backend with ALLOW_PRIVATE_MCP_ENDPOINTS=true.
 `);
   process.exit(0);
 }
@@ -46,7 +50,7 @@ const DEFAULT_PAYLOAD = {
   description: 'Reviews pull requests and suggests improvements based on best practices.',
   offer: 'I analyse your PR diff and return structured review comments with severity levels.',
   userManual: '## Usage\nPoint me at a GitHub PR and I will return a JSON report.',
-  owner: 'local-dev',
+  owner: 'demo.user@example.com',
   capabilities: [
     { skill: 'code-review', level: 'expert', tags: ['typescript', 'nodejs'] },
     { skill: 'security-scan', level: 'intermediate' },

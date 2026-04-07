@@ -29,6 +29,7 @@ import { RegisterAgentDto, UpdateAgentDto } from './dto';
 import { ApiKeyGuard, Public } from '../auth/api-key.guard';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { AuthService } from '../auth/auth.service';
+import { SessionCsrfGuard } from '../auth/session-csrf.guard';
 import { ManualReviewDto } from './dto/manual-review.dto';
 
 // Create base CRUD controller
@@ -54,6 +55,7 @@ export class AgentsController extends AgentsCRUDBase {
 
   @Post()
   @Public()
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({
     summary: 'Register a new agent',
     description:
@@ -61,7 +63,7 @@ export class AgentsController extends AgentsCRUDBase {
   })
   @ApiBody({ type: RegisterAgentDto })
   async create(@Body() dto: RegisterAgentDto, @Request() req: any) {
-    const requireOwnerSession = process.env.REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION === 'true';
+    const requireOwnerSession = (process.env.REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
 
     if (requireOwnerSession && !sessionUser) {

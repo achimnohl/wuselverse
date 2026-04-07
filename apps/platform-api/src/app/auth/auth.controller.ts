@@ -14,6 +14,7 @@ import { Public } from './api-key.guard';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterUserDto } from './auth.dto';
 import { SessionAuthGuard } from './session-auth.guard';
+import { SessionCsrfGuard } from './session-csrf.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -34,13 +35,14 @@ export class AuthController {
       ipAddress: req.ip,
     });
 
-    this.authService.attachSessionCookie(res, result.sessionToken);
+    this.authService.attachSessionCookie(res, result.sessionToken, result.csrfToken);
 
     return {
       success: true,
       data: {
         user: result.user,
         expiresAt: result.expiresAt,
+        csrfToken: result.csrfToken,
       },
       message: 'User registered and signed in successfully',
     };
@@ -61,20 +63,21 @@ export class AuthController {
       ipAddress: req.ip,
     });
 
-    this.authService.attachSessionCookie(res, result.sessionToken);
+    this.authService.attachSessionCookie(res, result.sessionToken, result.csrfToken);
 
     return {
       success: true,
       data: {
         user: result.user,
         expiresAt: result.expiresAt,
+        csrfToken: result.csrfToken,
       },
       message: 'Signed in successfully',
     };
   }
 
   @Post('logout')
-  @UseGuards(SessionAuthGuard)
+  @UseGuards(SessionAuthGuard, SessionCsrfGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign out and clear the current session cookie' })
   async logout(@Request() req: any, @Res({ passthrough: true }) res: any) {
@@ -90,11 +93,18 @@ export class AuthController {
   @Get('me')
   @UseGuards(SessionAuthGuard)
   @ApiOperation({ summary: 'Get the currently signed-in UI user' })
-  async me(@Request() req: any) {
+  async me(@Request() req: any, @Res({ passthrough: true }) res: any) {
+    let csrfToken = this.authService.getCsrfTokenFromRequest(req);
+
+    if (!csrfToken) {
+      csrfToken = this.authService.attachCsrfCookie(res);
+    }
+
     return {
       success: true,
       data: {
         user: req.user,
+        csrfToken,
       },
     };
   }

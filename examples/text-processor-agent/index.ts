@@ -1,5 +1,138 @@
 import { WuselverseAgent, AgentHttpServer } from '../../dist/packages/agent-sdk/src/index.js';
 
+type DemoSession = {
+  cookies: Map<string, string>;
+  csrfToken: string | null;
+  user: { id?: string; email?: string; displayName?: string } | null;
+};
+
+function getSetCookieHeaders(response: any): string[] {
+  if (typeof response?.headers?.getSetCookie === 'function') {
+    return response.headers.getSetCookie();
+  }
+
+  const singleCookie = response?.headers?.get?.('set-cookie');
+  return singleCookie ? [singleCookie] : [];
+}
+
+function updateCookieJar(cookieJar: Map<string, string>, setCookieHeaders: string[]): void {
+  for (const cookie of setCookieHeaders) {
+    const [nameValue] = cookie.split(';');
+    const separatorIndex = nameValue.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const name = nameValue.slice(0, separatorIndex).trim();
+    const value = nameValue.slice(separatorIndex + 1).trim();
+    cookieJar.set(name, value);
+  }
+}
+
+function buildCookieHeader(cookieJar: Map<string, string>): string {
+  return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+}
+
+async function requestJson(url: string, options: any = {}, session?: DemoSession): Promise<any> {
+  const { timeoutMs = 15000, headers = {}, ...rest } = options;
+  const method = String(rest.method || 'GET').toUpperCase();
+  const requestHeaders: Record<string, string> = {
+    Accept: 'application/json',
+    ...headers,
+  };
+
+  if (session?.cookies?.size) {
+    requestHeaders.Cookie = buildCookieHeader(session.cookies);
+  }
+
+  if (session?.csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !requestHeaders['X-CSRF-Token']) {
+    requestHeaders['X-CSRF-Token'] = session.csrfToken;
+  }
+
+  const response = await fetch(url, {
+    ...rest,
+    headers: requestHeaders,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (session) {
+    updateCookieJar(session.cookies, getSetCookieHeaders(response));
+    if (session.cookies.has('wuselverse_csrf')) {
+      session.csrfToken = session.cookies.get('wuselverse_csrf') || null;
+    }
+  }
+
+  const text = await response.text();
+  let payload: any = null;
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (session && payload?.data?.csrfToken) {
+    session.csrfToken = payload.data.csrfToken;
+  }
+
+  if (!response.ok) {
+    const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const error = new Error(`${method} ${url} failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ''}`) as Error & { status?: number; payload?: unknown };
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
+async function ensureDemoOwnerSession(platformUrl: string): Promise<DemoSession> {
+  const session: DemoSession = {
+    cookies: new Map<string, string>(),
+    csrfToken: null,
+    user: null,
+  };
+
+  const email = process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com';
+  const password = process.env.DEMO_OWNER_PASSWORD || 'demodemo';
+  const displayName = process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User';
+
+  let authResponse: any;
+  try {
+    authResponse = await requestJson(`${platformUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, displayName }),
+    }, session);
+  } catch (error: any) {
+    if (error?.status !== 409) {
+      throw error;
+    }
+
+    authResponse = await requestJson(`${platformUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }, session);
+  }
+
+  const meResponse = await requestJson(`${platformUrl}/api/auth/me`, {}, session);
+  session.user = meResponse?.data?.user || authResponse?.data?.user || null;
+
+  if (!session.cookies.get('wuselverse_session')) {
+    throw new Error('Demo owner session was created but no session cookie was issued.');
+  }
+
+  if (!session.csrfToken) {
+    throw new Error('Demo owner session was created but no CSRF token was issued.');
+  }
+
+  return session;
+}
+
 /**
  * Simple text processing agent for demos
  * Performs instant text operations: reverse, word count, case conversion
@@ -89,9 +222,13 @@ async function main() {
   console.log(`MCP Port: ${mcpPort}\n`);
   
   try {
-    console.log('[1/3] Registering agent with platform...');
+    console.log('[1/4] Signing in demo owner...');
+    const ownerSession = await ensureDemoOwnerSession(platformUrl);
+    console.log(`✓ Demo owner ready: ${ownerSession.user?.displayName || ownerSession.user?.email || 'demo user'}`);
 
-    const response = await fetch(`${platformUrl}/api/agents`, {
+    console.log('\n[2/4] Registering agent with platform...');
+
+    const registration: any = await requestJson(`${platformUrl}/api/agents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +239,7 @@ async function main() {
         offerDescription: '# 🚀 Text Processing Expert\n\nInstant text operations:\n- **Reverse** - Flip text backwards\n- **Word Count** - Count words in text\n- **Case Convert** - Upper/lowercase conversion\n\n⚡ Average execution: <1 second',
         userManual: '# Text Processor Agent\n\n## Usage\n\nInclude one of these capabilities in your task:\n- `text-reverse` - Reverse text\n- `word-count` - Count words\n- `case-convert` - Change case',
         capabilities: ['text-reverse', 'word-count', 'case-convert'],
-        owner: 'wuselverse-demo',
+        owner: ownerSession.user?.email || 'demo.user@example.com',
         pricing: {
           type: 'fixed',
           amount: 5,
@@ -110,25 +247,26 @@ async function main() {
         },
         mcpEndpoint: `http://localhost:${mcpPort}/mcp`
       })
-    });
+    }, ownerSession);
 
-    if (!response.ok) {
-      throw new Error(`Registration failed: ${response.status} ${response.statusText}`);
-    }
-
-    const registration: any = await response.json();
     const agentId = registration?.data?._id || registration?.data?.id || 'unknown';
     const apiKey = registration?.apiKey || '';
+    const status = registration?.data?.status || 'unknown';
 
     console.log(`✓ Registered successfully!`);
     console.log(`  Agent ID: ${agentId}`);
+    console.log(`  Status: ${status}`);
     console.log(`  API Key: ${apiKey ? `${apiKey.substring(0, 20)}...` : 'not returned'}`);
+
+    if (status !== 'active') {
+      console.warn(`⚠ Agent status is '${status}'. For local demos, ensure the backend was started with ALLOW_PRIVATE_MCP_ENDPOINTS=true.`);
+    }
 
     if (apiKey) {
       process.env.AGENT_API_KEY = apiKey;
     }
     
-    console.log('\n[2/3] Creating agent instance...');
+    console.log('\n[3/4] Creating agent instance...');
     
     // Create agent instance
     const agent = new TextProcessorAgent({
@@ -141,7 +279,7 @@ async function main() {
     
     console.log('✓ Agent instance created');
     
-    console.log('\n[3/3] Starting MCP server...');
+    console.log('\n[4/4] Starting MCP server...');
     
     // Start HTTP server for MCP
     const server = new AgentHttpServer(agent, {

@@ -5,6 +5,7 @@ import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { AuthService } from '../auth/auth.service';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
+import { SessionCsrfGuard } from '../auth/session-csrf.guard';
 
 const ReviewsCRUDBase = createCRUDController({
   resourceName: 'reviews',
@@ -26,10 +27,11 @@ export class ReviewsController extends ReviewsCRUDBase {
   }
 
   @Post()
+  @UseGuards(SessionCsrfGuard)
   @ApiOperation({ summary: 'Create a review', description: 'Creates a review. When review session auth is enabled, the reviewer identity is bound to the signed-in user.' })
   @ApiBody({ type: CreateReviewDto })
   async create(@Body() dto: CreateReviewDto, @Request() req: any) {
-    const requireUserSession = process.env.REQUIRE_USER_SESSION_FOR_REVIEW_POSTING === 'true';
+    const requireUserSession = (process.env.REQUIRE_USER_SESSION_FOR_REVIEW_POSTING ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
 
     if (requireUserSession && !sessionUser) {
