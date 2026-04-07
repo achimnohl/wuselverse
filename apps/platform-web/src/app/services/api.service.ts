@@ -78,6 +78,18 @@ export interface AuditLog {
   timestamp: string;
 }
 
+export interface SessionUser {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+}
+
+export interface AuthSessionData {
+  user: SessionUser;
+  expiresAt: string;
+}
+
 interface APIResponse<T> {
   success: boolean;
   data: T;
@@ -96,68 +108,106 @@ interface PaginatedResponse<T> {
   providedIn: 'root'
 })
 export class ApiService {
-  private baseUrl = 'http://localhost:3000/api';
+  private readonly baseUrl = this.resolveBaseUrl();
 
   constructor(private http: HttpClient) {}
 
+  private resolveBaseUrl(): string {
+    const globalBaseUrl = (globalThis as any).__WUSELVERSE_API_URL__;
+    if (typeof globalBaseUrl === 'string' && globalBaseUrl.trim()) {
+      return globalBaseUrl.replace(/\/$/, '');
+    }
+
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      return isLocalhost ? 'http://localhost:3000/api' : `${window.location.origin}/api`;
+    }
+
+    return 'http://localhost:3000/api';
+  }
+
+  private withSession(options: Record<string, unknown> = {}) {
+    return { withCredentials: true, ...options };
+  }
+
+  getCurrentUser(): Observable<SessionUser> {
+    return this.http.get<APIResponse<{ user: SessionUser }>>(`${this.baseUrl}/auth/me`, this.withSession())
+      .pipe(map(response => response.data.user));
+  }
+
+  registerUser(payload: { email: string; password: string; displayName: string }): Observable<AuthSessionData> {
+    return this.http.post<APIResponse<AuthSessionData>>(`${this.baseUrl}/auth/register`, payload, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  loginUser(payload: { email: string; password: string }): Observable<AuthSessionData> {
+    return this.http.post<APIResponse<AuthSessionData>>(`${this.baseUrl}/auth/login`, payload, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  logoutUser(): Observable<void> {
+    return this.http.post<APIResponse<null>>(`${this.baseUrl}/auth/logout`, {}, this.withSession())
+      .pipe(map(() => undefined));
+  }
+
   // Agents
   getAgents(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Agent>> {
-    return this.http.get<APIResponse<PaginatedResponse<Agent>>>(`${this.baseUrl}/agents?page=${page}&limit=${limit}`)
+    return this.http.get<APIResponse<PaginatedResponse<Agent>>>(`${this.baseUrl}/agents?page=${page}&limit=${limit}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getAgent(id: string): Observable<Agent> {
-    return this.http.get<APIResponse<Agent>>(`${this.baseUrl}/agents/${id}`)
+    return this.http.get<APIResponse<Agent>>(`${this.baseUrl}/agents/${id}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   // Tasks
   getTasks(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Task>> {
-    return this.http.get<APIResponse<PaginatedResponse<Task>>>(`${this.baseUrl}/tasks?page=${page}&limit=${limit}`)
+    return this.http.get<APIResponse<PaginatedResponse<Task>>>(`${this.baseUrl}/tasks?page=${page}&limit=${limit}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getTask(id: string): Observable<Task> {
-    return this.http.get<APIResponse<Task>>(`${this.baseUrl}/tasks/${id}`)
+    return this.http.get<APIResponse<Task>>(`${this.baseUrl}/tasks/${id}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   // Reviews
   getReviews(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Review>> {
-    return this.http.get<APIResponse<PaginatedResponse<Review>>>(`${this.baseUrl}/reviews?page=${page}&limit=${limit}`)
+    return this.http.get<APIResponse<PaginatedResponse<Review>>>(`${this.baseUrl}/reviews?page=${page}&limit=${limit}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getAgentReviews(agentId: string): Observable<Review[]> {
-    return this.http.get<APIResponse<Review[]>>(`${this.baseUrl}/reviews/agent/${agentId}`)
+    return this.http.get<APIResponse<Review[]>>(`${this.baseUrl}/reviews/agent/${agentId}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getAgentStats(agentId: string): Observable<any> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/reviews/agent/${agentId}/stats`)
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/reviews/agent/${agentId}/stats`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   // Transactions
   getTransactions(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Transaction>> {
-    return this.http.get<APIResponse<PaginatedResponse<Transaction>>>(`${this.baseUrl}/transactions?page=${page}&limit=${limit}`)
+    return this.http.get<APIResponse<PaginatedResponse<Transaction>>>(`${this.baseUrl}/transactions?page=${page}&limit=${limit}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getTaskTransactions(taskId: string): Observable<Transaction[]> {
-    return this.http.get<APIResponse<Transaction[]>>(`${this.baseUrl}/transactions/task/${taskId}`)
+    return this.http.get<APIResponse<Transaction[]>>(`${this.baseUrl}/transactions/task/${taskId}`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   getAgentEarnings(agentId: string): Observable<any> {
-    return this.http.get<APIResponse<any>>(`${this.baseUrl}/transactions/agent/${agentId}/earnings`)
+    return this.http.get<APIResponse<any>>(`${this.baseUrl}/transactions/agent/${agentId}/earnings`, this.withSession())
       .pipe(map(response => response.data));
   }
 
   // Audit Logs
   getAgentAuditLog(agentId: string, apiKey: string): Observable<AuditLog[]> {
-    return this.http.get<AuditLog[]>(`${this.baseUrl}/agents/${agentId}/audit`, {
+    return this.http.get<AuditLog[]>(`${this.baseUrl}/agents/${agentId}/audit`, this.withSession({
       headers: { 'Authorization': `Bearer ${apiKey}` }
-    });
+    }));
   }
 }

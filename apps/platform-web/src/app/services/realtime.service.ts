@@ -16,10 +16,25 @@ export class RealtimeService implements OnDestroy {
   private readonly socket: Socket;
 
   constructor() {
-    this.socket = io('http://localhost:3000/updates', {
+    this.socket = io(this.resolveSocketUrl(), {
       autoConnect: true,
       transports: ['websocket'],
+      withCredentials: true,
     });
+  }
+
+  private resolveSocketUrl(): string {
+    const globalBaseUrl = (globalThis as any).__WUSELVERSE_API_URL__;
+    if (typeof globalBaseUrl === 'string' && globalBaseUrl.trim()) {
+      return globalBaseUrl.replace(/\/api\/?$/, '/updates');
+    }
+
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+      return isLocalhost ? 'http://localhost:3000/updates' : `${window.location.origin}/updates`;
+    }
+
+    return 'http://localhost:3000/updates';
   }
 
   watch(events: PlatformUpdateEvent[]): Observable<void> {

@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Subscription, debounceTime, forkJoin } from 'rxjs';
-import { ApiService, Agent, Review, Task } from './services/api.service';
+import { ApiService, Agent, Review, SessionUser, Task } from './services/api.service';
 import { RealtimeService } from './services/realtime.service';
 
 type ActivityKind =
@@ -43,6 +43,16 @@ export class AppComponent implements OnInit, OnDestroy {
   totalBids = 0;
   completedTasks = 0;
   lastUpdated: string | null = null;
+  currentUser: SessionUser | null = null;
+  authMode: 'login' | 'register' = 'login';
+  authBusy = false;
+  authError: string | null = null;
+  authMessage = 'Sign in to preview the new session-based UI flow for protected marketplace actions.';
+  authForm = {
+    email: 'demo.user@example.com',
+    password: 'correcthorsebattery',
+    displayName: 'Demo User',
+  };
 
   private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -60,6 +70,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
+    this.loadCurrentUser();
     this.refreshActivity();
     this.updatesSub = this.realtime
       .watch(['agents.changed', 'tasks.changed', 'reviews.changed', 'transactions.changed'])
@@ -87,6 +98,103 @@ export class AppComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours}h ago`;
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
+  }
+
+  toggleAuthMode(): void {
+    this.authMode = this.authMode === 'login' ? 'register' : 'login';
+    this.authError = null;
+  }
+
+  useDemoUser(): void {
+    this.authForm = {
+      email: 'demo.user@example.com',
+      password: 'correcthorsebattery',
+      displayName: 'Demo User',
+    };
+    this.authError = null;
+    this.authMessage = 'Demo credentials loaded. Create the account once, then sign in on later visits.';
+  }
+
+  setAuthField(field: 'email' | 'password' | 'displayName', value: string): void {
+    this.authForm = {
+      ...this.authForm,
+      [field]: value,
+    };
+  }
+
+  submitAuth(): void {
+    if (!this.authForm.email || !this.authForm.password) {
+      this.authError = 'Enter an email and password to continue.';
+      return;
+    }
+
+    if (this.authMode === 'register' && !this.authForm.displayName.trim()) {
+      this.authError = 'Enter a display name to create the account.';
+      return;
+    }
+
+    this.authBusy = true;
+    this.authError = null;
+
+    const request$ = this.authMode === 'register'
+      ? this.api.registerUser({
+          email: this.authForm.email,
+          password: this.authForm.password,
+          displayName: this.authForm.displayName,
+        })
+      : this.api.loginUser({
+          email: this.authForm.email,
+          password: this.authForm.password,
+        });
+
+    request$.subscribe({
+      next: (session) => {
+        this.currentUser = session.user;
+        this.authBusy = false;
+        this.authMessage = this.authMode === 'register'
+          ? 'Account created and signed in successfully.'
+          : 'Signed in successfully.';
+      },
+      error: (error: any) => {
+        this.authBusy = false;
+        this.authError = error?.error?.message || 'Unable to complete the authentication request.';
+
+        if (this.authMode === 'register' && error?.status === 409) {
+          this.authMode = 'login';
+          this.authError = 'That account already exists. Switch to sign in with the same credentials.';
+        }
+      },
+    });
+  }
+
+  signOut(): void {
+    this.authBusy = true;
+    this.authError = null;
+
+    this.api.logoutUser().subscribe({
+      next: () => {
+        this.currentUser = null;
+        this.authBusy = false;
+        this.authMessage = 'Signed out. Sign in again to use protected write actions.';
+      },
+      error: (error: any) => {
+        this.authBusy = false;
+        this.authError = error?.error?.message || 'Unable to sign out right now.';
+      },
+    });
+  }
+
+  private loadCurrentUser(): void {
+    this.api.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+        this.authError = null;
+        this.authMessage = `Signed in as ${user.displayName}.`;
+      },
+      error: () => {
+        this.currentUser = null;
+      },
+    });
   }
 
   private refreshActivity(): void {
