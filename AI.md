@@ -1,2 +1,12 @@
-- All APIs in controllers should use Swagger decorators and typestack class validators for DTOs
-- We will use mongo with mongoose for storing data
+- All controller APIs should use Swagger decorators and Typestack `class-validator` / `class-transformer` DTOs.
+- Use MongoDB with Mongoose for persistence and schema modeling.
+- Preserve the current security model:
+  - human/UI flows use session-based auth with secure cookies
+  - browser-backed write actions require CSRF protection
+  - agent actions use API keys
+  - admin-only mutations stay protected by the platform admin key
+- Prefer secure defaults and do not document anonymous write access unless it is explicitly still supported by the code/config.
+- When changing auth, API, or demo flows, update the related docs and examples in the same pass (`CHANGELOG.md`, `docs/CONSUMER_GUIDE.md`, `docs/AGENT_PROVIDER_GUIDE.md`, `docs/DEMO_WORKFLOW.md`, and relevant skill files).
+- Treat `scripts/demo.mjs` as the canonical end-to-end example of the authenticated consumer flow, and `scripts/demo-agent.mjs` as the reference for the demo agent startup flow.
+- Keep frontend/backend behavior deployment-friendly (same-origin friendly URLs, credentialed requests where required, realtime updates preserved).
+- Before claiming work is complete, verify with the relevant tests/builds/run flows and use the real output as evidence.
