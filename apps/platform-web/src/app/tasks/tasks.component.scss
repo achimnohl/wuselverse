@@ -1,14 +1,20 @@
 .tasks {
   max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 h2 {
-  margin-bottom: 0.5rem;
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  color: #0f172a;
 }
 
 .subtitle {
-  color: #666;
-  margin-bottom: 1rem;
+  margin: -0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
 }
 
 .quick-actions-card {
@@ -16,43 +22,70 @@ h2 {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
-  background: linear-gradient(135deg, #eff6ff, #f5f3ff);
-  border: 1px solid #c7d2fe;
-  padding: 1rem 1.25rem;
-  border-radius: 10px;
-  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #eff6ff, #f8fafc 55%, #f5f3ff);
+  border: 1px solid #dbeafe;
+  padding: 1.1rem 1.25rem;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.08);
+}
+
+.quick-actions-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.section-kicker {
+  display: inline-flex;
+  width: fit-content;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
 }
 
 .quick-actions-card h3 {
-  margin: 0 0 0.35rem;
+  margin: 0;
+  color: #0f172a;
 }
 
 .quick-actions-card p {
   margin: 0;
-  color: #4b5563;
+  color: #475569;
+  line-height: 1.5;
+  max-width: 60ch;
 }
 
 .action-btn {
-  padding: 0.65rem 1rem;
-  background: #2563eb;
+  padding: 0.7rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.22);
 }
 
 .action-btn:disabled {
   opacity: 0.7;
-  cursor: wait;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .flow-message {
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .success-message {
@@ -68,180 +101,194 @@ h2 {
 }
 
 .loading,
-.empty-state {
+.empty-state,
+.pagination,
+.task-card {
   background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.loading,
+.empty-state {
+  padding: 2rem 1.25rem;
   text-align: center;
-  color: #666;
+  color: #64748b;
+}
+
+.empty-state p {
+  margin: 0 0 0.75rem;
 }
 
 .empty-state code {
-  display: block;
-  margin-top: 1rem;
-  padding: 0.5rem;
-  background: #f5f5f5;
-  border-radius: 4px;
+  display: inline-block;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-family: monospace;
+  color: #334155;
 }
 
 .filter-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
   flex-wrap: wrap;
 }
 
 .tab-button {
-  padding: 0.5rem 1rem;
-  border: 2px solid #e0e0e0;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid #dbeafe;
   background: white;
-  border-radius: 6px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s;
+  font-weight: 600;
+  color: #334155;
+  transition: all 0.2s ease;
 }
 
 .tab-button:hover {
-  background: #f5f5f5;
+  background: #f8fafc;
+  border-color: #bfdbfe;
 }
 
 .tab-button.active {
-  background: #2196f3;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
   color: white;
-  border-color: #2196f3;
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
 }
 
 .tasks-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .task-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .task-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.09);
 }
 
 .pagination {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  margin-top: 2rem;
-  padding: 1rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-top: 0.5rem;
+  padding: 0.9rem 1rem;
 }
 
 .page-btn {
-  padding: 0.5rem 1rem;
-  background: #2196f3;
+  padding: 0.55rem 1rem;
+  background: #2563eb;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
+  font-weight: 600;
+  transition: background 0.2s ease;
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #1976d2;
+  background: #1d4ed8;
 }
 
 .page-btn:disabled {
-  background: #ccc;
+  background: #cbd5e1;
+  color: #475569;
   cursor: not-allowed;
 }
 
 .page-info {
-  color: #666;
+  color: #64748b;
   font-size: 0.875rem;
 }
 
 .task-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
 
 .task-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.1rem;
   flex: 1;
+  color: #0f172a;
 }
 
 .task-status {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   white-space: nowrap;
-  margin-left: 1rem;
 }
 
 .status-open {
-  background: #fff3e0;
-  color: #ef6c00;
+  background: #fff7ed;
+  color: #ea580c;
 }
 
 .status-bidding {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .status-assigned {
-  background: #f3e5f5;
-  color: #6a1b9a;
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
 .status-in_progress {
-  background: #e1f5fe;
-  color: #0277bd;
+  background: #ecfeff;
+  color: #0f766e;
 }
 
 .status-completed {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #ecfdf5;
+  color: #15803d;
 }
 
 .status-failed {
-  background: #ffebee;
-  color: #c62828;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .task-description {
-  color: #666;
-  font-size: 0.875rem;
+  color: #475569;
+  font-size: 0.92rem;
   margin-bottom: 1rem;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .task-details {
-  background: #f9f9f9;
+  background: #f8fafc;
   padding: 1rem;
-  border-radius: 6px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
   margin-bottom: 1rem;
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.9rem;
 }
 
 .detail-row:last-child {
@@ -249,21 +296,23 @@ h2 {
 }
 
 .label {
-  color: #666;
+  color: #64748b;
   font-weight: 500;
 }
 
 .value {
-  color: #1a1a1a;
+  color: #0f172a;
   font-weight: 600;
+  text-align: right;
 }
 
 .requirements h4,
 .bids-section h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.875rem;
-  color: #666;
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: #64748b;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .requirements {
@@ -277,12 +326,13 @@ h2 {
 }
 
 .capability-tag {
-  background: #e3f2fd;
-  color: #1565c0;
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
+  border: 1px solid #bfdbfe;
 }
 
 .bids-section {
@@ -299,49 +349,75 @@ h2 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 0.75rem;
-  background: #f9f9f9;
-  border-radius: 6px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   font-size: 0.875rem;
 }
 
 .bid-agent {
   flex: 1;
-  font-weight: 500;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 .bid-amount {
-  font-weight: 600;
-  margin-right: 1rem;
+  font-weight: 700;
+  color: #1d4ed8;
 }
 
 .bid-status {
-  padding: 0.25rem 0.5rem;
-  border-radius: 10px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 .bid-pending {
-  background: #fff9c4;
-  color: #f57f17;
+  background: #fef9c3;
+  color: #a16207;
 }
 
 .bid-accepted {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .bid-rejected {
-  background: #ffebee;
-  color: #c62828;
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .task-footer {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
-  font-size: 0.75rem;
-  color: #999;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+@media (max-width: 720px) {
+  .quick-actions-card,
+  .pagination,
+  .detail-row,
+  .bid-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .value {
+    text-align: left;
+  }
 }

@@ -1,17 +1,18 @@
 <div class="tasks">
   <h2>Task Marketplace</h2>
-  <p class="subtitle">Post tasks and manage agent work</p>
+  <p class="subtitle">Create requests, review budgets, and track active delivery work.</p>
 
   <div class="quick-actions-card">
-    <div>
-      <h3>Protected write demo</h3>
+    <div class="quick-actions-copy">
+      <span class="section-kicker">Quick action</span>
+      <h3>Create a sample task</h3>
       <p>
-        Post a signed-in demo task through the new cookie + CSRF protected browser flow.
+        Post a signed-in task through the secure browser workflow.
         <span *ngIf="currentUser">Signed in as <strong>{{ currentUser.displayName }}</strong>.</span>
       </p>
     </div>
-    <button class="action-btn" (click)="postDemoTask()" [disabled]="postingDemoTask">
-      {{ postingDemoTask ? 'Posting…' : 'Post demo task' }}
+    <button class="action-btn" (click)="postDemoTask()" [disabled]="postingDemoTask || !currentUser">
+      {{ postingDemoTask ? 'Creating…' : (currentUser ? 'Create sample task' : 'Sign in to create') }}
     </button>
   </div>
 
@@ -83,7 +84,7 @@
   </div>
 
   <div *ngIf="!loading && tasks.length === 0" class="empty-state">
-    <p>No tasks posted yet. Seed the database to see tasks!</p>
+    <p>No tasks have been posted yet. New marketplace requests will appear here.</p>
     <code>npm run seed</code>
   </div>
 

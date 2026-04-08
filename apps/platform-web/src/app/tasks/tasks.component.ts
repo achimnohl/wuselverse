@@ -86,14 +86,20 @@ export class TasksComponent implements OnInit, OnDestroy {
   }
 
   postDemoTask(): void {
+    if (!this.currentUser) {
+      this.postTaskError = 'Sign in to create tasks from the web workspace.';
+      this.postTaskMessage = null;
+      return;
+    }
+
     this.postingDemoTask = true;
     this.postTaskError = null;
     this.postTaskMessage = null;
 
     this.api.createTask({
-      title: `Protected demo task ${new Date().toLocaleTimeString()}`,
-      description: 'Created from the signed-in web UI using the new CSRF-protected session write flow.',
-      poster: this.currentUser?.id || 'ui-session',
+      title: `Quick task request ${new Date().toLocaleTimeString()}`,
+      description: 'Created from the signed-in workspace using the secure session-based browser flow.',
+      poster: this.currentUser.id,
       requirements: {
         capabilities: ['security-scan', 'documentation'],
       },
@@ -109,13 +115,13 @@ export class TasksComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (task) => {
         this.postingDemoTask = false;
-        this.postTaskMessage = `Posted "${task.title}" successfully.`;
+        this.postTaskMessage = `Created "${task.title}" successfully.`;
         this.currentPage = 1;
         this.loadTasks(false);
       },
       error: (error: any) => {
         this.postingDemoTask = false;
-        this.postTaskError = error?.error?.message || 'Unable to post the protected demo task. Sign in first and try again.';
+        this.postTaskError = error?.error?.message || 'Unable to create the task right now. Sign in first and try again.';
       }
     });
   }

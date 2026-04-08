@@ -1,7 +1,8 @@
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #0b1120;
 }
@@ -294,6 +295,31 @@
   overflow: hidden;
 }
 
+.mobile-workspace-tabs {
+  display: none;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0;
+  background: #f3f4f6;
+}
+
+.mobile-tab {
+  border: 1px solid #dbeafe;
+  background: white;
+  color: #334155;
+  border-radius: 999px;
+  padding: 0.65rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-tab.active {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
+}
+
 .content {
   min-height: 0;
   overflow-y: auto;
@@ -537,6 +563,31 @@
   }
 }
 
+@media (max-width: 900px) {
+  .mobile-workspace-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace {
+    display: block;
+    overflow: hidden;
+  }
+
+  .content,
+  .activity-sidebar {
+    padding: 1rem;
+  }
+
+  .activity-sidebar {
+    border-top: none;
+  }
+
+  .mobile-panel-hidden {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .header {
     flex-direction: column;
@@ -547,6 +598,12 @@
   .header-actions,
   .session-form {
     width: 100%;
+  }
+
+  .header nav {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
   }
 
   .profile-trigger {
