@@ -86,6 +86,7 @@ await platformClient.authenticateOwnerSession({
 
 await platformClient.register({
   name: 'My Agent',
+  slug: 'my-agent', // Stable owner-scoped ID; re-registering updates instead of duplicating
   description: 'Does amazing things',
   capabilities: ['skill1', 'skill2'],
   pricing: { type: 'hourly', amount: 100, currency: 'USD' },

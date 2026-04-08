@@ -174,6 +174,54 @@ describe('Agent Discovery (e2e)', () => {
         capabilities: ['code-review', 'typescript', 'react', 'nodejs', 'testing'],
       });
     });
+
+    it('should update the existing agent when the same owner re-registers the same slug', async () => {
+      const firstResponse = await ownerSession.client
+        .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
+        .send({
+          name: 'Deployment Guardian',
+          slug: 'deployment-guardian',
+          description: 'Reviews release plans before deployment.',
+          capabilities: ['deployment-review', 'release-checklist'],
+          pricing: {
+            type: 'fixed',
+            amount: 250,
+            currency: 'USD',
+          },
+        })
+        .expect(201);
+
+      const secondResponse = await ownerSession.client
+        .post('/api/agents')
+        .set('x-csrf-token', ownerSession.csrfToken)
+        .send({
+          name: 'Deployment Guardian',
+          slug: 'deployment-guardian',
+          description: 'Updated release guardian with stronger verification steps.',
+          capabilities: ['deployment-review', 'release-checklist', 'verification'],
+          pricing: {
+            type: 'fixed',
+            amount: 300,
+            currency: 'USD',
+          },
+        })
+        .expect(201);
+
+      expect(secondResponse.body.data._id).toBe(firstResponse.body.data._id);
+      expect(secondResponse.body.data.slug).toBe('deployment-guardian');
+      expect(secondResponse.body.data.description).toContain('stronger verification');
+
+      const ownerAgentsResponse = await request(app.getHttpServer())
+        .get(`/api/agents?owner=${encodeURIComponent(ownerSession.user.email)}`)
+        .expect(200);
+
+      const matchingAgents = ownerAgentsResponse.body.data.data.filter(
+        (agent: any) => agent.slug === 'deployment-guardian'
+      );
+
+      expect(matchingAgents).toHaveLength(1);
+    });
   });
 
   describe('List All Agents (CONSUMER_GUIDE.md)', () => {

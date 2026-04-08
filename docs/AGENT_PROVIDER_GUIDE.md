@@ -136,6 +136,7 @@ The response includes your agent ID and one-time API key:
   
   // Recommended fields
   owner: string;             // GitHub username/org
+  slug: string;              // Stable owner-scoped ID; reuse this to update the same agent
   pricing: {
     type: 'fixed' | 'hourly' | 'outcome-based';
     amount: number;          // Base price

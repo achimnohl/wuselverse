@@ -32,49 +32,75 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
    * 4. Update status to approved/rejected/needs_review; emit audit log
    */
   override async create(createDto: Partial<AgentDocument>): Promise<any> {
-    this.logger.debug('Creating new agent', {
+    const owner = createDto.owner || 'unknown';
+    const slug = this.normalizeSlug((createDto as any).slug || (createDto as any).agentSlug, createDto.name || 'agent');
+
+    this.logger.debug('Registering agent', {
       name: createDto.name,
-      owner: createDto.owner,
+      owner,
+      slug,
       capabilities: (createDto.capabilities as any[])?.length || 0,
       mcpEndpoint: createDto.mcpEndpoint || 'none'
     });
 
-    // Set defaults for optional fields
-    const dtoWithDefaults = {
-      ...createDto,
-      offerDescription: createDto.offerDescription || createDto.description || 'No description provided',
-      userManual: createDto.userManual || '# User Manual\n\nDocumentation coming soon.',
-      owner: createDto.owner || 'unknown',
-      pricing: createDto.pricing || {
-        type: 'fixed',
-        amount: 0,
-        currency: 'USD',
-      },
-      reputation: createDto.reputation || {
-        score: 0,
-        totalJobs: 0,
-        successfulJobs: 0,
-        failedJobs: 0,
-        averageResponseTime: 0,
-        reviews: [],
-      },
-      successCount: createDto.successCount || 0,
-      metadata: createDto.metadata || {},
-      // Convert simple capabilities array to detailed format if needed
-      capabilities: (createDto as any).detailedCapabilities || 
-        (Array.isArray(createDto.capabilities) && typeof createDto.capabilities[0] === 'string'
-          ? createDto.capabilities.map((skill: any) => ({
-              skill,
-              description: `${skill} capability`,
-              inputs: [],
-              outputs: [],
-            }))
-          : createDto.capabilities),
-      // Force pending status regardless of what the caller sends
-      status: AgentStatus.PENDING,
-    };
-    
-    const result = await super.create(dtoWithDefaults);
+    const existing = await this.agentModel.findOne({ owner, slug }).exec();
+    const dtoWithDefaults = this.buildRegistrationPayload(createDto, slug, existing);
+
+    if (existing) {
+      const agentId = existing._id.toString();
+      this.logger.log('Existing agent matched by owner+slug, updating in place', { agentId, owner, slug });
+
+      const updated = await this.agentModel
+        .findByIdAndUpdate(existing._id, dtoWithDefaults, { new: true, runValidators: true })
+        .exec();
+
+      if (!updated) {
+        throw new NotFoundException(`Agent ${agentId} not found during upsert`);
+      }
+
+      const rawKey = await this.issueApiKey(agentId, updated.owner, true);
+
+      await this.emitAudit({
+        agentId,
+        action: 'updated',
+        changedFields: ['name', 'slug', 'description', 'offerDescription', 'userManual', 'pricing', 'capabilities', 'status', 'mcpEndpoint', 'a2aEndpoint', 'manifestUrl', 'metadata'],
+        previousValues: {
+          name: existing.name,
+          slug: existing.slug,
+          description: existing.description,
+          pricing: existing.pricing,
+          capabilities: existing.capabilities,
+          status: existing.status,
+        },
+        newValues: {
+          name: updated.name,
+          slug: updated.slug,
+          description: updated.description,
+          pricing: updated.pricing,
+          capabilities: updated.capabilities,
+          status: updated.status,
+        },
+        actorId: updated.owner,
+        sessionId: null,
+      });
+
+      this.platformEvents.notifyAgentsChanged();
+
+      this.runComplianceCheck(agentId, updated).catch((err) => {
+        this.logger.error(`Compliance check error for updated agent ${agentId}`, err);
+      });
+
+      return {
+        success: true,
+        data: updated,
+        message: 'Agent updated successfully',
+        apiKey: rawKey,
+        complianceStatus: 'pending',
+        wasUpdated: true,
+      };
+    }
+
+    const result = await super.create(dtoWithDefaults as any);
     if (!result.success || !result.data) {
       this.logger.error('Failed to create agent', result.error);
       return result;
@@ -83,21 +109,18 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     const agent = result.data;
     const agentId = agent._id.toString();
 
-    this.logger.log('Agent created, generating API key', { agentId });
+    this.logger.log('Agent created, generating API key', { agentId, slug });
 
-    // Issue API key immediately so the owner can integrate while compliance runs
-    const rawKey = `wusel_${randomUUID().replace(/-/g, '')}`;
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
-    await new this.apiKeyModel({ agentId, keyHash, owner: agent.owner }).save();
+    const rawKey = await this.issueApiKey(agentId, agent.owner);
 
     this.logger.debug('API key generated', { agentId, keyPreview: rawKey.substring(0, 20) + '...' });
 
     await this.emitAudit({
       agentId,
       action: 'created',
-      changedFields: ['name', 'owner', 'status', 'pricing', 'capabilities'],
+      changedFields: ['name', 'slug', 'owner', 'status', 'pricing', 'capabilities'],
       previousValues: {},
-      newValues: { name: agent.name, owner: agent.owner, status: AgentStatus.PENDING },
+      newValues: { name: agent.name, slug: agent.slug, owner: agent.owner, status: AgentStatus.PENDING },
       actorId: agent.owner,
       sessionId: null,
     });
@@ -106,14 +129,13 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
 
     this.logger.log('Starting async compliance check', { agentId });
 
-    // Run compliance asynchronously so the registration response is instant
     this.runComplianceCheck(agentId, agent).catch((err) => {
       this.logger.error(`Compliance check error for agent ${agentId}`, err);
     });
 
-    this.logger.log('Agent registration complete', { agentId, hasApiKey: true });
+    this.logger.log('Agent registration complete', { agentId, hasApiKey: true, slug });
 
-    return { ...result, apiKey: rawKey, complianceStatus: 'pending' };
+    return { ...result, apiKey: rawKey, complianceStatus: 'pending', wasUpdated: false };
   }
 
   /**
@@ -130,6 +152,23 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     if (!existing) throw new NotFoundException(`Agent ${id} not found`);
     if (existing.owner !== owner)
       throw new ForbiddenException('You do not own this agent');
+
+    if ('slug' in updateDto || 'agentSlug' in updateDto) {
+      const normalizedSlug = this.normalizeSlug(
+        String((updateDto as any).slug || (updateDto as any).agentSlug || existing.slug || existing.name),
+        existing.name
+      );
+      const conflictingAgent = await this.agentModel
+        .findOne({ owner, slug: normalizedSlug, _id: { $ne: existing._id } })
+        .exec();
+
+      if (conflictingAgent) {
+        throw new ConflictException(`You already have an agent registered with slug "${normalizedSlug}"`);
+      }
+
+      (updateDto as any).slug = normalizedSlug;
+      delete (updateDto as any).agentSlug;
+    }
 
     const changedFields = Object.keys(updateDto);
     const previousValues: Record<string, unknown> = {};
@@ -338,6 +377,89 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     }
 
     return result;
+  }
+
+  private buildRegistrationPayload(
+    createDto: Partial<AgentDocument>,
+    slug: string,
+    existing?: AgentDocument | null
+  ): Partial<AgentDocument> {
+    const incomingMetadata = ((createDto.metadata as Record<string, unknown> | undefined) ?? {});
+    const existingMetadata = ((existing?.metadata as Record<string, unknown> | undefined) ?? {});
+    const providedCapabilities = (createDto as any).detailedCapabilities ||
+      (Array.isArray(createDto.capabilities) && typeof createDto.capabilities[0] === 'string'
+        ? createDto.capabilities.map((skill: any) => ({
+            skill,
+            description: `${skill} capability`,
+            inputs: [],
+            outputs: [],
+          }))
+        : createDto.capabilities);
+
+    return {
+      ...createDto,
+      slug,
+      name: createDto.name || existing?.name || 'Unnamed Agent',
+      description: createDto.description || existing?.description || 'No description provided',
+      offerDescription:
+        createDto.offerDescription ||
+        existing?.offerDescription ||
+        createDto.description ||
+        existing?.description ||
+        'No description provided',
+      userManual:
+        createDto.userManual ||
+        existing?.userManual ||
+        '# User Manual\n\nDocumentation coming soon.',
+      owner: createDto.owner || existing?.owner || 'unknown',
+      pricing: createDto.pricing || existing?.pricing || {
+        type: 'fixed',
+        amount: 0,
+        currency: 'USD',
+      },
+      reputation: createDto.reputation || existing?.reputation || {
+        score: 0,
+        totalJobs: 0,
+        successfulJobs: 0,
+        failedJobs: 0,
+        averageResponseTime: 0,
+        reviews: [],
+      },
+      rating: createDto.rating ?? existing?.rating ?? null,
+      successCount: createDto.successCount ?? existing?.successCount ?? 0,
+      metadata: {
+        ...existingMetadata,
+        ...incomingMetadata,
+      },
+      capabilities: providedCapabilities || existing?.capabilities || [],
+      mcpEndpoint: createDto.mcpEndpoint ?? existing?.mcpEndpoint,
+      githubAppId: createDto.githubAppId ?? existing?.githubAppId,
+      a2aEndpoint: createDto.a2aEndpoint ?? existing?.a2aEndpoint,
+      manifestUrl: createDto.manifestUrl ?? existing?.manifestUrl,
+      status: AgentStatus.PENDING,
+    };
+  }
+
+  private normalizeSlug(candidate: string | undefined, fallbackName?: string): string {
+    const rawValue = String(candidate || fallbackName || 'agent').trim().toLowerCase();
+    const normalized = rawValue
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+
+    return normalized || `agent-${randomUUID().slice(0, 8)}`;
+  }
+
+  private async issueApiKey(agentId: string, owner: string, revokeExisting: boolean = false): Promise<string> {
+    if (revokeExisting) {
+      await this.apiKeyModel.updateMany({ agentId, revokedAt: null }, { revokedAt: new Date() }).exec();
+    }
+
+    const rawKey = `wusel_${randomUUID().replace(/-/g, '')}`;
+    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    await new this.apiKeyModel({ agentId, keyHash, owner }).save();
+
+    return rawKey;
   }
 
   private async runComplianceCheck(agentId: string, agent: AgentDocument): Promise<void> {

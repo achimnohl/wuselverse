@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription, debounceTime, forkJoin } from 'rxjs';
-import { ApiService, Agent, AuditLog, Review } from '../services/api.service';
+import { ApiService, Agent, AgentRegistrationResult, AuditLog, Review, SessionUser } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
 @Component({
@@ -18,8 +18,26 @@ export class AgentsComponent implements OnInit, OnDestroy {
   auditLogs: AuditLog[] = [];
   loadingAudit = false;
   auditError: string | null = null;
+  currentUser: SessionUser | null = null;
+  showRegistrationForm = false;
+  registeringAgent = false;
+  registrationError: string | null = null;
+  registrationMessage: string | null = null;
+  latestIssuedApiKey: string | null = null;
   // For demo purposes - in production, this would come from auth service
   userApiKey: string | null = null;
+  registrationForm = {
+    name: '',
+    slug: '',
+    description: '',
+    capabilitiesText: 'code-review, testing',
+    pricingType: 'fixed',
+    pricingAmount: 50,
+    currency: 'USD',
+    mcpEndpoint: '',
+  };
+
+  private slugEditedManually = false;
 
   // Pagination
   currentPage = 1;
@@ -34,6 +52,14 @@ export class AgentsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Check for API key in localStorage (demo purposes)
     this.userApiKey = localStorage.getItem('wuselverse_api_key');
+    this.api.getCurrentUser().subscribe({
+      next: (user) => {
+        this.currentUser = user;
+      },
+      error: () => {
+        this.currentUser = null;
+      },
+    });
     this.loadAgents(true);
     this.updatesSub = this.realtime
       .watch(['agents.changed'])
@@ -75,6 +101,111 @@ export class AgentsComponent implements OnInit, OnDestroy {
       this.loadAgents();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  }
+
+  setRegistrationField(
+    field: 'name' | 'slug' | 'description' | 'capabilitiesText' | 'pricingType' | 'pricingAmount' | 'currency' | 'mcpEndpoint',
+    value: string
+  ): void {
+    if (field === 'name') {
+      const nextSlug = !this.slugEditedManually || !this.registrationForm.slug.trim()
+        ? this.slugify(value)
+        : this.registrationForm.slug;
+      this.registrationForm = { ...this.registrationForm, name: value, slug: nextSlug };
+      return;
+    }
+
+    if (field === 'slug') {
+      this.slugEditedManually = value.trim().length > 0;
+      this.registrationForm = { ...this.registrationForm, slug: value };
+      return;
+    }
+
+    this.registrationForm = {
+      ...this.registrationForm,
+      [field]: field === 'pricingAmount' ? Number(value) || 0 : value,
+    };
+  }
+
+  toggleRegistrationForm(): void {
+    this.showRegistrationForm = !this.showRegistrationForm;
+  }
+
+  submitAgentRegistration(): void {
+    if (!this.currentUser) {
+      this.registrationError = 'Sign in first to register or update an agent from the browser.';
+      this.registrationMessage = null;
+      return;
+    }
+
+    const name = this.registrationForm.name.trim();
+    const description = this.registrationForm.description.trim();
+    const capabilities = this.parseCapabilities(this.registrationForm.capabilitiesText);
+
+    if (!name || !description) {
+      this.registrationError = 'Enter an agent name and description.';
+      this.registrationMessage = null;
+      return;
+    }
+
+    if (capabilities.length === 0) {
+      this.registrationError = 'Add at least one capability.';
+      this.registrationMessage = null;
+      return;
+    }
+
+    this.registeringAgent = true;
+    this.registrationError = null;
+    this.registrationMessage = null;
+    this.latestIssuedApiKey = null;
+
+    const slug = this.registrationForm.slug.trim();
+
+    this.api.registerAgent({
+      name,
+      slug: slug || undefined,
+      description,
+      owner: this.currentUser.email,
+      capabilities,
+      pricing: {
+        type: this.registrationForm.pricingType,
+        amount: this.registrationForm.pricingAmount || 0,
+        currency: this.registrationForm.currency.trim() || 'USD',
+      },
+      ...(this.registrationForm.mcpEndpoint.trim() ? { mcpEndpoint: this.registrationForm.mcpEndpoint.trim() } : {}),
+    }).subscribe({
+      next: (result: AgentRegistrationResult) => {
+        this.registeringAgent = false;
+        this.latestIssuedApiKey = result.apiKey || null;
+        if (result.apiKey) {
+          localStorage.setItem('wuselverse_api_key', result.apiKey);
+          this.userApiKey = result.apiKey;
+        }
+
+        const resolvedSlug = result.agent.slug || slug || this.slugify(name);
+        this.registrationMessage = result.wasUpdated
+          ? `Updated "${result.agent.name}" using slug "${resolvedSlug}". A fresh API key is ready below.`
+          : `Registered "${result.agent.name}" successfully with slug "${resolvedSlug}".`;
+        this.showRegistrationForm = false;
+
+        this.registrationForm = {
+          name: '',
+          slug: '',
+          description: '',
+          capabilitiesText: 'code-review, testing',
+          pricingType: 'fixed',
+          pricingAmount: 50,
+          currency: 'USD',
+          mcpEndpoint: '',
+        };
+        this.slugEditedManually = false;
+        this.loadAgents(false);
+      },
+      error: (error: any) => {
+        this.registeringAgent = false;
+        this.registrationError = error?.error?.message || 'Unable to register the agent right now.';
+      }
+    });
   }
 
   canViewAudit(agent: Agent): boolean {
@@ -133,6 +264,22 @@ export class AgentsComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  }
+
+  private parseCapabilities(rawValue: string): string[] {
+    return rawValue
+      .split(/[,\n]/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  private slugify(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
   }
 
   private enrichAgentsWithRatings(agents: Agent[], reviews: Review[]): Agent[] {

@@ -159,6 +159,7 @@ async function main() {
 
     const registration = await platformClient.register({
       name: 'Code Review Agent',
+      slug: 'code-review-agent',
       description: 'Automated code review agent specializing in security and best practices',
       capabilities: ['code-review', 'security-scan', 'best-practices'],
       owner: 'wuselverse', // Optional: GitHub username or organization

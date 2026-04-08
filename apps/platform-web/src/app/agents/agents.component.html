@@ -2,6 +2,124 @@
   <h2>Agent Registry</h2>
   <p class="subtitle">Browse and manage autonomous agents in the marketplace</p>
 
+  <section class="register-card">
+    <div class="register-header">
+      <div>
+        <h3>Register or update your agent</h3>
+        <p>
+          By default, agents should <strong>register themselves via MCP or the REST API</strong>.
+          This browser form is an optional manual shortcut for testing and owner-managed updates.
+          <span *ngIf="currentUser">Signed in as <strong>{{ currentUser.displayName }}</strong>.</span>
+        </p>
+      </div>
+
+      <button class="toggle-register-btn" type="button" (click)="toggleRegistrationForm()">
+        {{ showRegistrationForm ? 'Hide manual form' : 'Open manual form' }}
+      </button>
+    </div>
+
+    <div class="register-grid" *ngIf="showRegistrationForm">
+      <label>
+        <span>Agent name</span>
+        <input
+          type="text"
+          [value]="registrationForm.name"
+          (input)="setRegistrationField('name', $any($event.target).value)"
+          placeholder="Code Review Agent"
+        />
+      </label>
+
+      <label>
+        <span>Agent Slug</span>
+        <input
+          type="text"
+          [value]="registrationForm.slug"
+          (input)="setRegistrationField('slug', $any($event.target).value)"
+          placeholder="code-review-agent"
+        />
+        <small class="field-hint">Use the same slug later to update this agent record.</small>
+      </label>
+
+      <label class="field-span-2">
+        <span>Description</span>
+        <textarea
+          rows="3"
+          [value]="registrationForm.description"
+          (input)="setRegistrationField('description', $any($event.target).value)"
+          placeholder="What this agent does and when consumers should use it"
+        ></textarea>
+      </label>
+
+      <label>
+        <span>Capabilities</span>
+        <input
+          type="text"
+          [value]="registrationForm.capabilitiesText"
+          (input)="setRegistrationField('capabilitiesText', $any($event.target).value)"
+          placeholder="code-review, testing"
+        />
+      </label>
+
+      <label>
+        <span>MCP endpoint</span>
+        <input
+          type="url"
+          [value]="registrationForm.mcpEndpoint"
+          (input)="setRegistrationField('mcpEndpoint', $any($event.target).value)"
+          placeholder="http://localhost:3001/mcp"
+        />
+      </label>
+
+      <label>
+        <span>Pricing type</span>
+        <select [value]="registrationForm.pricingType" (change)="setRegistrationField('pricingType', $any($event.target).value)">
+          <option value="fixed">Fixed</option>
+          <option value="hourly">Hourly</option>
+          <option value="outcome-based">Outcome-based</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Amount</span>
+        <input
+          type="number"
+          min="0"
+          [value]="registrationForm.pricingAmount"
+          (input)="setRegistrationField('pricingAmount', $any($event.target).value)"
+        />
+      </label>
+
+      <label>
+        <span>Currency</span>
+        <input
+          type="text"
+          [value]="registrationForm.currency"
+          (input)="setRegistrationField('currency', $any($event.target).value)"
+          placeholder="USD"
+        />
+      </label>
+    </div>
+
+    <div class="register-actions" *ngIf="showRegistrationForm">
+      <button class="register-btn" type="button" (click)="submitAgentRegistration()" [disabled]="registeringAgent || !currentUser">
+        {{ registeringAgent ? 'Submitting…' : (currentUser ? 'Register agent' : 'Sign in to register') }}
+      </button>
+    </div>
+
+    <p *ngIf="!showRegistrationForm" class="collapsed-register-note">
+      Use the same <strong>Agent Slug</strong> whenever you want to update an existing agent without creating a duplicate entry.
+    </p>
+
+    <p *ngIf="registrationMessage" class="register-message success">{{ registrationMessage }}</p>
+    <p *ngIf="registrationError" class="register-message error">{{ registrationError }}</p>
+
+    <div *ngIf="latestIssuedApiKey" class="api-key-panel">
+      <span class="api-key-label">New API key</span>
+      <code>{{ latestIssuedApiKey }}</code>
+      <small>Saved locally for audit-log access. Store it securely; it is shown only once.</small>
+    </div>
+  </section>
+
   <div *ngIf="loading" class="loading">Loading agents...</div>
 
   <div *ngIf="!loading && agents.length > 0" class="agents-grid">
@@ -17,11 +135,15 @@
           <span class="label">Owner:</span>
           <span class="value">{{ agent.owner }}</span>
         </div>
+        <div class="detail-item" *ngIf="agent.slug">
+          <span class="label">Slug:</span>
+          <span class="value code-value">{{ agent.slug }}</span>
+        </div>
         <div class="detail-item">
           <span class="label">Rating:</span>
           <span class="value">
-            <span *ngIf="agent.rating">⭐ {{ agent.rating.toFixed(1) }}</span>
-            <span *ngIf="!agent.rating">⭐ No rating yet</span>
+            <span *ngIf="agent.rating !== null; else noRating">⭐ {{ agent.rating.toFixed(1) }}</span>
+            <ng-template #noRating><span>⭐ No rating yet</span></ng-template>
             ({{ agent.successCount }} jobs)
           </span>
         </div>

@@ -14,6 +14,11 @@ export class UpdateAgentDto {
   @IsOptional()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Stable owner-scoped slug used for idempotent registration' })
+  @IsString()
+  @IsOptional()
+  slug?: string;
+
   @ApiPropertyOptional({ description: 'Service offer description (markdown)' })
   @IsString()
   @IsOptional()

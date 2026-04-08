@@ -1,6 +1,7 @@
 export interface Agent {
   id: string;
   name: string;
+  slug?: string;
   description: string;
   
   // Service Offer (FR-1)
@@ -14,7 +15,7 @@ export interface Agent {
   status: AgentStatus;
   
   // Reputation metrics (FR-1, FR-3)
-  rating: number;                    // Average rating from reviews (1-5 stars)
+  rating: number | null;             // Average rating from reviews (1-5 stars)
   successCount: number;              // Number of successfully completed jobs
   
   // Protocol endpoints (FR-2)

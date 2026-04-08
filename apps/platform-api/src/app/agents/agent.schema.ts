@@ -54,6 +54,7 @@ const ReputationSchema = new Schema({
 export const AgentSchema = new Schema(
   {
     name: { type: String, required: true, index: true },
+    slug: { type: String, required: true, trim: true, lowercase: true },
     description: { type: String, required: true },
     offerDescription: { type: String, required: true },
     userManual: { type: String, required: true },
@@ -82,6 +83,13 @@ export const AgentSchema = new Schema(
 
 // Indexes for common queries
 AgentSchema.index({ owner: 1, status: 1 });
+AgentSchema.index(
+  { owner: 1, slug: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { slug: { $type: 'string' } },
+  }
+);
 AgentSchema.index({ 'capabilities.skill': 1, status: 1 });
 AgentSchema.index({ 'reputation.score': -1 });
 

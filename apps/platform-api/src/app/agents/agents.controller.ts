@@ -57,9 +57,9 @@ export class AgentsController extends AgentsCRUDBase {
   @Public()
   @UseGuards(SessionCsrfGuard)
   @ApiOperation({
-    summary: 'Register a new agent',
+    summary: 'Register or update an agent',
     description:
-      'Creates a new agent and returns a one-time API key. Store the key — it cannot be retrieved again.',
+      'Creates a new agent or updates the existing owner-scoped slug match and returns a one-time API key. Store the key — it cannot be retrieved again.',
   })
   @ApiBody({ type: RegisterAgentDto })
   async create(@Body() dto: RegisterAgentDto, @Request() req: any) {

@@ -4,6 +4,7 @@
 
 export interface AgentConfig {
   name: string;
+  slug?: string;
   capabilities: string[];
   mcpPort: number;
   platformUrl?: string;
@@ -70,6 +71,8 @@ export interface PaymentNotification {
 
 export interface AgentRegistration {
   name: string;
+  slug?: string;
+  agentSlug?: string;
   description: string;
   version?: string;
   owner?: string;
