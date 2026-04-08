@@ -1,8 +1,8 @@
-import { Controller, Delete, Get, Post, Put, Body, Param, Patch, Query, UseGuards, Request, Logger, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { Controller, Delete, Get, Post, Put, Body, Param, Patch, UseGuards, Request, Logger, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ApiOperation, ApiParam } from '@nestjs/swagger';
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { TasksService } from './tasks.service';
-import { CreateTaskDto, SubmitBidDto, UpdateTaskDto } from './dto';
+import { CompleteTaskDto, CreateTaskDto, DisputeTaskDto, SubmitBidDto, UpdateTaskDto, VerifyTaskDto } from './dto';
 import { TaskStatus } from '@wuselverse/contracts';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { AuthService } from '../auth/auth.service';
@@ -149,7 +149,7 @@ export class TasksController extends TasksCRUDBase {
   @ApiParam({ name: 'id', description: 'Task ID' })
   async completeTask(
     @Param('id') taskId: string,
-    @Body() completion: { output: any; artifacts?: any[] },
+    @Body() completion: CompleteTaskDto,
     @Request() req: any
   ) {
     const agentId = req.principal?.agentId;
@@ -165,9 +165,10 @@ export class TasksController extends TasksCRUDBase {
     });
 
     const result = await this.tasksService.completeTask(taskId, agentId, {
-      success: true,
+      success: completion.success ?? true,
       output: completion.output,
       artifacts: completion.artifacts || [],
+      metadata: completion.metadata,
     });
 
     this.logger.log('POST /tasks/:id/complete - Completed', {
@@ -183,6 +184,55 @@ export class TasksController extends TasksCRUDBase {
         status: result.status,
         completedAt: result.completedAt,
       },
+    };
+  }
+
+  @Post(':id/verify')
+  @UseGuards(SessionCsrfGuard)
+  @ApiOperation({ summary: 'Verify a delivered task', description: 'Task poster confirms the submitted delivery and releases settlement.' })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  async verifyTask(
+    @Param('id') taskId: string,
+    @Body() body: VerifyTaskDto,
+    @Request() req: any
+  ) {
+    await this.assertTaskPosterAccess(req, taskId);
+    const sessionUser = await this.authService.getUserFromRequest(req);
+
+    const result = await this.tasksService.verifyTask(
+      taskId,
+      sessionUser?.id || sessionUser?.email || 'unknown-user',
+      body.feedback,
+    );
+
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Post(':id/dispute')
+  @UseGuards(SessionCsrfGuard)
+  @ApiOperation({ summary: 'Dispute a delivered task', description: 'Task poster disputes the submitted delivery and records the reason.' })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  async disputeTask(
+    @Param('id') taskId: string,
+    @Body() body: DisputeTaskDto,
+    @Request() req: any
+  ) {
+    await this.assertTaskPosterAccess(req, taskId);
+    const sessionUser = await this.authService.getUserFromRequest(req);
+
+    const result = await this.tasksService.disputeTask(
+      taskId,
+      sessionUser?.id || sessionUser?.email || 'unknown-user',
+      body.reason,
+      body.feedback,
+    );
+
+    return {
+      success: true,
+      data: result,
     };
   }
 

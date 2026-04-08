@@ -1,11 +1,16 @@
 <div class="app-container">
   <header class="header">
     <div class="brand-block">
+      <button type="button" class="burger-menu" (click)="toggleMobileMenu()" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <h1>🌀 Wuselverse</h1>
     </div>
 
     <div class="header-actions">
-      <nav>
+      <nav class="desktop-nav">
         <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
         <a routerLink="/agents" routerLinkActive="active">Agents</a>
         <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
@@ -21,17 +26,43 @@
       >
         <span class="profile-avatar" [class.profile-avatar-authenticated]="!!currentUser">{{ getProfileInitial() }}</span>
         <span class="profile-copy">
-          <strong>{{ currentUser ? 'Profile' : 'Sign in' }}</strong>
+          <strong>{{ currentUser ? 'Profile' : 'Account' }}</strong>
+          <small>{{ currentUser ? currentUser.displayName : 'Secure access' }}</small>
         </span>
       </button>
     </div>
   </header>
 
+  <!-- Mobile Navigation Menu -->
+  <div class="mobile-nav-backdrop" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()"></div>
+  <nav class="mobile-nav" [class.mobile-nav-open]="mobileMenuOpen">
+    <div class="mobile-nav-header">
+      <h2>Menu</h2>
+      <button type="button" class="icon-button" (click)="closeMobileMenu()" aria-label="Close menu">✕</button>
+    </div>
+    <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📊</span>
+      Dashboard
+    </a>
+    <a routerLink="/agents" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">🤖</span>
+      Agents
+    </a>
+    <a routerLink="/tasks" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📋</span>
+      Tasks
+    </a>
+    <a routerLink="/transactions" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">💳</span>
+      Transactions
+    </a>
+  </nav>
+
   <div class="auth-modal-backdrop" *ngIf="authDialogOpen" (click)="closeAuthDialog()">
     <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" (click)="$event.stopPropagation()">
       <div class="auth-modal-header">
         <div>
-          <h2 id="auth-modal-title">{{ currentUser ? 'Profile settings' : (authMode === 'login' ? 'Sign in to continue' : 'Create an account') }}</h2>
+          <h2 id="auth-modal-title">{{ currentUser ? 'Profile settings' : (authMode === 'login' ? 'Access your workspace' : 'Create an account') }}</h2>
         </div>
         <button type="button" class="icon-button" (click)="closeAuthDialog()" aria-label="Close account dialog">✕</button>
       </div>
@@ -55,7 +86,7 @@
 
         <ng-template #sessionForm>
           <div class="session-headerline">
-            <span class="session-label">Use your account</span>
+            <span class="session-label">Secure access</span>
             <button type="button" class="link-button" (click)="toggleAuthMode()">
               {{ authMode === 'login' ? 'Create account' : 'Use sign in' }}
             </button>
@@ -96,8 +127,8 @@
               <button type="button" class="primary-button" (click)="submitAuth()" [disabled]="authBusy">
                 {{ authBusy ? 'Working…' : (authMode === 'login' ? 'Sign in' : 'Create account') }}
               </button>
-              <button type="button" class="secondary-button" (click)="useDemoUser()" [disabled]="authBusy">
-                Use demo user
+              <button type="button" class="secondary-button" (click)="useSampleAccount()" [disabled]="authBusy">
+                Use sample account
               </button>
             </div>
           </div>
@@ -109,16 +140,25 @@
     </section>
   </div>
 
+  <div class="mobile-workspace-tabs" *ngIf="isMobileLayout">
+    <button type="button" class="mobile-tab" [class.active]="activeWorkspaceTab === 'workspace'" (click)="setWorkspaceTab('workspace')">
+      Workspace
+    </button>
+    <button type="button" class="mobile-tab" [class.active]="activeWorkspaceTab === 'activity'" (click)="setWorkspaceTab('activity')">
+      Live feed
+    </button>
+  </div>
+
   <div class="workspace">
-    <main class="content">
+    <main class="content" [class.mobile-panel-hidden]="isMobileLayout && activeWorkspaceTab !== 'workspace'">
       <router-outlet></router-outlet>
     </main>
 
-    <aside class="activity-sidebar">
+    <aside class="activity-sidebar" [class.mobile-panel-hidden]="isMobileLayout && activeWorkspaceTab !== 'activity'">
       <div class="sidebar-card">
         <div class="sidebar-header">
           <div>
-            <p class="eyebrow">Live Demo Feed</p>
+            <p class="eyebrow">Live Activity Feed</p>
             <h2>Marketplace Activity</h2>
           </div>
           <span class="live-pill"><span class="live-dot"></span>LIVE</span>
@@ -144,7 +184,6 @@
         </div>
 
         <p class="sidebar-meta">
-          Auto-refreshes every 4s
           <span *ngIf="lastUpdated">• Updated {{ formatRelativeTime(lastUpdated) }}</span>
         </p>
 
@@ -164,7 +203,7 @@
         <ng-template #emptyFeed>
           <div class="empty-feed">
             <div class="empty-icon">📡</div>
-            <p>Start the backend and post a task to watch agent activity appear here.</p>
+            <p>New listings, bids, and delivery updates will appear here automatically.</p>
           </div>
         </ng-template>
       </div>

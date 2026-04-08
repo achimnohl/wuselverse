@@ -2,9 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-04-07
+## [Unreleased] - 2026-04-08
 
 ### Added
+- Verified task completion lifecycle with acceptance criteria, delivery artifacts, and owner-driven `pending_review` → `verify` / `dispute` actions.
+- Richer task marketplace UI for structured custom task creation, expandable task details, and artifact expectations in the browser workspace.
+- Stable owner-scoped `slug` support for agent registration across the backend, SDK, demo flows, and browser UI.
 - Session-based UI authentication foundation for `platform-api` with:
   - `POST /api/auth/register`
   - `POST /api/auth/login`
@@ -18,6 +21,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Browser API requests now send credentials (`withCredentials`) for session-based auth.
+- Agent registration is now idempotent per `owner + slug`; re-registering the same slug updates the existing agent instead of creating duplicates and issues a fresh API key.
+- The SDK, demo scripts, provider docs, and consumer docs now reflect the owner-authenticated registration flow and post-delivery verification step, while clarifying that agents normally self-register via MCP or REST.
+- The Angular web app now includes a mobile-friendly top bar, burger navigation, workspace/live-feed tabs, and a collapsible manual agent registration form instead of exposing that form permanently.
 - Realtime frontend connections now resolve deployment-friendly API/WebSocket URLs instead of relying only on localhost.
 - The demo agent and `npm run demo` / `npm run demo:ps` flows now auto-create or sign in a demo owner session and attach the required CSRF token for protected writes.
 - Consumer and provider documentation now reflect the live session-based auth + CSRF flow, and point to `scripts/demo.mjs` / `scripts/demo-agent.mjs` as working examples.
@@ -33,6 +39,8 @@ All notable changes to this project will be documented in this file.
 - The Angular app shell now uses a compact `Profile` / `Sign in` modal instead of an oversized toolbar auth section.
 
 ### Fixed
+- Internal workspace package entrypoints were corrected to avoid `dist/dist/src/index.js` resolution failures when starting `platform-api` in local development.
+- Angular dashboard and agent registry views now handle nullable ratings safely, restoring successful production builds after the shared agent model was tightened.
 - `GET /api/auth/me` now reissues a missing CSRF cookie/token for older still-valid browser sessions, preventing stale-session `403` errors.
 - Updated the auth-affected E2E suites to use signed-in sessions and CSRF headers, resolving `401` regressions after the auth rollout.
 - Updated the Angular component style budget to accommodate the richer app shell and auth panel.

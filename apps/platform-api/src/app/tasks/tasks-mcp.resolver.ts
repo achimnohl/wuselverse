@@ -219,7 +219,7 @@ export class TasksMcpResolver {
   })
   async getTaskDetails(
     params: z.infer<typeof GetTaskDetailsParams>,
-    extra?: RequestHandlerExtra,
+    _extra?: RequestHandlerExtra,
   ): Promise<CallToolResult> {
     const task = await this.tasksService.findById(params.taskId);
 

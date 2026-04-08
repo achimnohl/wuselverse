@@ -47,13 +47,16 @@ export class AppComponent implements OnInit, OnDestroy {
   authMode: 'login' | 'register' = 'login';
   authBusy = false;
   authError: string | null = null;
-  authMessage = 'Sign in to preview the new session-based UI flow for protected marketplace actions.';
+  authMessage = 'Sign in to manage tasks, bids, and reviews from your secure workspace.';
   authForm = {
-    email: 'demo.user@example.com',
-    password: 'demodemo',
-    displayName: 'Demo User',
+    email: '',
+    password: '',
+    displayName: '',
   };
   authDialogOpen = false;
+  isMobileLayout = false;
+  activeWorkspaceTab: 'workspace' | 'activity' = 'workspace';
+  mobileMenuOpen = false;
 
   private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -71,6 +74,7 @@ export class AppComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService, private realtime: RealtimeService) {}
 
   ngOnInit(): void {
+    this.updateResponsiveLayout();
     this.loadCurrentUser();
     this.refreshActivity();
     this.updatesSub = this.realtime
@@ -123,6 +127,26 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.authDialogOpen) {
       this.closeAuthDialog();
     }
+    if (this.mobileMenuOpen) {
+      this.closeMobileMenu();
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateResponsiveLayout();
+  }
+
+  setWorkspaceTab(tab: 'workspace' | 'activity'): void {
+    this.activeWorkspaceTab = tab;
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
   }
 
   toggleAuthMode(): void {
@@ -130,14 +154,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.authError = null;
   }
 
-  useDemoUser(): void {
+  useSampleAccount(): void {
     this.authForm = {
       email: 'demo.user@example.com',
       password: 'demodemo',
-      displayName: 'Demo User',
+      displayName: 'Sample Workspace User',
     };
     this.authError = null;
-    this.authMessage = 'Demo credentials loaded. Create the account once, then sign in on later visits.';
+    this.authMessage = 'Sample account details loaded. Register once, then use the same credentials to sign in later.';
   }
 
   setAuthField(field: 'email' | 'password' | 'displayName', value: string): void {
@@ -202,7 +226,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.currentUser = null;
         this.authBusy = false;
         this.authDialogOpen = false;
-        this.authMessage = 'Signed out. Sign in again to use protected write actions.';
+        this.authMessage = 'Signed out. Sign back in to create and manage protected marketplace actions.';
       },
       error: (error: any) => {
         this.authBusy = false;
@@ -216,7 +240,7 @@ export class AppComponent implements OnInit, OnDestroy {
       next: (user) => {
         this.currentUser = user;
         this.authError = null;
-        this.authMessage = `Signed in as ${user.displayName}.`;
+        this.authMessage = `Signed in as ${user.displayName}. Your secure workspace is ready.`;
       },
       error: () => {
         this.currentUser = null;
@@ -263,8 +287,8 @@ export class AppComponent implements OnInit, OnDestroy {
               id: 'system-waiting',
               kind: 'system',
               icon: '⏳',
-              title: 'Waiting for platform data',
-              description: 'Start the backend and create a task to see registrations, bids, assignments, and completions appear here.',
+              title: 'Waiting for marketplace activity',
+              description: 'New listings, bids, assignments, and reviews will appear here once the platform is active.',
               timestamp: new Date().toISOString(),
               tone: 'blue',
             },
@@ -280,8 +304,8 @@ export class AppComponent implements OnInit, OnDestroy {
         id: 'system-live-feed',
         kind: 'system',
         icon: '✨',
-        title: 'Live demo feed ready',
-        description: 'This sidebar highlights agent registrations, incoming tasks, bids, assignments, completions, and reviews.',
+        title: 'Live activity feed ready',
+        description: 'This panel highlights new listings, bids, assignments, completions, and reviews as they happen.',
         timestamp: new Date().toISOString(),
         tone: 'blue',
       },
@@ -579,6 +603,15 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     return this.knownAgents.get(agentId)?.name || agentId;
+  }
+
+  private updateResponsiveLayout(): void {
+    const mobileLayout = typeof window !== 'undefined' && window.innerWidth <= 900;
+    this.isMobileLayout = mobileLayout;
+
+    if (!mobileLayout) {
+      this.activeWorkspaceTab = 'workspace';
+    }
   }
 }
 

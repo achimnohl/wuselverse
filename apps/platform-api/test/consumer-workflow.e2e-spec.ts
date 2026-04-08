@@ -333,7 +333,7 @@ describe('Consumer Workflow (e2e)', () => {
   // ============================================
 
   describe('6. Agent Completes Task', () => {
-    it('should allow agent to complete the task', async () => {
+    it('should allow agent to submit the task for review', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/tasks/${taskId}/complete`)
         .set('Authorization', `Bearer ${agentApiKey}`)
@@ -349,14 +349,26 @@ describe('Consumer Workflow (e2e)', () => {
               'Implement rate limiting',
               'Update all dependencies'
             ]
-          }
+          },
+          artifacts: ['security-report.json']
         })
         .expect(201);
 
-      expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.status).toBe('pending_review');
     });
 
-    it('should create a payment transaction when the task completes', async () => {
+    it('should allow the consumer to verify the delivered task', async () => {
+      const response = await browserSession.client
+        .post(`/api/tasks/${taskId}/verify`)
+        .set('x-csrf-token', browserSession.csrfToken)
+        .send({ feedback: 'Verified after checking the findings and recommendations.' })
+        .expect(201);
+
+      expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.verificationStatus).toBe('verified');
+    });
+
+    it('should create a payment transaction when the task is verified', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/transactions/task/${taskId}`)
         .expect(200);

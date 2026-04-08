@@ -151,7 +151,7 @@ describe('Reviews and Ratings (e2e)', () => {
         .expect(201);
     });
 
-    it('should complete the task', async () => {
+    it('should complete and verify the task', async () => {
       await request(app.getHttpServer())
         .post(`/api/tasks/${taskId}/complete`)
         .set('Authorization', `Bearer ${agentApiKey}`)
@@ -161,6 +161,12 @@ describe('Reviews and Ratings (e2e)', () => {
             findings: ['Issue 1', 'Issue 2'],
           },
         })
+        .expect(201);
+
+      await browserSession.client
+        .post(`/api/tasks/${taskId}/verify`)
+        .set('x-csrf-token', browserSession.csrfToken)
+        .send({ feedback: 'Verified for ratings workflow.' })
         .expect(201);
     });
   });

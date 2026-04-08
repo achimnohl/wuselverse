@@ -68,7 +68,7 @@ export interface CRUDControllerConfig {
  * }
  * ```
  */
-export function createCRUDController<T>(config: CRUDControllerConfig): Type<any> {
+export function createCRUDController(config: CRUDControllerConfig): Type<any> {
   const { resourceName, createDto, updateDto, entityName } = config;
   const entity = entityName || resourceName;
 

@@ -15,7 +15,7 @@ export class TasksComponent implements OnInit, OnDestroy {
   loading = true;
   tasks: Task[] = [];
   filterStatus: string | null = null;
-  statuses = [null, 'open', 'bidding', 'assigned', 'in_progress', 'completed', 'failed'];
+  statuses = [null, 'open', 'bidding', 'assigned', 'in_progress', 'pending_review', 'completed', 'disputed', 'failed'];
   
   // Pagination
   currentPage = 1;
@@ -26,6 +26,20 @@ export class TasksComponent implements OnInit, OnDestroy {
   postingDemoTask = false;
   postTaskError: string | null = null;
   postTaskMessage: string | null = null;
+  verificationBusyTaskId: string | null = null;
+  showCreateForm = false;
+  creatingCustomTask = false;
+  expandedTaskId: string | null = null;
+  customTaskForm = {
+    title: '',
+    description: '',
+    capabilitiesText: 'security-scan, documentation',
+    budgetAmount: 75,
+    currency: 'USD',
+    budgetType: 'fixed',
+    acceptanceCriteriaText: 'Provide a concise summary of the work completed\nInclude at least one concrete artifact or evidence item',
+    artifactInstructionsText: 'Attach a report, link, or structured evidence in the delivery payload',
+  };
 
   private updatesSub?: Subscription;
   private agentNames = new Map<string, string>();
@@ -86,14 +100,20 @@ export class TasksComponent implements OnInit, OnDestroy {
   }
 
   postDemoTask(): void {
+    if (!this.currentUser) {
+      this.postTaskError = 'Sign in to create tasks from the web workspace.';
+      this.postTaskMessage = null;
+      return;
+    }
+
     this.postingDemoTask = true;
     this.postTaskError = null;
     this.postTaskMessage = null;
 
     this.api.createTask({
-      title: `Protected demo task ${new Date().toLocaleTimeString()}`,
-      description: 'Created from the signed-in web UI using the new CSRF-protected session write flow.',
-      poster: this.currentUser?.id || 'ui-session',
+      title: `Quick task request ${new Date().toLocaleTimeString()}`,
+      description: 'Created from the signed-in workspace using the secure session-based browser flow.',
+      poster: this.currentUser.id,
       requirements: {
         capabilities: ['security-scan', 'documentation'],
       },
@@ -102,6 +122,10 @@ export class TasksComponent implements OnInit, OnDestroy {
         currency: 'USD',
         type: 'fixed',
       },
+      acceptanceCriteria: [
+        'Provide a short summary of the work completed',
+        'Include at least one concrete artifact or evidence item',
+      ],
       metadata: {
         source: 'platform-web-ui',
         protectedWriteFlow: true,
@@ -109,13 +133,93 @@ export class TasksComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (task) => {
         this.postingDemoTask = false;
-        this.postTaskMessage = `Posted "${task.title}" successfully.`;
+        this.postTaskMessage = `Created "${task.title}" successfully.`;
         this.currentPage = 1;
         this.loadTasks(false);
       },
       error: (error: any) => {
         this.postingDemoTask = false;
-        this.postTaskError = error?.error?.message || 'Unable to post the protected demo task. Sign in first and try again.';
+        this.postTaskError = error?.error?.message || 'Unable to create the task right now. Sign in first and try again.';
+      }
+    });
+  }
+
+  toggleCreateForm(): void {
+    this.showCreateForm = !this.showCreateForm;
+  }
+
+  submitCustomTask(
+    title: string,
+    description: string,
+    capabilitiesText: string,
+    budgetAmount: number,
+    currency: string,
+    budgetType: string,
+    acceptanceCriteriaText: string,
+    artifactInstructionsText: string,
+  ): void {
+    if (!this.currentUser) {
+      this.postTaskError = 'Sign in to create a custom task from the workspace.';
+      this.postTaskMessage = null;
+      return;
+    }
+
+    if (!title.trim() || !description.trim()) {
+      this.postTaskError = 'Enter a title and description before creating the task.';
+      this.postTaskMessage = null;
+      return;
+    }
+
+    const capabilities = this.parseCapabilityList(capabilitiesText);
+    if (capabilities.length === 0) {
+      this.postTaskError = 'Add at least one required capability.';
+      this.postTaskMessage = null;
+      return;
+    }
+
+    this.creatingCustomTask = true;
+    this.postTaskError = null;
+    this.postTaskMessage = null;
+
+    this.api.createTask({
+      title: title.trim(),
+      description: description.trim(),
+      poster: this.currentUser.id,
+      requirements: {
+        capabilities,
+      },
+      budget: {
+        amount: Number.isFinite(budgetAmount) && budgetAmount > 0 ? budgetAmount : 75,
+        currency: currency.trim() || 'USD',
+        type: budgetType,
+      },
+      acceptanceCriteria: this.parseMultilineList(acceptanceCriteriaText),
+      metadata: {
+        source: 'platform-web-custom-form',
+        protectedWriteFlow: true,
+        expectedArtifacts: this.parseMultilineList(artifactInstructionsText),
+      },
+    }).subscribe({
+      next: (task) => {
+        this.creatingCustomTask = false;
+        this.showCreateForm = false;
+        this.postTaskMessage = `Created "${task.title}" successfully.`;
+        this.customTaskForm = {
+          title: '',
+          description: '',
+          capabilitiesText: 'security-scan, documentation',
+          budgetAmount: 75,
+          currency: 'USD',
+          budgetType: 'fixed',
+          acceptanceCriteriaText: 'Provide a concise summary of the work completed\nInclude at least one concrete artifact or evidence item',
+          artifactInstructionsText: 'Attach a report, link, or structured evidence in the delivery payload',
+        };
+        this.currentPage = 1;
+        this.loadTasks(false);
+      },
+      error: (error: any) => {
+        this.creatingCustomTask = false;
+        this.postTaskError = error?.error?.message || 'Unable to create the custom task right now.';
       }
     });
   }
@@ -152,6 +256,114 @@ export class TasksComponent implements OnInit, OnDestroy {
     } else {
       return date.toLocaleDateString();
     }
+  }
+
+  canReviewTask(task: Task): boolean {
+    if (!this.currentUser || task.status !== 'pending_review') {
+      return false;
+    }
+
+    return [this.currentUser.id, this.currentUser.email].includes(task.poster);
+  }
+
+  verifyTask(task: Task): void {
+    const taskId = task.id || task._id;
+    if (!taskId) {
+      return;
+    }
+
+    this.verificationBusyTaskId = taskId;
+    this.postTaskError = null;
+    this.postTaskMessage = null;
+
+    this.api.verifyTask(taskId, 'Delivery verified from the web workspace.').subscribe({
+      next: () => {
+        this.verificationBusyTaskId = null;
+        this.postTaskMessage = `Verified "${task.title}" successfully.`;
+        this.loadTasks(false);
+      },
+      error: (error: any) => {
+        this.verificationBusyTaskId = null;
+        this.postTaskError = error?.error?.message || 'Unable to verify the task right now.';
+      }
+    });
+  }
+
+  disputeTask(task: Task): void {
+    const taskId = task.id || task._id;
+    if (!taskId) {
+      return;
+    }
+
+    const reason = window.prompt(`Why are you disputing "${task.title}"?`, 'Acceptance criteria were not met.');
+    if (!reason?.trim()) {
+      return;
+    }
+
+    this.verificationBusyTaskId = taskId;
+    this.postTaskError = null;
+    this.postTaskMessage = null;
+
+    this.api.disputeTask(taskId, reason.trim(), 'Disputed from the web workspace.').subscribe({
+      next: () => {
+        this.verificationBusyTaskId = null;
+        this.postTaskMessage = `Marked "${task.title}" as disputed.`;
+        this.loadTasks(false);
+      },
+      error: (error: any) => {
+        this.verificationBusyTaskId = null;
+        this.postTaskError = error?.error?.message || 'Unable to dispute the task right now.';
+      }
+    });
+  }
+
+  toggleTaskDetails(task: Task): void {
+    const taskId = task.id || task._id || null;
+    this.expandedTaskId = this.expandedTaskId === taskId ? null : taskId;
+  }
+
+  isTaskExpanded(task: Task): boolean {
+    const taskId = task.id || task._id || null;
+    return !!taskId && this.expandedTaskId === taskId;
+  }
+
+  getStatusLabel(status: string): string {
+    switch (status) {
+      case 'pending_review':
+        return 'Pending review';
+      case 'in_progress':
+        return 'In progress';
+      default:
+        return status.replace('_', ' ');
+    }
+  }
+
+  getExpectedArtifacts(task: Task): string[] {
+    const artifacts = task.metadata?.['expectedArtifacts'];
+    return Array.isArray(artifacts) ? artifacts.map((item) => String(item)) : [];
+  }
+
+  getResultPreview(task: Task): string {
+    const value = task.outcome?.result ?? task.result ?? null;
+    if (value == null) {
+      return 'No delivery payload submitted yet.';
+    }
+
+    return JSON.stringify(value, null, 2);
+  }
+
+  private parseCapabilityList(rawValue: string): string[] {
+    return rawValue
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  private parseMultilineList(rawValue: string): string[] {
+    return rawValue
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
   }
 
   private captureAgentNames(agents: Agent[]): void {

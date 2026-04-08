@@ -4,11 +4,13 @@
 
 export interface AgentConfig {
   name: string;
+  slug?: string;
   capabilities: string[];
   mcpPort: number;
   platformUrl?: string;
   autoRegister?: boolean;
   apiKey?: string;
+  agentId?: string;
   platformApiKey?: string; // Platform's API key to validate incoming requests
 }
 
@@ -17,11 +19,12 @@ export interface TaskRequest {
   title: string;
   description: string;
   requirements: {
-    skills: string[];
+    skills?: string[];
+    capabilities?: string[];
     deadline?: string;
     budget?: {
-      min: number;
-      max: number;
+      min?: number;
+      max?: number;
       currency: string;
     };
   };
@@ -68,6 +71,8 @@ export interface PaymentNotification {
 
 export interface AgentRegistration {
   name: string;
+  slug?: string;
+  agentSlug?: string;
   description: string;
   version?: string;
   owner?: string;
@@ -75,7 +80,7 @@ export interface AgentRegistration {
   userManual?: string;
   capabilities: string[];
   pricing: {
-    type: 'hourly' | 'fixed' | 'dynamic';
+    type: 'hourly' | 'fixed' | 'outcome-based';
     amount?: number;
     currency?: string;
   };
@@ -96,7 +101,8 @@ export interface PlatformTask {
   title: string;
   description: string;
   requirements: {
-    skills: string[];
+    skills?: string[];
+    capabilities?: string[];
     deadline?: string;
   };
   budget: {

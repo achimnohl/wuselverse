@@ -12,24 +12,21 @@ import {
  * Example agent that performs code reviews
  */
 class CodeReviewAgent extends WuselverseAgent {
-  private platformClient: WuselversePlatformClient;
   private capabilities: string[];
 
-  constructor() {
+  constructor(config: { platformUrl: string; mcpPort: number; apiKey: string; agentId: string }) {
     const capabilities = ['code-review', 'security-scan', 'best-practices'];
-    
+
     super({
       name: 'Code Review Agent',
       capabilities,
-      mcpPort: 3001,
-      platformUrl: process.env.PLATFORM_URL || 'http://localhost:3000',
+      mcpPort: config.mcpPort,
+      platformUrl: config.platformUrl,
+      apiKey: config.apiKey,
+      agentId: config.agentId,
     });
 
     this.capabilities = capabilities;
-    
-    this.platformClient = new WuselversePlatformClient({
-      platformUrl: process.env.PLATFORM_URL || 'http://localhost:3000',
-    });
   }
 
   /**
@@ -39,7 +36,8 @@ class CodeReviewAgent extends WuselverseAgent {
     console.log(`[CodeReviewAgent] Evaluating task: ${task.title}`);
 
     // Check if task matches our capabilities
-    const relevantSkills = task.requirements.skills.filter((skill: string) =>
+    const requestedSkills = task.requirements.skills || task.requirements.capabilities || [];
+    const relevantSkills = requestedSkills.filter((skill: string) =>
       this.capabilities.includes(skill)
     );
 
@@ -108,10 +106,7 @@ class CodeReviewAgent extends WuselverseAgent {
         artifacts: [],
       };
 
-      // Report completion to platform
-      await this.platformClient.completeTask(taskId, result);
-
-      console.log(`[CodeReviewAgent] Task ${taskId} completed and reported`);
+      console.log(`[CodeReviewAgent] Task ${taskId} finished and ready for owner review`);
       return result;
     } catch (error) {
       console.error(`[CodeReviewAgent] Task execution failed:`, error);
@@ -125,7 +120,8 @@ class CodeReviewAgent extends WuselverseAgent {
   private estimateEffort(task: TaskRequest): number {
     // Simple heuristic: 2-4 hours based on complexity
     const baseHours = 2;
-    const complexityMultiplier = task.requirements.skills.length * 0.5;
+    const requestedSkills = task.requirements.skills || task.requirements.capabilities || [];
+    const complexityMultiplier = requestedSkills.length * 0.5;
     return Math.min(baseHours + complexityMultiplier, 4);
   }
 
@@ -150,16 +146,20 @@ async function main() {
     platformApiKey: process.env.PLATFORM_API_KEY || 'platform_dev_secret_key_change_in_production',
   };
 
-  const agent = new CodeReviewAgent();
-
-  // Register with platform
   const platformClient = new WuselversePlatformClient({
     platformUrl: agentConfig.platformUrl,
   });
 
   try {
+    await platformClient.authenticateOwnerSession({
+      email: process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com',
+      password: process.env.DEMO_OWNER_PASSWORD || 'demodemo',
+      displayName: process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User',
+    });
+
     const registration = await platformClient.register({
       name: 'Code Review Agent',
+      slug: 'code-review-agent',
       description: 'Automated code review agent specializing in security and best practices',
       capabilities: ['code-review', 'security-scan', 'best-practices'],
       owner: 'wuselverse', // Optional: GitHub username or organization
@@ -173,6 +173,13 @@ async function main() {
 
     console.log(`[CodeReviewAgent] Registered with ID: ${registration.agentId}`);
     console.log(`[CodeReviewAgent] API Key: ${registration.apiKey}`);
+
+    const agent = new CodeReviewAgent({
+      platformUrl: agentConfig.platformUrl,
+      mcpPort: agentConfig.mcpPort,
+      apiKey: registration.apiKey,
+      agentId: registration.agentId,
+    });
 
     // Start HTTP server to receive MCP requests from platform
     const httpServer = new AgentHttpServer(agent, agentConfig);

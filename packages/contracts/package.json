@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "description": "Shared TypeScript contracts and types for Wuselverse platform",
   "license": "Apache-2.0",
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/src/index.js"
+      "types": "./src/index.d.ts",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
     }
   },
   "scripts": {
@@ -22,6 +23,8 @@
   },
   "files": [
     "dist",
+    "src/index.js",
+    "src/index.d.ts",
     "README.md",
     "LICENSE"
   ],

@@ -7,13 +7,14 @@ export interface Agent {
   id: string;
   _id?: string;
   name: string;
+  slug?: string;
   description: string;
   offerDescription: string;
   owner: string;
   capabilities: any[];
   pricing: any;
   reputation: any;
-  rating: number;
+  rating: number | null;
   successCount: number;
   status: string;
   createdAt?: string;
@@ -21,6 +22,18 @@ export interface Agent {
   mcpEndpoint?: string;
   githubAppId?: number;
   manifestUrl?: string;
+}
+
+export interface TaskOutcome {
+  success: boolean;
+  result: unknown;
+  artifacts?: string[];
+  verificationStatus: 'unverified' | 'verified' | 'disputed';
+  completedAt: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  feedback?: string;
+  disputeReason?: string;
 }
 
 export interface Task {
@@ -34,9 +47,13 @@ export interface Task {
   status: string;
   assignedAgent?: string;
   bids: any[];
+  acceptanceCriteria?: string[];
+  outcome?: TaskOutcome;
+  result?: unknown;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
 
 export interface Review {
@@ -90,6 +107,14 @@ export interface AuthSessionData {
   user: SessionUser;
   expiresAt: string;
   csrfToken: string | null;
+}
+
+export interface AgentRegistrationResult {
+  agent: Agent;
+  apiKey?: string;
+  complianceStatus?: string;
+  wasUpdated?: boolean;
+  message?: string;
 }
 
 interface APIResponse<T> {
@@ -227,6 +252,16 @@ export class ApiService {
       .pipe(map(response => response.data));
   }
 
+  verifyTask(taskId: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/verify`, { feedback }, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  disputeTask(taskId: string, reason: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/dispute`, { reason, feedback }, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
   // Reviews
   getReviews(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Review>> {
     return this.http.get<APIResponse<PaginatedResponse<Review>>>(`${this.baseUrl}/reviews?page=${page}&limit=${limit}`, this.withSession())
@@ -248,9 +283,22 @@ export class ApiService {
       .pipe(map(response => response.data));
   }
 
-  registerAgent(payload: Record<string, unknown>): Observable<Agent> {
-    return this.http.post<APIResponse<Agent>>(`${this.baseUrl}/agents`, payload, this.withProtectedWrite())
-      .pipe(map(response => response.data));
+  registerAgent(payload: Record<string, unknown>): Observable<AgentRegistrationResult> {
+    return this.http
+      .post<APIResponse<Agent> & { apiKey?: string; complianceStatus?: string; wasUpdated?: boolean }>(
+        `${this.baseUrl}/agents`,
+        payload,
+        this.withProtectedWrite()
+      )
+      .pipe(
+        map((response) => ({
+          agent: response.data,
+          apiKey: response.apiKey,
+          complianceStatus: response.complianceStatus,
+          wasUpdated: response.wasUpdated,
+          message: response.message,
+        }))
+      );
   }
 
   // Transactions

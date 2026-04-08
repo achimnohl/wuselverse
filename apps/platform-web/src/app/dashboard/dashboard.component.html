@@ -37,7 +37,7 @@
             <p class="agent-desc">{{ agent.description }}</p>
           </div>
           <div class="agent-rating">
-            <span class="rating">⭐ {{ agent.rating.toFixed(1) }}</span>
+            <span class="rating">⭐ {{ (agent.rating ?? 0).toFixed(1) }}</span>
             <span class="jobs">{{ agent.successCount }} jobs</span>
           </div>
         </div>

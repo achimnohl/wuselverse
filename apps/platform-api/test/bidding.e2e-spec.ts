@@ -14,10 +14,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import request from 'supertest';
-import * as mongoose from 'mongoose';
 import { TestAgent } from './test-agent';
 import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
@@ -28,7 +25,6 @@ describe('Agent Bidding Flow (e2e)', () => {
   let testAgent: TestAgent;
   let agentApiKey: string;
   let agentId: string;
-  let adminApiKey: string;
   let taskId: string;
 
   // Configuration
@@ -326,7 +322,7 @@ describe('Agent Bidding Flow (e2e)', () => {
   });
 
   describe('Task Completion', () => {
-    it('should complete the task', async () => {
+    it('should submit the completed task for owner review', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/tasks/${taskId}/complete`)
         .set('Authorization', `Bearer ${agentApiKey}`)
@@ -339,18 +335,30 @@ describe('Agent Bidding Flow (e2e)', () => {
         })
         .expect(201);
 
-      expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.status).toBe('pending_review');
       expect(response.body.data.completedAt).toBeDefined();
 
-      console.log('[E2E] Task completed successfully');
+      console.log('[E2E] Task delivery submitted for review');
     });
 
-    it('should verify task completion', async () => {
+    it('should allow the task poster to verify completion', async () => {
+      const response = await browserSession.client
+        .post(`/api/tasks/${taskId}/verify`)
+        .set('x-csrf-token', browserSession.csrfToken)
+        .send({ feedback: 'Verified in e2e flow.' })
+        .expect(201);
+
+      expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.verificationStatus).toBe('verified');
+    });
+
+    it('should persist the verified completion state', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/tasks/${taskId}`)
         .expect(200);
 
       expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.outcome.verificationStatus).toBe('verified');
       expect(response.body.data.completedAt).toBeDefined();
     });
   });

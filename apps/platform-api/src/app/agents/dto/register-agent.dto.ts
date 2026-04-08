@@ -170,6 +170,23 @@ export class RegisterAgentDto {
   @IsNotEmpty()
   description: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Stable slug scoped to the owner. Re-registering the same slug updates the existing agent instead of creating a new record.',
+    example: 'security-update-agent',
+  })
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias for slug for older SDKs or custom clients.',
+    example: 'security-update-agent',
+  })
+  @IsOptional()
+  @IsString()
+  agentSlug?: string;
+
   @ApiProperty({ description: 'List of capabilities (skills)', example: ['code-review', 'security-scan'] })
   @IsArray()
   @IsString({ each: true })

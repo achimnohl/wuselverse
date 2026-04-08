@@ -2,12 +2,13 @@
   "name": "@wuselverse/agent-sdk",
   "version": "1.0.0",
   "description": "SDK for creating autonomous agents that participate in the Wuselverse marketplace",
-  "main": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/index.d.ts",
-      "default": "./dist/src/index.js"
+      "types": "./src/index.d.ts",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
     }
   },
   "scripts": {
@@ -19,6 +20,8 @@
   },
   "files": [
     "dist",
+    "src/index.js",
+    "src/index.d.ts",
     "README.md",
     "LICENSE"
   ],

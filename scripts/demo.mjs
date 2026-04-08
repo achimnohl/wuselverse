@@ -237,18 +237,22 @@ async function main() {
   try {
     await ensureApiAvailable();
 
-    logStep('[1/6] Signing in demo user...');
+    logStep('[1/7] Signing in demo user...');
     const demoSession = await ensureDemoUserSession();
     logOk(`Signed in as ${demoSession.user?.displayName || config.demoUserDisplayName} (${demoSession.user?.email || config.demoUserEmail})`);
     await pauseBetweenSteps();
 
-    logStep('[2/6] Creating task...');
+    logStep('[2/7] Creating task...');
     const taskPayload = {
       title: 'Reverse my motivational quote',
       description: "Reverse: 'The future is autonomous'",
       poster: demoSession.user?.id || config.demoUserEmail,
       requirements: { capabilities: ['text-reverse'] },
       budget: { type: 'fixed', amount: 10, currency: 'USD' },
+      acceptanceCriteria: [
+        'Return the reversed quote as the result',
+        'Include the original text and operation in the delivery payload',
+      ],
       metadata: { input: { text: 'The future is autonomous', operation: 'reverse' } },
     };
 
@@ -267,7 +271,7 @@ async function main() {
     logOk(`Task created: ${taskId}`);
     await pauseBetweenSteps();
 
-    logStep('[3/6] Waiting for agent to bid...');
+    logStep('[3/7] Waiting for agent to bid...');
     let validBids = [];
 
     for (let attempt = 1; attempt <= config.maxBidWaitSeconds; attempt += 1) {
@@ -296,7 +300,7 @@ async function main() {
     logOk(`Received ${validBids.length} bid(s)`);
     await pauseBetweenSteps();
 
-    logStep('[4/6] Accepting bid...');
+    logStep('[4/7] Accepting bid...');
     const selectedBid = validBids[0];
     const bidId = getBidId(selectedBid);
     if (!bidId) {
@@ -312,7 +316,7 @@ async function main() {
     logOk(`Bid accepted: ${bidId}`);
     await pauseBetweenSteps();
 
-    logStep('[5/6] Waiting for agent to complete task...');
+    logStep('[5/7] Waiting for agent to deliver task output...');
     let completedTask = null;
 
     for (let attempt = 1; attempt <= config.maxCompletionWaitSeconds; attempt += 1) {
@@ -323,30 +327,47 @@ async function main() {
       completedTask = getTaskData(taskResponse);
       const status = completedTask?.status;
 
-      if (status === 'completed') {
+      if (status === 'pending_review' || status === 'completed') {
         break;
       }
 
-      if (status === 'failed') {
-        throw new Error('Task entered the failed state during the demo.');
+      if (status === 'failed' || status === 'disputed') {
+        throw new Error(`Task entered the ${status} state during the demo.`);
       }
 
       await sleep(1000);
     }
 
-    if (!completedTask || completedTask.status !== 'completed') {
+    if (!completedTask || !['pending_review', 'completed'].includes(completedTask.status)) {
       throw new Error(
-        `Task did not complete within ${config.maxCompletionWaitSeconds} seconds. Current status: ${completedTask?.status || 'unknown'}`
+        `Task did not reach a reviewable state within ${config.maxCompletionWaitSeconds} seconds. Current status: ${completedTask?.status || 'unknown'}`
       );
     }
 
-    const resultText = completedTask?.result?.output?.result || JSON.stringify(completedTask?.result || {});
+    const pendingResult = completedTask?.outcome?.result || completedTask?.result || {};
+    const resultText = pendingResult?.result || pendingResult?.output?.result || JSON.stringify(pendingResult);
 
     logOk(`Status: ${completedTask.status}`);
     logInfo(`[RESULT] ${resultText}`);
     await pauseBetweenSteps();
 
-    logStep('[6/6] Submitting review...');
+    if (completedTask.status === 'pending_review') {
+      logStep('[6/7] Verifying delivery...');
+      await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback: 'Verified automatically by the demo flow.',
+        }),
+      }, demoSession);
+
+      const verifiedResponse = await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}`, { timeoutMs: 10000 });
+      completedTask = getTaskData(verifiedResponse);
+      logOk(`Status: ${completedTask.status} (${completedTask?.outcome?.verificationStatus || 'verified'})`);
+      await pauseBetweenSteps();
+    }
+
+    logStep('[7/7] Submitting review...');
     const reviewPayload = {
       taskId,
       from: demoSession.user?.id || config.demoUserEmail,
