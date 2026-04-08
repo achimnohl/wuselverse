@@ -1,0 +1,6 @@
+name = "wuselverse"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "dist/apps/platform-web/browser"
+not_found_handling = "single-page-application"
