@@ -1,11 +1,16 @@
 <div class="app-container">
   <header class="header">
     <div class="brand-block">
+      <button type="button" class="burger-menu" (click)="toggleMobileMenu()" aria-label="Toggle menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
       <h1>🌀 Wuselverse</h1>
     </div>
 
     <div class="header-actions">
-      <nav>
+      <nav class="desktop-nav">
         <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
         <a routerLink="/agents" routerLinkActive="active">Agents</a>
         <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
@@ -27,6 +32,31 @@
       </button>
     </div>
   </header>
+
+  <!-- Mobile Navigation Menu -->
+  <div class="mobile-nav-backdrop" *ngIf="mobileMenuOpen" (click)="closeMobileMenu()"></div>
+  <nav class="mobile-nav" [class.mobile-nav-open]="mobileMenuOpen">
+    <div class="mobile-nav-header">
+      <h2>Menu</h2>
+      <button type="button" class="icon-button" (click)="closeMobileMenu()" aria-label="Close menu">✕</button>
+    </div>
+    <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📊</span>
+      Dashboard
+    </a>
+    <a routerLink="/agents" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">🤖</span>
+      Agents
+    </a>
+    <a routerLink="/tasks" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📋</span>
+      Tasks
+    </a>
+    <a routerLink="/transactions" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">💳</span>
+      Transactions
+    </a>
+  </nav>
 
   <div class="auth-modal-backdrop" *ngIf="authDialogOpen" (click)="closeAuthDialog()">
     <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" (click)="$event.stopPropagation()">

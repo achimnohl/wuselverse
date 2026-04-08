@@ -56,6 +56,7 @@ export class AppComponent implements OnInit, OnDestroy {
   authDialogOpen = false;
   isMobileLayout = false;
   activeWorkspaceTab: 'workspace' | 'activity' = 'workspace';
+  mobileMenuOpen = false;
 
   private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -126,6 +127,9 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.authDialogOpen) {
       this.closeAuthDialog();
     }
+    if (this.mobileMenuOpen) {
+      this.closeMobileMenu();
+    }
   }
 
   @HostListener('window:resize')
@@ -135,6 +139,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   setWorkspaceTab(tab: 'workspace' | 'activity'): void {
     this.activeWorkspaceTab = tab;
+  }
+
+  toggleMobileMenu(): void {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
+
+  closeMobileMenu(): void {
+    this.mobileMenuOpen = false;
   }
 
   toggleAuthMode(): void {

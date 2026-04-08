@@ -26,6 +26,28 @@
   gap: 0.75rem;
 }
 
+.burger-menu {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 50;
+
+  span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+}
+
 .header h1 {
   margin: 0;
   font-size: 1.4rem;
@@ -125,6 +147,75 @@
 .profile-copy small {
   color: #cbd5e1;
   font-size: 0.72rem;
+}
+
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(2, 6, 23, 0.68);
+}
+
+.mobile-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background: #111827;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+
+  &.mobile-nav-open {
+    transform: translateX(0);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: white;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #e5e7eb;
+    text-decoration: none;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    transition: background 0.2s, color 0.2s;
+    font-size: 0.95rem;
+    font-weight: 500;
+
+    &:hover,
+    &.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+    }
+  }
+}
+
+.mobile-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobile-nav-icon {
+  font-size: 1.2rem;
+  width: 1.5rem;
+  text-align: center;
 }
 
 .auth-modal-backdrop {
@@ -564,6 +655,31 @@
 }
 
 @media (max-width: 900px) {
+  .burger-menu {
+    display: flex;
+  }
+
+  .header nav {
+    display: none;
+  }
+
+  .profile-copy {
+    display: none;
+  }
+
+  .profile-trigger {
+    padding: 0.4rem;
+    min-width: auto;
+  }
+
+  .header {
+    padding: 0.75rem 1rem;
+
+    h1 {
+      font-size: 1.2rem;
+    }
+  }
+
   .mobile-workspace-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -590,25 +706,11 @@
 
 @media (max-width: 720px) {
   .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
-  .header-actions,
-  .session-form {
-    width: 100%;
-  }
-
-  .header nav {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 0.15rem;
-  }
-
-  .profile-trigger {
-    width: 100%;
-    justify-content: center;
+  .header-actions {
+    width: auto;
   }
 
   .auth-modal-backdrop {
