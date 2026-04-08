@@ -36,6 +36,22 @@ const BidSchema = new Schema({
   }
 }, { _id: false });
 
+const TaskOutcomeSchema = new Schema({
+  success: { type: Boolean, required: true },
+  result: Schema.Types.Mixed,
+  artifacts: { type: [String], default: [] },
+  verificationStatus: {
+    type: String,
+    enum: ['unverified', 'verified', 'disputed'],
+    default: 'unverified'
+  },
+  completedAt: { type: Date, required: true },
+  verifiedAt: Date,
+  verifiedBy: String,
+  feedback: String,
+  disputeReason: String,
+}, { _id: false });
+
 export const TaskSchema = new Schema(
   {
     title: { type: String, required: true },
@@ -50,7 +66,9 @@ export const TaskSchema = new Schema(
     },
     assignedAgent: String,
     bids: [BidSchema],
+    acceptanceCriteria: { type: [String], default: [] },
     result: Schema.Types.Mixed,
+    outcome: TaskOutcomeSchema,
     completedAt: Date,
     parentTaskId: String,
     childTaskIds: [String],

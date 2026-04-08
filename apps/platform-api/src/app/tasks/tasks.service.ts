@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BaseMongoService } from '@wuselverse/crud-framework';
@@ -37,6 +37,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     const taskData = {
       ...createDto,
       metadata: createDto.metadata || {},
+      acceptanceCriteria: createDto.acceptanceCriteria || [],
       status: TaskStatus.OPEN,
       bids: [],
     };
@@ -291,7 +292,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     },
   ) {
     const taskResponse = await this.findById(taskId);
-    
+
     if (!taskResponse.success || !taskResponse.data) {
       throw new NotFoundException(`Task ${taskId} not found`);
     }
@@ -299,18 +300,43 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     const task = taskResponse.data;
 
     if (task.assignedAgent !== agentId) {
-      throw new Error('Only assigned agent can complete the task');
+      throw new BadRequestException('Only the assigned agent can complete the task');
+    }
+
+    if (
+      resultData.success &&
+      (task.status === TaskStatus.PENDING_REVIEW || task.status === TaskStatus.COMPLETED) &&
+      task.outcome
+    ) {
+      return {
+        taskId,
+        status: task.status,
+        completedAt: task.completedAt || task.outcome.completedAt,
+        verificationStatus: task.outcome.verificationStatus,
+      };
     }
 
     if (task.status !== TaskStatus.ASSIGNED && task.status !== TaskStatus.IN_PROGRESS) {
-      throw new Error('Task is not in a completable state');
+      throw new BadRequestException('Task is not in a completable state');
     }
 
+    const completedAt = new Date();
+    const nextStatus = resultData.success ? TaskStatus.PENDING_REVIEW : TaskStatus.FAILED;
+    const verificationStatus = resultData.success ? 'unverified' : 'disputed';
+
     const updateResult = await this.updateById(taskId, {
-      status: resultData.success ? TaskStatus.COMPLETED : TaskStatus.FAILED,
-      completedAt: new Date(),
+      status: nextStatus,
+      completedAt,
       result: {
         ...resultData,
+      },
+      outcome: {
+        success: resultData.success,
+        result: resultData.output,
+        artifacts: resultData.artifacts || [],
+        verificationStatus,
+        completedAt,
+        feedback: resultData.success ? 'Awaiting task poster verification.' : 'Agent reported an unsuccessful completion.',
       },
     });
 
@@ -320,48 +346,181 @@ export class TasksService extends BaseMongoService<TaskDocument> {
 
     this.platformEvents.notifyTasksChanged();
 
-    const acceptedBid = task.bids?.find((bid) => bid.status === BidStatus.ACCEPTED);
-    const settledAmount = acceptedBid?.amount ?? task.budget?.amount ?? 0;
-
-    if (settledAmount > 0) {
-      try {
-        await this.ensureTransactionRecorded({
-          taskId,
-          from: this.getEscrowAccount(taskId),
-          to: resultData.success ? agentId : task.poster,
-          amount: settledAmount,
-          currency: task.budget?.currency || 'USD',
-          type: resultData.success ? TransactionType.PAYMENT : TransactionType.REFUND,
-          status: TransactionStatus.COMPLETED,
-          escrowId: this.getEscrowId(taskId),
-          metadata: {
-            agentId,
-            bidId: acceptedBid?.id,
-            outcome: resultData.success ? 'completed' : 'failed'
-          }
-        });
-      } catch (error) {
-        this.logger.error(`Failed to record settlement transaction for task ${taskId}`, error as Error);
-      }
-    }
-
-    // Update agent reputation after task completion
-    try {
-      await this.agentsService.updateReputation(
-        agentId,
-        resultData.success,
-        resultData.metadata?.responseTime
-      );
-    } catch (error) {
-      this.logger.error(`Failed to update agent reputation for ${agentId}`, error);
-      // Don't fail the task completion if reputation update fails
+    if (!resultData.success) {
+      await this.recordSettlementOutcome(task, agentId, false, {
+        outcome: 'failed',
+        reason: 'agent_reported_failure',
+      });
     }
 
     return {
       taskId,
       status: updateResult.data.status,
-      completedAt: new Date(),
+      completedAt,
+      verificationStatus,
     };
+  }
+
+  async verifyTask(taskId: string, verifierId: string, feedback?: string) {
+    const taskResponse = await this.findById(taskId);
+
+    if (!taskResponse.success || !taskResponse.data) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    const task = taskResponse.data;
+
+    if (task.status === TaskStatus.COMPLETED && task.outcome?.verificationStatus === 'verified') {
+      return {
+        taskId,
+        status: task.status,
+        verificationStatus: 'verified' as const,
+        verifiedAt: task.outcome.verifiedAt || task.completedAt || new Date(),
+      };
+    }
+
+    if (task.status !== TaskStatus.PENDING_REVIEW) {
+      throw new BadRequestException('Only tasks pending review can be verified.');
+    }
+
+    if (!task.assignedAgent) {
+      throw new BadRequestException('Task has no assigned agent to verify.');
+    }
+
+    const verifiedAt = new Date();
+    const completedAt = task.completedAt || task.outcome?.completedAt || verifiedAt;
+    const updateResult = await this.updateById(taskId, {
+      status: TaskStatus.COMPLETED,
+      completedAt,
+      'outcome.success': true,
+      'outcome.result': task.outcome?.result ?? task.result,
+      'outcome.artifacts': task.outcome?.artifacts || [],
+      'outcome.verificationStatus': 'verified',
+      'outcome.completedAt': completedAt,
+      'outcome.verifiedAt': verifiedAt,
+      'outcome.verifiedBy': verifierId,
+      'outcome.feedback': feedback || task.outcome?.feedback || 'Verified by task poster.',
+    } as any);
+
+    if (!updateResult.success || !updateResult.data) {
+      throw new Error('Failed to verify task');
+    }
+
+    this.platformEvents.notifyTasksChanged();
+    await this.recordSettlementOutcome(task, task.assignedAgent, true, { outcome: 'verified' });
+    await this.updateAgentReputationSafely(task.assignedAgent, true, task.result?.metadata?.responseTime);
+
+    return {
+      taskId,
+      status: updateResult.data.status,
+      verificationStatus: 'verified',
+      verifiedAt,
+    };
+  }
+
+  async disputeTask(taskId: string, disputedBy: string, reason: string, feedback?: string) {
+    const taskResponse = await this.findById(taskId);
+
+    if (!taskResponse.success || !taskResponse.data) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    const task = taskResponse.data;
+
+    if (task.status === TaskStatus.DISPUTED && task.outcome?.verificationStatus === 'disputed') {
+      return {
+        taskId,
+        status: task.status,
+        verificationStatus: 'disputed' as const,
+        reviewedAt: task.outcome.verifiedAt || task.completedAt || new Date(),
+        disputeReason: task.outcome.disputeReason || reason,
+      };
+    }
+
+    if (task.status !== TaskStatus.PENDING_REVIEW) {
+      throw new BadRequestException('Only tasks pending review can be disputed.');
+    }
+
+    if (!task.assignedAgent) {
+      throw new BadRequestException('Task has no assigned agent to dispute.');
+    }
+
+    const reviewedAt = new Date();
+    const completedAt = task.completedAt || task.outcome?.completedAt || reviewedAt;
+    const updateResult = await this.updateById(taskId, {
+      status: TaskStatus.DISPUTED,
+      completedAt,
+      'outcome.success': false,
+      'outcome.result': task.outcome?.result ?? task.result,
+      'outcome.artifacts': task.outcome?.artifacts || [],
+      'outcome.verificationStatus': 'disputed',
+      'outcome.completedAt': completedAt,
+      'outcome.verifiedAt': reviewedAt,
+      'outcome.verifiedBy': disputedBy,
+      'outcome.feedback': feedback || task.outcome?.feedback || 'Disputed by task poster.',
+      'outcome.disputeReason': reason,
+    } as any);
+
+    if (!updateResult.success || !updateResult.data) {
+      throw new Error('Failed to dispute task');
+    }
+
+    this.platformEvents.notifyTasksChanged();
+    await this.recordSettlementOutcome(task, task.assignedAgent, false, {
+      outcome: 'disputed',
+      reason,
+    });
+    await this.updateAgentReputationSafely(task.assignedAgent, false, task.result?.metadata?.responseTime);
+
+    return {
+      taskId,
+      status: updateResult.data.status,
+      verificationStatus: 'disputed',
+      reviewedAt,
+      disputeReason: reason,
+    };
+  }
+
+  private async recordSettlementOutcome(
+    task: any,
+    agentId: string,
+    success: boolean,
+    metadata: Record<string, unknown> = {}
+  ): Promise<void> {
+    const acceptedBid = task.bids?.find((bid: Bid) => bid.status === BidStatus.ACCEPTED);
+    const settledAmount = acceptedBid?.amount ?? task.budget?.amount ?? 0;
+
+    if (settledAmount <= 0) {
+      return;
+    }
+
+    try {
+      await this.ensureTransactionRecorded({
+        taskId: String(task._id || task.id),
+        from: this.getEscrowAccount(String(task._id || task.id)),
+        to: success ? agentId : task.poster,
+        amount: settledAmount,
+        currency: task.budget?.currency || 'USD',
+        type: success ? TransactionType.PAYMENT : TransactionType.REFUND,
+        status: TransactionStatus.COMPLETED,
+        escrowId: this.getEscrowId(String(task._id || task.id)),
+        metadata: {
+          agentId,
+          bidId: acceptedBid?.id,
+          ...metadata,
+        }
+      });
+    } catch (error) {
+      this.logger.error(`Failed to record settlement transaction for task ${String(task._id || task.id)}`, error as Error);
+    }
+  }
+
+  private async updateAgentReputationSafely(agentId: string, success: boolean, responseTime?: number): Promise<void> {
+    try {
+      await this.agentsService.updateReputation(agentId, success, responseTime);
+    } catch (error) {
+      this.logger.error(`Failed to update agent reputation for ${agentId}`, error);
+    }
   }
 
   /**

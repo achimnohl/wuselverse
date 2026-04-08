@@ -9,6 +9,9 @@ export interface Task {
   budget: Budget;
   escrow?: EscrowDetails;
   bids: Bid[];
+  acceptanceCriteria?: string[];
+  result?: any; // legacy mirrored completion payload
+  completedAt?: Date;
   outcome?: TaskOutcome;
   parentTaskId?: string; // for delegation chains
   childTaskIds: string[]; // subtasks
@@ -78,7 +81,11 @@ export interface Bid {
 export interface TaskOutcome {
   success: boolean;
   result: unknown;
-  verificationStatus: 'pending' | 'verified' | 'disputed';
+  artifacts?: string[];
+  verificationStatus: 'unverified' | 'verified' | 'disputed';
   completedAt: Date;
+  verifiedAt?: Date;
+  verifiedBy?: string;
   feedback?: string;
+  disputeReason?: string;
 }

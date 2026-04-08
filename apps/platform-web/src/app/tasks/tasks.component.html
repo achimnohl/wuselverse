@@ -3,17 +3,82 @@
   <p class="subtitle">Create requests, review budgets, and track active delivery work.</p>
 
   <div class="quick-actions-card">
-    <div class="quick-actions-copy">
-      <span class="section-kicker">Quick action</span>
-      <h3>Create a sample task</h3>
-      <p>
-        Post a signed-in task through the secure browser workflow.
-        <span *ngIf="currentUser">Signed in as <strong>{{ currentUser.displayName }}</strong>.</span>
-      </p>
+    <div class="quick-actions-header">
+      <div class="quick-actions-copy">
+        <span class="section-kicker">Task intake</span>
+        <h3>Create a sample task or a structured custom request</h3>
+        <p>
+          Add richer acceptance criteria and delivery expectations directly from the workspace.
+          <span *ngIf="currentUser">Signed in as <strong>{{ currentUser.displayName }}</strong>.</span>
+        </p>
+      </div>
+      <div class="quick-action-buttons">
+        <button class="secondary-btn" type="button" (click)="toggleCreateForm()" [disabled]="!currentUser">
+          {{ showCreateForm ? 'Hide custom form' : 'Open custom form' }}
+        </button>
+        <button class="action-btn" type="button" (click)="postDemoTask()" [disabled]="postingDemoTask || !currentUser">
+          {{ postingDemoTask ? 'Creating…' : (currentUser ? 'Create sample task' : 'Sign in to create') }}
+        </button>
+      </div>
     </div>
-    <button class="action-btn" (click)="postDemoTask()" [disabled]="postingDemoTask || !currentUser">
-      {{ postingDemoTask ? 'Creating…' : (currentUser ? 'Create sample task' : 'Sign in to create') }}
-    </button>
+
+    <form
+      *ngIf="showCreateForm"
+      class="custom-task-form"
+      (ngSubmit)="submitCustomTask(titleInput.value, descriptionInput.value, capabilitiesInput.value, budgetAmountInput.valueAsNumber || 0, currencyInput.value, budgetTypeInput.value, acceptanceCriteriaInput.value, artifactInstructionsInput.value)">
+      <div class="form-grid">
+        <label>
+          <span>Title</span>
+          <input #titleInput type="text" [value]="customTaskForm.title" placeholder="e.g. Review deployment security posture" />
+        </label>
+
+        <label>
+          <span>Capabilities</span>
+          <input #capabilitiesInput type="text" [value]="customTaskForm.capabilitiesText" placeholder="security-scan, documentation" />
+        </label>
+
+        <label class="full-width">
+          <span>Description</span>
+          <textarea #descriptionInput rows="4" placeholder="Describe the requested outcome and any context the agent should know.">{{ customTaskForm.description }}</textarea>
+        </label>
+
+        <label>
+          <span>Budget amount</span>
+          <input #budgetAmountInput type="number" min="1" [value]="customTaskForm.budgetAmount" />
+        </label>
+
+        <label>
+          <span>Currency</span>
+          <input #currencyInput type="text" [value]="customTaskForm.currency" maxlength="8" />
+        </label>
+
+        <label>
+          <span>Budget type</span>
+          <select #budgetTypeInput [value]="customTaskForm.budgetType">
+            <option value="fixed">Fixed</option>
+            <option value="hourly">Hourly</option>
+            <option value="usage">Usage</option>
+            <option value="outcome-based">Outcome-based</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Acceptance criteria</span>
+          <textarea #acceptanceCriteriaInput rows="5" placeholder="One line per acceptance criterion">{{ customTaskForm.acceptanceCriteriaText }}</textarea>
+        </label>
+
+        <label>
+          <span>Expected artifacts</span>
+          <textarea #artifactInstructionsInput rows="5" placeholder="One line per expected artifact or evidence item">{{ customTaskForm.artifactInstructionsText }}</textarea>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button class="action-btn" type="submit" [disabled]="creatingCustomTask || !currentUser">
+          {{ creatingCustomTask ? 'Creating…' : 'Create custom task' }}
+        </button>
+      </div>
+    </form>
   </div>
 
   <p *ngIf="postTaskMessage" class="flow-message success-message">{{ postTaskMessage }}</p>
@@ -36,7 +101,12 @@
       <div *ngFor="let task of getTasksByStatus(filterStatus)" class="task-card">
         <div class="task-header">
           <h3>{{ task.title }}</h3>
-          <span class="task-status" [class]="'status-' + task.status">{{ task.status }}</span>
+          <div class="task-header-actions">
+            <button class="details-toggle" type="button" (click)="toggleTaskDetails(task)">
+              {{ isTaskExpanded(task) ? 'Hide details' : 'View details' }}
+            </button>
+            <span class="task-status" [class]="'status-' + task.status">{{ getStatusLabel(task.status) }}</span>
+          </div>
         </div>
 
         <p class="task-description">{{ task.description }}</p>
@@ -65,6 +135,39 @@
           </div>
         </div>
 
+        <div class="verification-section" *ngIf="(task.acceptanceCriteria?.length || 0) > 0 || task.outcome">
+          <h4>Verification</h4>
+
+          <div *ngIf="(task.acceptanceCriteria?.length || 0) > 0" class="verification-block">
+            <span class="verification-label">Acceptance criteria</span>
+            <ul class="criteria-list">
+              <li *ngFor="let criterion of task.acceptanceCriteria">{{ criterion }}</li>
+            </ul>
+          </div>
+
+          <div *ngIf="task.outcome" class="verification-block">
+            <span class="verification-label">Delivery status</span>
+            <p class="verification-meta">
+              {{ task.outcome.verificationStatus === 'verified' ? 'Verified delivery' : (task.outcome.verificationStatus === 'disputed' ? 'Delivery disputed' : 'Awaiting owner review') }}
+            </p>
+            <p class="verification-meta" *ngIf="(task.outcome.artifacts?.length || 0) > 0">
+              Evidence: {{ task.outcome.artifacts?.join(', ') }}
+            </p>
+            <p class="verification-meta" *ngIf="task.outcome.disputeReason">
+              Reason: {{ task.outcome.disputeReason }}
+            </p>
+          </div>
+
+          <div class="verification-actions" *ngIf="canReviewTask(task)">
+            <button class="verify-btn" (click)="verifyTask(task)" [disabled]="verificationBusyTaskId === (task.id || task._id)">
+              {{ verificationBusyTaskId === (task.id || task._id) ? 'Working…' : 'Verify delivery' }}
+            </button>
+            <button class="dispute-btn" (click)="disputeTask(task)" [disabled]="verificationBusyTaskId === (task.id || task._id)">
+              Dispute
+            </button>
+          </div>
+        </div>
+
         <div class="bids-section" *ngIf="task.bids && task.bids.length > 0">
           <h4>Bids ({{ task.bids.length }})</h4>
           <div class="bids-list">
@@ -72,6 +175,22 @@
               <span class="bid-agent">{{ getActorName(bid.agentId) }}</span>
               <span class="bid-amount">{{ task.budget.currency }} {{ bid.amount }}</span>
               <span class="bid-status" [class]="'bid-' + bid.status">{{ bid.status }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-detail-panel" *ngIf="isTaskExpanded(task)">
+          <div class="detail-panel-grid">
+            <div class="detail-panel-card" *ngIf="getExpectedArtifacts(task).length > 0">
+              <h4>Expected artifacts</h4>
+              <ul class="criteria-list">
+                <li *ngFor="let artifact of getExpectedArtifacts(task)">{{ artifact }}</li>
+              </ul>
+            </div>
+
+            <div class="detail-panel-card">
+              <h4>Delivery payload</h4>
+              <pre class="result-preview">{{ getResultPreview(task) }}</pre>
             </div>
           </div>
         </div>

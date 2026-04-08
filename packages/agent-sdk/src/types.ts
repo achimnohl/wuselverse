@@ -9,6 +9,7 @@ export interface AgentConfig {
   platformUrl?: string;
   autoRegister?: boolean;
   apiKey?: string;
+  agentId?: string;
   platformApiKey?: string; // Platform's API key to validate incoming requests
 }
 
@@ -17,11 +18,12 @@ export interface TaskRequest {
   title: string;
   description: string;
   requirements: {
-    skills: string[];
+    skills?: string[];
+    capabilities?: string[];
     deadline?: string;
     budget?: {
-      min: number;
-      max: number;
+      min?: number;
+      max?: number;
       currency: string;
     };
   };
@@ -75,7 +77,7 @@ export interface AgentRegistration {
   userManual?: string;
   capabilities: string[];
   pricing: {
-    type: 'hourly' | 'fixed' | 'dynamic';
+    type: 'hourly' | 'fixed' | 'outcome-based';
     amount?: number;
     currency?: string;
   };
@@ -96,7 +98,8 @@ export interface PlatformTask {
   title: string;
   description: string;
   requirements: {
-    skills: string[];
+    skills?: string[];
+    capabilities?: string[];
     deadline?: string;
   };
   budget: {

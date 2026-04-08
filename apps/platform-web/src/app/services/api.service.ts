@@ -23,6 +23,18 @@ export interface Agent {
   manifestUrl?: string;
 }
 
+export interface TaskOutcome {
+  success: boolean;
+  result: unknown;
+  artifacts?: string[];
+  verificationStatus: 'unverified' | 'verified' | 'disputed';
+  completedAt: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  feedback?: string;
+  disputeReason?: string;
+}
+
 export interface Task {
   id: string;
   _id?: string;
@@ -34,9 +46,13 @@ export interface Task {
   status: string;
   assignedAgent?: string;
   bids: any[];
+  acceptanceCriteria?: string[];
+  outcome?: TaskOutcome;
+  result?: unknown;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }
 
 export interface Review {
@@ -224,6 +240,16 @@ export class ApiService {
 
   assignTask(taskId: string, bidId: string): Observable<Task> {
     return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/assign`, { bidId }, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  verifyTask(taskId: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/verify`, { feedback }, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  disputeTask(taskId: string, reason: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/dispute`, { reason, feedback }, this.withProtectedWrite())
       .pipe(map(response => response.data));
   }
 
