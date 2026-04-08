@@ -208,7 +208,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
     });
   }
 
-  canViewAudit(agent: Agent): boolean {
+  canViewAudit(_agent: Agent): boolean {
     // Can view audit log if user has an API key (owns the agent)
     return !!this.userApiKey;
   }

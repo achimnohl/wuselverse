@@ -14,10 +14,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import request from 'supertest';
-import * as mongoose from 'mongoose';
 import { TestAgent } from './test-agent';
 import { AuthenticatedSession, createAuthenticatedSession } from './auth-test.utils';
 import { AppModule } from '../src/app/app.module';
@@ -28,7 +25,6 @@ describe('Agent Bidding Flow (e2e)', () => {
   let testAgent: TestAgent;
   let agentApiKey: string;
   let agentId: string;
-  let adminApiKey: string;
   let taskId: string;
 
   // Configuration

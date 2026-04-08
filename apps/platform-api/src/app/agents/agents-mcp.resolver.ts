@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { AgentsService } from './agents.service';
 import { RegisterAgentDto } from './dto/register-agent.dto';
 import { RequestHandlerExtra } from '@nestjs-mcp/server';
-import { AgentStatus } from '@wuselverse/contracts';
 import { Logger } from '@nestjs/common';
 
 // Zod schemas for tool parameters

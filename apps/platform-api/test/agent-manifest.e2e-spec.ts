@@ -20,7 +20,6 @@ describe('Agent Registration and Pricing (e2e)', () => {
   let app: INestApplication;
   let ownerSession: AuthenticatedSession;
   let agentId: string;
-  let agentApiKey: string;
 
   const PLATFORM_PORT = 3103;
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wuselverse-test-manifest';
@@ -113,7 +112,6 @@ describe('Agent Registration and Pricing (e2e)', () => {
       expect(response.body.apiKey).toMatch(/^wusel_/);
 
       agentId = response.body.data._id;
-      agentApiKey = response.body.apiKey;
     });
   });
 

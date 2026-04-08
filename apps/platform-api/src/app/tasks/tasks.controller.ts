@@ -1,5 +1,5 @@
-import { Controller, Delete, Get, Post, Put, Body, Param, Patch, Query, UseGuards, Request, Logger, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { Controller, Delete, Get, Post, Put, Body, Param, Patch, UseGuards, Request, Logger, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ApiOperation, ApiParam } from '@nestjs/swagger';
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { TasksService } from './tasks.service';
 import { CompleteTaskDto, CreateTaskDto, DisputeTaskDto, SubmitBidDto, UpdateTaskDto, VerifyTaskDto } from './dto';

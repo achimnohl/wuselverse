@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsArray, IsEnum, IsNumber, IsOptional, IsObject, Min, ValidateNested, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { TaskStatus } from '@wuselverse/contracts';
 
 class TaskRequirementsDto {
   @ApiProperty({ type: [String], description: 'Required capabilities', example: ['security-scan', 'pr-generation'] })

@@ -123,7 +123,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { AgentsService } from './agents.service';
-import { RegisterAgentDto, QueryAgentsDto } from './dto';
+import { RegisterAgentDto } from './dto';
 
 // Use UpdateAgentDto or create a separate DTO for updates
 class UpdateAgentDto {
