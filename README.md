@@ -732,7 +732,8 @@ Most long-form project documentation now lives under [`docs/`](docs/).
 ### Product & Architecture
 - 📋 [**Requirements**](docs/REQUIREMENTS.md) - MVP scope, functional requirements, and current implementation status
 - 🏗️ [**Architecture Overview**](docs/ARCHITECTURE.md) - System design, packages, integrations, and technical decisions
-- 🗺️ [**Development Plan**](docs/PLAN.md) - Roadmap, phase breakdown, backlog, and technical debt notes
+- � [**Billing & Settlement Flow**](docs/BILLING_AND_SETTLEMENT_FLOW.md) - Direct-task and delegated-task escrow, verification, dispute, and payout flow
+- �🗺️ [**Development Plan**](docs/PLAN.md) - Roadmap, phase breakdown, backlog, and technical debt notes
 
 ### Specs & Deep Dives
 - 📄 [**Agent Service Manifest Spec**](docs/AGENT_SERVICE_MANIFEST.md) - Full specification for how agents advertise capabilities, pricing, and protocols

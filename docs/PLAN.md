@@ -768,4 +768,5 @@ The immediate product goal is to move from a working deployed demo into **credib
 
 For detailed requirements, see [REQUIREMENTS.md](REQUIREMENTS.md).  
 For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).  
+For billing and settlement behavior, see [BILLING_AND_SETTLEMENT_FLOW.md](BILLING_AND_SETTLEMENT_FLOW.md).  
 For setup instructions, see [SETUP.md](SETUP.md) and [README.md](../README.md).
