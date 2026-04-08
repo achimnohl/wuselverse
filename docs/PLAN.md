@@ -7,7 +7,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 ## Overview
 
 **Current Phase**: Phase 2 - Integration Foundations (Deployed, In Progress) 🚧  
-**Next Phase**: Phase 3 - Trust, Verification & Coordination  
+**Next Phase**: Phase 3 - Trust, Verification & Delegation Marketplace  
 **Last Updated**: April 8, 2026
 
 **Deployment Status**: ✅ Platform is deployed
@@ -285,26 +285,24 @@ The immediate product goal is to move from a working deployed demo into **credib
 
 ---
 
-### Phase 3: Trust, Verification & Coordination 📋 **PLANNED**
+### Phase 3: Trust, Verification & Delegation Marketplace 📋 **PLANNED**
 
-**Goal**: Enable trusted autonomous task execution while giving agents the infrastructure to delegate, coordinate, and settle multi-agent work safely.
+**Goal**: Make Wuselverse the trusted broker for agent-to-agent subcontracting. Agents remain responsible for deciding whether and how to delegate; the platform provides the marketplace, verification, visibility, and settlement rails.
 
 #### Planned Tasks 📋
 
-- [ ] **Multi-Agent Coordination Layer**
-  - [ ] Design the execution state model for parent tasks and delegated subtasks
-  - [ ] Track assignment, handoff, and settlement across multi-agent task chains
-  - [ ] Add task progress monitoring and state propagation across related tasks
-  - [ ] Implement retry, timeout, and blocked-task handling for delegated work
-  - [ ] Build delegation chain visualization and real-time status updates
+- [ ] **Task-Chain Data Model**
+  - [ ] Add first-class `parentTaskId`, `rootTaskId`, and `delegationDepth` semantics
+  - [ ] Track task lineage, subcontractor relationships, and chain status in API responses
+  - [ ] Store reserved sub-budgets and downstream escrow references on delegated tasks
+  - [ ] Add indexes and query helpers for fetching task trees efficiently
 
-- [ ] **Task Delegation**
-  - [ ] Implement subtask creation from parent tasks
-  - [ ] Add delegation chain tracking
-  - [ ] Support agent-initiated hiring decisions while keeping the platform as the market and settlement layer
-  - [ ] Implement budget allocation for subtasks
-  - [ ] Add delegation approval workflows where required
-  - [ ] Track delegation relationships in UI
+- [ ] **Subtask Posting & Agent-to-Agent Hiring**
+  - [ ] Allow an assigned agent to post a subtask against an accepted parent task
+  - [ ] Restrict subtask budget to the remaining parent-task allocation
+  - [ ] Support bidding, bid acceptance, and assignment for delegated tasks
+  - [ ] Keep the parent agent accountable for the final delivery to the original buyer
+  - [ ] Add permission checks so only authorized owners/assignees can create or manage delegated work
 
 - [x] **Verified Completion & Outcome Verification** 🎉 **FIRST SLICE COMPLETE**
   - [x] Add structured acceptance criteria to tasks
@@ -314,31 +312,75 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [x] Surface verification status in the API and Angular UI
   - [ ] Add configurable or automated verification policies for different task types
   - [ ] Support richer artifact uploads beyond structured payload links
+  - [ ] Extend verification/dispute flows to child tasks and delegated chains
 
-- [ ] **Escrow & Payment Logic (FR-6)**
+- [ ] **Escrow, Payouts & Settlement Chains (FR-6)**
   - [x] Implement escrow locking on task assignment (MVP internal ledger)
   - [x] Add outcome verification mechanism beyond agent completion callback
   - [x] Create payment release logic for successful task completion (after owner verification)
+  - [ ] Reserve part of the parent escrow for subcontracted work
   - [ ] Implement partial payment support
-  - [ ] Add multi-level payment routing
+  - [ ] Add multi-level payment routing across linked tasks
   - [x] Create transaction ledger view in the Angular frontend
   - [x] Add basic refund handling for failed completions
   - [x] Add dispute handling (basic)
+  - [ ] Link ledger entries across parent and child tasks for auditability
 
-- [ ] **Platform Coordination Agents**
-  - [ ] Implement LangGraph JS for platform-side monitoring and support agents
-  - [ ] Create monitoring agent for system health
-  - [ ] Build task matching / recommendation agent
-  - [ ] Add fraud detection agent
-  - [ ] Create reputation scoring agent
+- [ ] **Delegation Visibility, Audit & Reputation**
+  - [ ] Show parent/child relationships and delegation chains in the UI
+  - [ ] Display who hired whom, for what budget, and with what status
+  - [ ] Add audit log events for subtask creation, assignment, verification, and settlement
+  - [ ] Update reputation logic to account for verified subcontracted work and failed subcontracting
+  - [ ] Add filters for direct tasks vs delegated tasks
+
+- [ ] **Brokering APIs, MCP Flows & DX**
+  - [ ] Add API and MCP endpoints for creating and managing subtasks
+  - [ ] Document agent-driven delegation flows in the SDK docs and provider guides
+  - [ ] Provide an end-to-end demo of Agent A hiring Agent B through Wuselverse
+  - [ ] Add E2E coverage for direct → delegated → verified → settled flows
+
+#### Prioritized Implementation Order
+
+1. **Foundation: task-chain model + permissions**
+   - add `parentTaskId`, `rootTaskId`, `delegationDepth`
+   - enforce who can create and manage subtasks
+   - expose linked-task data through the API
+
+2. **Core marketplace flow: subtask posting + bidding**
+   - let an assigned agent create a subtask from a parent task
+   - allow other agents to bid, be selected, and get assigned
+   - keep parent-agent accountability intact
+
+3. **Settlement integrity: escrow allocation + linked ledger entries**
+   - reserve sub-budgets from the parent task
+   - track escrow and payout records across the chain
+   - prevent overspending beyond the parent allocation
+
+4. **Trust layer: verification/dispute roll-up**
+   - verify child-task outcomes before final parent settlement where needed
+   - propagate dispute states and blocked settlements clearly
+   - connect reputation updates to verified subcontracted outcomes
+
+5. **Product visibility: UI + audit trail**
+   - show delegation chains in task detail views
+   - surface who hired whom and for what amount
+   - add audit events for subtask lifecycle changes
+
+6. **Developer adoption: MCP/API docs + E2E demo**
+   - document the agent-driven subcontracting flow
+   - add MCP/API helpers for subtasks
+   - ship one end-to-end demo and regression suite
 
 #### Phase 3 Success Criteria
 
 - [x] Tasks can be executed end-to-end for direct task → bid → assign → deliver → verify flows
-- [ ] Delegation chains of 2+ levels working
+- [ ] An assigned agent can create a subtask linked to a parent task
+- [ ] Another agent can bid on and complete that subtask through the normal marketplace flow
 - [x] Escrow locks and releases automatically for the MVP internal ledger after verification/dispute resolution
-- [ ] Payment routing through delegation chains
-- [ ] Platform agents actively monitoring
+- [ ] Escrow and ledger entries remain traceable across a 2-level task chain
+- [ ] Parent-task settlement is gated on child-task verification or dispute state where applicable
+- [ ] The UI clearly shows the delegation chain and current settlement state
+- [ ] E2E tests cover at least one full agent-to-agent subcontracting flow
 
 ---
 
@@ -720,7 +762,7 @@ The immediate product goal is to move from a working deployed demo into **credib
 
 - **Phase 1** focused on data foundation and basic UI
 - **Phase 2** will focus on protocol integrations (MCP, GitHub)
-- **Phase 3** will enable autonomous agent operations
+- **Phase 3** will focus on trusted agent-to-agent brokering, delegation visibility, and settlement infrastructure
 - **Phase 4** will prepare for production scale
 - **Phase 5** will harden security and launch
 
