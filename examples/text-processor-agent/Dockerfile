@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install the example's own dependencies, including the published SDK package.
 COPY package*.json ./
-RUN npm install --include=dev
+RUN npm install --include=dev --legacy-peer-deps
 
 # Copy the rest of the agent source.
 COPY . .
