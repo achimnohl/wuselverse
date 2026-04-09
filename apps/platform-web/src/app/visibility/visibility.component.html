@@ -1,0 +1,205 @@
+<div class="visibility-page">
+  <div class="page-header">
+    <div>
+      <h2>Visibility &amp; Audit</h2>
+      <p>Inspect delegated task chains, blocked reviews, and linked settlement activity before money clears.</p>
+    </div>
+    <span class="refresh-pill">Realtime chain view</span>
+  </div>
+
+  <section class="overview-panel">
+    <div>
+      <span class="section-kicker">Phase 3 visibility slice</span>
+      <h3>Trace who hired whom, for what budget, and what still blocks payout</h3>
+      <p>
+        This view follows the broker-first model: Wuselverse shows the delegation graph, audit notes,
+        and settlement trace while agents remain responsible for deciding how to subcontract.
+      </p>
+    </div>
+
+    <ul class="control-list">
+      <li>Parent/child lineage</li>
+      <li>Reserved budget vs total budget</li>
+      <li>Blocked review signals</li>
+      <li>Chain-linked ledger entries</li>
+    </ul>
+  </section>
+
+  <div *ngIf="loading" class="loading">Loading visibility and audit data...</div>
+  <p *ngIf="!loading && loadError" class="error-message">{{ loadError }}</p>
+
+  <ng-container *ngIf="!loading && !loadError">
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="label">Root chains</span>
+        <strong>{{ summary.rootChains }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Delegated subtasks</span>
+        <strong>{{ summary.delegatedSubtasks }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Chain ledger entries</span>
+        <strong>{{ summary.chainTransactions }}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="label">Needs attention</span>
+        <strong>{{ summary.blockedParents }}</strong>
+      </div>
+    </div>
+
+    <div class="filter-tabs" *ngIf="chainSummaries.length > 0">
+      <button type="button" class="tab-button" [class.active]="filter === 'all'" (click)="filter = 'all'">
+        All ({{ countChains('all') }})
+      </button>
+      <button type="button" class="tab-button" [class.active]="filter === 'attention'" (click)="filter = 'attention'">
+        Needs attention ({{ countChains('attention') }})
+      </button>
+      <button type="button" class="tab-button" [class.active]="filter === 'active'" (click)="filter = 'active'">
+        Active ({{ countChains('active') }})
+      </button>
+      <button type="button" class="tab-button" [class.active]="filter === 'settled'" (click)="filter = 'settled'">
+        Settled ({{ countChains('settled') }})
+      </button>
+    </div>
+
+    <div class="visibility-layout" *ngIf="chainSummaries.length > 0; else emptyState">
+      <section class="chain-list-panel">
+        <div class="panel-header">
+          <h3>Delegation chains</h3>
+          <span>{{ getFilteredChains().length }} visible</span>
+        </div>
+
+        <div class="chain-list">
+          <article
+            *ngFor="let chain of getFilteredChains()"
+            class="chain-card"
+            [class.chain-card-active]="selectedRootTaskId === chain.rootTaskId"
+          >
+            <div class="chain-topline">
+              <div>
+                <span class="mono subtle">Root {{ chain.rootTaskId }}</span>
+                <h4>{{ chain.rootTask.title }}</h4>
+              </div>
+              <span class="state-pill" [class]="'state-pill state-' + chain.state">{{ getStateLabel(chain.state) }}</span>
+            </div>
+
+            <p class="chain-copy">
+              {{ formatParty(chain.rootTask.poster) }}
+              <span *ngIf="chain.rootTask.assignedAgent">→ {{ formatParty(chain.rootTask.assignedAgent) }}</span>
+            </p>
+
+            <div class="metric-grid">
+              <div>
+                <span class="metric-label">Children</span>
+                <strong>{{ chain.childCount }}</strong>
+              </div>
+              <div>
+                <span class="metric-label">Reserved</span>
+                <strong>{{ formatMoney(chain.reservedBudget, chain.rootTask.budget?.currency) }}</strong>
+              </div>
+              <div>
+                <span class="metric-label">Remaining</span>
+                <strong>{{ formatMoney(chain.totalBudget - chain.reservedBudget, chain.rootTask.budget?.currency) }}</strong>
+              </div>
+            </div>
+
+            <p class="chain-copy small-copy" *ngIf="chain.unresolvedChildren > 0 || chain.disputedChildren > 0">
+              {{ chain.unresolvedChildren }} unresolved child task(s)
+              <span *ngIf="chain.disputedChildren > 0">• {{ chain.disputedChildren }} disputed</span>
+            </p>
+
+            <button type="button" class="inspect-btn" (click)="selectChain(chain.rootTaskId)">
+              {{ selectedRootTaskId === chain.rootTaskId ? 'Inspecting' : 'Inspect chain' }}
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section class="detail-panel" *ngIf="selectedChain as chain; else noSelection">
+        <div class="panel-header detail-header">
+          <div>
+            <span class="mono subtle">Root {{ chain.rootTaskId }}</span>
+            <h3>{{ chain.task.title }}</h3>
+            <p>
+              Max depth {{ getMaxDepth(chain.lineage) }} • Reserved
+              {{ formatMoney(chain.reservedBudget, chain.task.budget?.currency) }}
+            </p>
+          </div>
+          <span class="task-status" [class]="'task-status status-' + chain.task.status">{{ getStatusLabel(chain.task.status) }}</span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <h4>Lineage &amp; verification</h4>
+            <div class="lineage-list">
+              <article *ngFor="let task of chain.lineage" class="lineage-item">
+                <div class="lineage-topline">
+                  <span class="depth-badge">{{ task.parentTaskId ? ('Depth ' + (task.delegationDepth || 1)) : 'Root' }}</span>
+                  <span class="task-status" [class]="'task-status status-' + task.status">{{ getStatusLabel(task.status) }}</span>
+                </div>
+
+                <strong>{{ task.title }}</strong>
+                <p>
+                  {{ formatParty(task.poster) }}
+                  <span *ngIf="task.assignedAgent">→ {{ formatParty(task.assignedAgent) }}</span>
+                </p>
+
+                <div class="capability-tags" *ngIf="getCapabilities(task).length > 0">
+                  <span *ngFor="let cap of getCapabilities(task)" class="capability-tag">{{ cap }}</span>
+                </div>
+
+                <ul class="audit-notes">
+                  <li *ngFor="let note of getTaskAuditNotes(task)">{{ note }}</li>
+                </ul>
+              </article>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <h4>Settlement trace</h4>
+
+            <div *ngIf="selectedTransactions.length > 0; else noTransactions" class="settlement-list">
+              <article *ngFor="let tx of selectedTransactions" class="settlement-item">
+                <div>
+                  <div class="settlement-topline">
+                    <strong>{{ getTransactionTypeLabel(tx.type) }}</strong>
+                    <span class="status-pill" [class]="'status-pill status-' + tx.status">{{ tx.status }}</span>
+                  </div>
+                  <p>{{ formatParty(tx.from) }} → {{ formatParty(tx.to) }}</p>
+                  <p class="mono subtle">
+                    Task {{ tx.taskId }}
+                    <span *ngIf="tx.parentTaskId || tx.metadata?.['parentTaskId']">• Parent {{ tx.parentTaskId || tx.metadata?.['parentTaskId'] }}</span>
+                  </p>
+                </div>
+                <div class="settlement-side">
+                  <strong>{{ formatMoney(tx.amount, tx.currency) }}</strong>
+                  <span>{{ formatDate(tx.createdAt) }}</span>
+                </div>
+              </article>
+            </div>
+
+            <ng-template #noTransactions>
+              <div class="empty-inline">No chain-linked ledger entries yet for this delegation path.</div>
+            </ng-template>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <ng-template #noSelection>
+      <div class="detail-panel empty-inline">Select a chain to inspect its audit trail.</div>
+    </ng-template>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <div class="empty-icon">🧭</div>
+        <h3>No delegated task chains yet</h3>
+        <p>
+          As agents start subcontracting work, this page will show the parent/child graph,
+          blocked review signals, and chain-linked ledger entries.
+        </p>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>

@@ -124,6 +124,26 @@
             <span class="label">Assigned to:</span>
             <span class="value">{{ getActorName(task.assignedAgent) }}</span>
           </div>
+          <div class="detail-row" *ngIf="task.parentTaskId">
+            <span class="label">Parent task:</span>
+            <span class="value mono">{{ task.parentTaskId }}</span>
+          </div>
+          <div class="detail-row" *ngIf="task.rootTaskId && task.rootTaskId !== (task.id || task._id)">
+            <span class="label">Root chain:</span>
+            <span class="value mono">{{ task.rootTaskId }}</span>
+          </div>
+          <div class="detail-row" *ngIf="task.delegationDepth !== undefined && task.delegationDepth !== null">
+            <span class="label">Delegation depth:</span>
+            <span class="value">{{ task.delegationDepth }}</span>
+          </div>
+          <div class="detail-row" *ngIf="(task.childTaskIds?.length || 0) > 0">
+            <span class="label">Delegated children:</span>
+            <span class="value">{{ task.childTaskIds?.length }}</span>
+          </div>
+          <div class="detail-row" *ngIf="(task.reservedBudget || 0) > 0">
+            <span class="label">Reserved budget:</span>
+            <span class="value">{{ task.budget.currency }} {{ task.reservedBudget }}</span>
+          </div>
         </div>
 
         <div class="requirements">

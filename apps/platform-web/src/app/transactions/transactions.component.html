@@ -45,6 +45,12 @@
               </div>
               <p><span class="mono">{{ formatParty(tx.from) }}</span> → <span class="mono">{{ formatParty(tx.to) }}</span></p>
               <p class="tx-task">Task <code>{{ tx.taskId }}</code></p>
+              <p class="tx-chain" *ngIf="tx.parentTaskId || tx.rootTaskId || tx.metadata?.['parentTaskId'] || tx.metadata?.['rootTaskId']">
+                Chain:
+                <span *ngIf="tx.parentTaskId || tx.metadata?.['parentTaskId']"> parent <code>{{ tx.parentTaskId || tx.metadata?.['parentTaskId'] }}</code></span>
+                <span *ngIf="tx.rootTaskId || tx.metadata?.['rootTaskId']"> • root <code>{{ tx.rootTaskId || tx.metadata?.['rootTaskId'] }}</code></span>
+                <span *ngIf="tx.delegationDepth !== undefined && tx.delegationDepth !== null"> • depth {{ tx.delegationDepth }}</span>
+              </p>
             </div>
           </div>
 

@@ -40,12 +40,31 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       acceptanceCriteria: createDto.acceptanceCriteria || [],
       status: TaskStatus.OPEN,
       bids: [],
+      childTaskIds: createDto.childTaskIds || [],
+      reservedBudget: createDto.reservedBudget || 0,
+      delegationDepth: createDto.delegationDepth ?? 0,
     };
 
     const result = await super.create(taskData);
 
     if (result.success && result.data) {
-      const createdTask = result.data!;
+      let createdTask = result.data!;
+      const createdTaskId = String(createdTask._id || createdTask.id || '');
+
+      if (createdTaskId && !createdTask.rootTaskId) {
+        await this.updateById(createdTaskId, {
+          rootTaskId: createdTask.parentTaskId || createdTaskId,
+          delegationDepth: createdTask.parentTaskId ? (createdTask.delegationDepth ?? 1) : 0,
+          childTaskIds: createdTask.childTaskIds || [],
+          reservedBudget: createdTask.reservedBudget || 0,
+        } as any);
+
+        const refreshedTask = await this.findById(createdTaskId);
+        if (refreshedTask.success && refreshedTask.data) {
+          createdTask = refreshedTask.data;
+          result.data = refreshedTask.data as any;
+        }
+      }
       this.logger.log('Task created', {
         taskId: createdTask._id,
         status: createdTask.status
@@ -77,6 +96,136 @@ export class TasksService extends BaseMongoService<TaskDocument> {
    */
   async getTask(taskId: string) {
     return this.findById(taskId);
+  }
+
+  async findByParentId(parentTaskId: string) {
+    const tasks = await this.taskModel
+      .find({ parentTaskId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return {
+      success: true,
+      data: tasks,
+    };
+  }
+
+  async getTaskChain(taskId: string) {
+    const taskResponse = await this.findById(taskId);
+
+    if (!taskResponse.success || !taskResponse.data) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    const task = taskResponse.data;
+    const currentTaskId = String(task._id || task.id || taskId);
+    const rootTaskId = String(task.rootTaskId || task.parentTaskId || currentTaskId);
+
+    const [parentTask, children, lineage] = await Promise.all([
+      task.parentTaskId ? this.findById(String(task.parentTaskId)) : Promise.resolve(null),
+      this.taskModel.find({ parentTaskId: currentTaskId }).sort({ createdAt: 1 }).exec(),
+      this.taskModel
+        .find({
+          $or: [
+            { _id: rootTaskId },
+            { rootTaskId },
+          ],
+        })
+        .sort({ delegationDepth: 1, createdAt: 1 })
+        .exec(),
+    ]);
+
+    return {
+      task,
+      parent: parentTask && parentTask.success ? parentTask.data : null,
+      children,
+      lineage,
+      rootTaskId,
+      delegationDepth: Number(task.delegationDepth ?? 0),
+      reservedBudget: Number(task.reservedBudget ?? 0),
+    };
+  }
+
+  async createSubtask(parentTaskId: string, agentId: string, createDto: any) {
+    const parentResponse = await this.findById(parentTaskId);
+
+    if (!parentResponse.success || !parentResponse.data) {
+      throw new NotFoundException(`Parent task ${parentTaskId} not found`);
+    }
+
+    const parentTask = parentResponse.data;
+
+    if (parentTask.assignedAgent !== agentId) {
+      throw new BadRequestException('Only the assigned agent can create a delegated subtask');
+    }
+
+    if (![TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(parentTask.status as TaskStatus)) {
+      throw new BadRequestException('Parent task must be assigned or in progress before creating subtasks');
+    }
+
+    const requestedBudget = Number(createDto?.budget?.amount ?? 0);
+    if (!Number.isFinite(requestedBudget) || requestedBudget <= 0) {
+      throw new BadRequestException('Subtask budget must be greater than zero');
+    }
+
+    const parentCurrency = parentTask.budget?.currency || 'USD';
+    if ((createDto?.budget?.currency || parentCurrency) !== parentCurrency) {
+      throw new BadRequestException('Subtask currency must match the parent task currency');
+    }
+
+    const maxDelegationDepth = Number(process.env.MAX_DELEGATION_DEPTH ?? 3);
+    const currentDepth = Number(parentTask.delegationDepth ?? 0);
+    if (currentDepth >= maxDelegationDepth) {
+      throw new BadRequestException(`Delegation depth limit (${maxDelegationDepth}) reached`);
+    }
+
+    const reservedBudget = Number(parentTask.reservedBudget ?? 0);
+    const parentBudget = Number(parentTask.budget?.amount ?? 0);
+    const remainingBudget = parentBudget - reservedBudget;
+
+    if (requestedBudget > remainingBudget) {
+      throw new BadRequestException(
+        `Subtask budget ${requestedBudget} exceeds the remaining parent budget ${remainingBudget}`
+      );
+    }
+
+    const rootTaskId = String(parentTask.rootTaskId || parentTask._id || parentTask.id || parentTaskId);
+    const createResult = await this.create({
+      ...createDto,
+      poster: agentId,
+      parentTaskId,
+      rootTaskId,
+      delegationDepth: currentDepth + 1,
+      childTaskIds: [],
+      reservedBudget: 0,
+      metadata: {
+        ...(createDto.metadata || {}),
+        delegatedFromTaskId: parentTaskId,
+        delegatedByAgentId: agentId,
+        parentTaskPoster: parentTask.poster,
+        remainingParentBudgetAfterReservation: remainingBudget - requestedBudget,
+      },
+    });
+
+    if (!createResult.success || !createResult.data) {
+      throw new BadRequestException(createResult.error || 'Failed to create delegated subtask');
+    }
+
+    const createdSubtaskId = String(createResult.data._id || createResult.data.id || '');
+    const nextChildTaskIds = [...(parentTask.childTaskIds || []), createdSubtaskId];
+
+    const parentUpdate = await this.updateById(parentTaskId, {
+      childTaskIds: nextChildTaskIds,
+      reservedBudget: reservedBudget + requestedBudget,
+      rootTaskId,
+    } as any);
+
+    if (!parentUpdate.success) {
+      throw new BadRequestException(parentUpdate.error || 'Failed to update parent task after creating subtask');
+    }
+
+    const refreshedSubtask = createdSubtaskId ? await this.findById(createdSubtaskId) : createResult;
+    return refreshedSubtask.success ? refreshedSubtask : createResult;
   }
 
   /**
@@ -187,6 +336,9 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       try {
         await this.ensureTransactionRecorded({
           taskId,
+          parentTaskId: task.parentTaskId ? String(task.parentTaskId) : undefined,
+          rootTaskId: String(task.rootTaskId || task.parentTaskId || taskId),
+          delegationDepth: Number(task.delegationDepth ?? 0),
           from: task.poster,
           to: this.getEscrowAccount(taskId),
           amount: bid.amount,
@@ -194,12 +346,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
           type: TransactionType.ESCROW_LOCK,
           status: TransactionStatus.COMPLETED,
           escrowId: this.getEscrowId(taskId),
-          metadata: {
+          metadata: this.buildTaskChainMetadata(task, {
             bidId: bid.id,
             agentId: bid.agentId,
             budgetType: task.budget?.type,
-            stage: 'assignment'
-          }
+            stage: 'assignment',
+          }),
         });
       } catch (error) {
         this.logger.error(`Failed to record escrow transaction for task ${taskId}`, error as Error);
@@ -383,6 +535,19 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       throw new BadRequestException('Only tasks pending review can be verified.');
     }
 
+    const blockingChildTasks = await this.findBlockingChildTasks(task);
+    if (blockingChildTasks.length > 0) {
+      const hasDisputedChild = blockingChildTasks.some((child: any) =>
+        child.status === TaskStatus.DISPUTED || child.outcome?.verificationStatus === 'disputed'
+      );
+
+      throw new BadRequestException(
+        hasDisputedChild
+          ? 'Cannot verify the parent task while a delegated child task is disputed.'
+          : 'Cannot verify the parent task until all delegated child tasks are settled.'
+      );
+    }
+
     if (!task.assignedAgent) {
       throw new BadRequestException('Task has no assigned agent to verify.');
     }
@@ -495,20 +660,24 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     }
 
     try {
+      const taskId = this.getTaskId(task);
       await this.ensureTransactionRecorded({
-        taskId: String(task._id || task.id),
-        from: this.getEscrowAccount(String(task._id || task.id)),
+        taskId,
+        parentTaskId: task.parentTaskId ? String(task.parentTaskId) : undefined,
+        rootTaskId: String(task.rootTaskId || task.parentTaskId || taskId),
+        delegationDepth: Number(task.delegationDepth ?? 0),
+        from: this.getEscrowAccount(taskId),
         to: success ? agentId : task.poster,
         amount: settledAmount,
         currency: task.budget?.currency || 'USD',
         type: success ? TransactionType.PAYMENT : TransactionType.REFUND,
         status: TransactionStatus.COMPLETED,
-        escrowId: this.getEscrowId(String(task._id || task.id)),
-        metadata: {
+        escrowId: this.getEscrowId(taskId),
+        metadata: this.buildTaskChainMetadata(task, {
           agentId,
           bidId: acceptedBid?.id,
           ...metadata,
-        }
+        }),
       });
     } catch (error) {
       this.logger.error(`Failed to record settlement transaction for task ${String(task._id || task.id)}`, error as Error);
@@ -565,8 +734,49 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     return `escrow:${taskId}`;
   }
 
+  private getTaskId(task: any): string {
+    return String(task?._id || task?.id || '');
+  }
+
+  private buildTaskChainMetadata(task: any, metadata: Record<string, unknown> = {}): Record<string, unknown> {
+    const taskId = this.getTaskId(task);
+    const parentTaskId = task?.parentTaskId ? String(task.parentTaskId) : undefined;
+    const rootTaskId = String(task?.rootTaskId || parentTaskId || taskId);
+    const delegationDepth = Number(task?.delegationDepth ?? (parentTaskId ? 1 : 0));
+
+    return {
+      parentTaskId,
+      rootTaskId,
+      delegationDepth,
+      chainRole: parentTaskId ? 'child' : 'root',
+      ...metadata,
+    };
+  }
+
+  private async findBlockingChildTasks(task: any): Promise<any[]> {
+    const childTaskIds = Array.isArray(task?.childTaskIds)
+      ? task.childTaskIds.map((id: unknown) => String(id)).filter(Boolean)
+      : [];
+
+    if (childTaskIds.length === 0) {
+      return [];
+    }
+
+    const childTasks = await this.taskModel.find({ _id: { $in: childTaskIds } }).exec();
+
+    return childTasks.filter((child: any) => {
+      if (child.status === TaskStatus.COMPLETED && child.outcome?.verificationStatus === 'verified') {
+        return false;
+      }
+      return true;
+    });
+  }
+
   private async ensureTransactionRecorded(params: {
     taskId: string;
+    parentTaskId?: string;
+    rootTaskId?: string;
+    delegationDepth?: number;
     from: string;
     to: string;
     amount: number;
@@ -591,7 +801,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     const createResult = await this.transactionsService.create({
       ...params,
       completedAt: params.status === TransactionStatus.COMPLETED ? new Date() : undefined,
-      metadata: params.metadata || {}
+      metadata: params.metadata || {},
     });
 
     if (!createResult.success) {

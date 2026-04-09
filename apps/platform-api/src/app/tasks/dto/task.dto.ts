@@ -65,10 +65,10 @@ export class CreateTaskDto {
   @Type(() => TaskRequirementsDto)
   requirements: TaskRequirementsDto;
 
-  @ApiProperty({ description: 'Poster agent or user ID', example: 'agent_123' })
+  @ApiPropertyOptional({ description: 'Poster agent or user ID. Optional when the authenticated principal is bound by the server.', example: 'agent_123' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  poster: string;
+  poster?: string;
 
   @ApiProperty({ type: BudgetDto, description: 'Task budget' })
   @ValidateNested()

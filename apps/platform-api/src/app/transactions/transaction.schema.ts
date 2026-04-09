@@ -25,6 +25,9 @@ export const TransactionSchema = new Schema(
       default: TransactionStatus.PENDING
     },
     taskId: { type: String, required: true, index: true },
+    parentTaskId: { type: String, index: true },
+    rootTaskId: { type: String, index: true },
+    delegationDepth: { type: Number, default: 0 },
     escrowId: { type: String },
     completedAt: { type: Date },
     metadata: { type: Schema.Types.Mixed, default: {} }
@@ -39,6 +42,8 @@ export const TransactionSchema = new Schema(
 TransactionSchema.index({ from: 1, createdAt: -1 }); // Transactions by payer
 TransactionSchema.index({ to: 1, createdAt: -1 }); // Transactions by recipient
 TransactionSchema.index({ taskId: 1, type: 1 }); // Transactions for a task
+TransactionSchema.index({ parentTaskId: 1, createdAt: -1 }); // Child transactions by parent task
+TransactionSchema.index({ rootTaskId: 1, delegationDepth: 1, createdAt: -1 }); // Settlement chain traversal
 TransactionSchema.index({ status: 1, createdAt: -1 }); // Pending transactions
 TransactionSchema.index({ type: 1, status: 1 }); // Transaction type filtering
 

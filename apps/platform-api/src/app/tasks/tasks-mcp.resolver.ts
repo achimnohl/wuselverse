@@ -38,6 +38,32 @@ const GetTaskDetailsParams = z.object({
   taskId: z.string().describe('Task identifier'),
 });
 
+const CreateSubtaskParams = z.object({
+  parentTaskId: z.string().describe('Parent task identifier'),
+  agentId: z.string().describe('Assigned parent-task agent creating the delegated subtask'),
+  title: z.string().min(1).describe('Subtask title'),
+  description: z.string().min(1).describe('Subtask description'),
+  requirements: z.object({
+    capabilities: z.array(z.string()).min(1).describe('Required capabilities for the delegated work'),
+    minReputation: z.number().optional().describe('Optional minimum reputation score'),
+    maxResponseTime: z.number().optional().describe('Optional response-time limit in milliseconds'),
+    specificAgents: z.array(z.string()).optional().describe('Optional allow-list of agent IDs'),
+    excludedAgents: z.array(z.string()).optional().describe('Optional deny-list of agent IDs'),
+  }).describe('Subtask requirements'),
+  budget: z.object({
+    type: z.enum(['fixed', 'hourly', 'outcome-based']).describe('Budget type'),
+    amount: z.number().positive().describe('Budget amount for the child task'),
+    currency: z.string().default('USD').describe('Currency code'),
+  }).describe('Subtask budget'),
+  acceptanceCriteria: z.array(z.string()).optional().describe('Optional verification criteria for the subtask'),
+  deadline: z.string().optional().describe('Optional ISO-8601 deadline'),
+  metadata: z.record(z.string(), z.any()).optional().describe('Optional additional metadata'),
+});
+
+const GetTaskChainParams = z.object({
+  taskId: z.string().describe('Task identifier'),
+});
+
 /**
  * MCP tools for task-related operations
  * These tools are exposed to agents for interacting with the task marketplace
@@ -210,6 +236,64 @@ export class TasksMcpResolver {
   }
 
   /**
+   * Create a delegated child task from an assigned parent task
+   */
+  @Tool({
+    name: 'create_subtask',
+    description: 'Create a delegated subtask under an assigned parent task while respecting the remaining parent budget',
+    paramsSchema: CreateSubtaskParams.shape,
+  })
+  async createSubtask(
+    params: z.infer<typeof CreateSubtaskParams>,
+    extra?: RequestHandlerExtra,
+  ): Promise<CallToolResult> {
+    this.logger.log('MCP: create_subtask', {
+      parentTaskId: params.parentTaskId,
+      agentId: params.agentId,
+      amount: params.budget.amount,
+      sessionId: extra?.sessionId,
+    });
+
+    try {
+      const result = await this.tasksService.createSubtask(params.parentTaskId, params.agentId, {
+        title: params.title,
+        description: params.description,
+        requirements: params.requirements,
+        budget: params.budget,
+        acceptanceCriteria: params.acceptanceCriteria,
+        deadline: params.deadline,
+        metadata: params.metadata,
+      });
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to create subtask');
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result.data),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message || 'Failed to create subtask',
+            }),
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
    * Get task details
    */
   @Tool({
@@ -243,5 +327,43 @@ export class TasksMcpResolver {
         },
       ],
     };
+  }
+
+  /**
+   * Get parent/child chain details for a task
+   */
+  @Tool({
+    name: 'get_task_chain',
+    description: 'Get the current task together with its parent, children, and chain metadata for delegated work',
+    paramsSchema: GetTaskChainParams.shape,
+  })
+  async getTaskChain(
+    params: z.infer<typeof GetTaskChainParams>,
+    _extra?: RequestHandlerExtra,
+  ): Promise<CallToolResult> {
+    try {
+      const chain = await this.tasksService.getTaskChain(params.taskId);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(chain),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message || 'Failed to get task chain',
+            }),
+          },
+        ],
+        isError: true,
+      };
+    }
   }
 }

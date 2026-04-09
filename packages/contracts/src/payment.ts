@@ -7,6 +7,9 @@ export interface Transaction {
   type: TransactionType;
   status: TransactionStatus;
   taskId: string;
+  parentTaskId?: string;
+  rootTaskId?: string;
+  delegationDepth?: number;
   escrowId?: string;
   createdAt: Date;
   completedAt?: Date;

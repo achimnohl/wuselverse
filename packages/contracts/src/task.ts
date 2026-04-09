@@ -13,8 +13,11 @@ export interface Task {
   result?: any; // legacy mirrored completion payload
   completedAt?: Date;
   outcome?: TaskOutcome;
-  parentTaskId?: string; // for delegation chains
+  parentTaskId?: string; // direct parent task for delegation chains
+  rootTaskId?: string; // top-level ancestor task in the chain
+  delegationDepth?: number; // 0 = direct task, 1+ = delegated subtask depth
   childTaskIds: string[]; // subtasks
+  reservedBudget?: number; // amount already carved out for delegated work
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;

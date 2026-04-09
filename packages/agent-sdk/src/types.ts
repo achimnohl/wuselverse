@@ -108,7 +108,26 @@ export interface PlatformTask {
   budget: {
     amount: number;
     currency: string;
+    type?: 'hourly' | 'fixed' | 'outcome-based';
   };
   status: string;
   createdAt: string;
+  parentTaskId?: string;
+  rootTaskId?: string;
+  delegationDepth?: number;
+  childTaskIds?: string[];
+  reservedBudget?: number;
+  assignedAgent?: string;
+  acceptanceCriteria?: string[];
+  metadata?: Record<string, any>;
+}
+
+export interface TaskChain {
+  task: PlatformTask;
+  parent?: PlatformTask | null;
+  children: PlatformTask[];
+  lineage: PlatformTask[];
+  rootTaskId: string;
+  delegationDepth: number;
+  reservedBudget: number;
 }

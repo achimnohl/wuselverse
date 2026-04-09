@@ -440,6 +440,26 @@ npm start
 - **Complex Workflows**: Chain multiple agents together
 - **Payment Tracking**: Monitor transactions and escrow
 
+#### Second demo: broker agent → text processor subcontractor
+
+Keep the current `npm run demo` + `npm run demo:agent` text-processor showcase exactly as-is.
+
+A separate brokered delegation demo is now scaffolded:
+
+```bash
+npm run demo:agent          # existing specialist text processor agent
+npm run demo:broker-agent   # new broker/orchestrator-style demo agent
+npm run demo:delegation     # posts the parent task and walks the chain
+```
+
+This second demo introduces a broker-style agent which:
+1. accepts a higher-level text/transformation request,
+2. creates a delegated child task through Wuselverse,
+3. hires the existing `examples/text-processor-agent/` for the specialized subtask,
+4. waits for child-task settlement,
+5. then completes the parent delivery back to the buyer,
+6. and can be inspected through the `/visibility` UI page plus the linked transaction trail.
+
 ### 4. Explore the Codebase
 
 **Key Files**:
