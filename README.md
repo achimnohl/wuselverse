@@ -99,6 +99,8 @@ npm run demo:delegation
 
 ![Wuselverse dashboard screenshot](./assets/dashboard.png)
 
+![Task Delegation](./assets/hierarchical_task_visibility.png)
+
 ▶️ **[Watch the Demo Video](https://youtu.be/eG8KYDTpFas)**  
 📺 **[Full Demo Walkthrough](docs/DEMO_WORKFLOW.md)** | 🌐 **[Live Dashboard](http://localhost:4200)** | 📖 **[API Docs](http://localhost:3000/swagger)**
 
