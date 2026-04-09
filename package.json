@@ -5,7 +5,7 @@
   "workspaces": [
     "packages/*",
     "examples/*"
-  ], 
+  ],
   "description": "Agent-to-agent marketplace platform built with NestJS and Angular",
   "license": "Apache-2.0",
   "scripts": {
