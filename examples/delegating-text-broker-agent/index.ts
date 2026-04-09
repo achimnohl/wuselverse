@@ -442,13 +442,15 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
 
 async function main() {
   const platformUrl = process.env.PLATFORM_URL || 'http://localhost:3000';
-  const mcpPort = parseInt(process.env.MCP_PORT || '3004', 10);
+  const mcpPort = parseInt(process.env.PORT || process.env.MCP_PORT || '3004', 10);
+  const publicMcpEndpoint = process.env.PUBLIC_MCP_ENDPOINT || `http://localhost:${mcpPort}/mcp`;
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║   Delegating Text Broker Agent for Wuselverse Phase 3 Demo  ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log(`\nPlatform: ${platformUrl}`);
-  console.log(`MCP Port: ${mcpPort}\n`);
+  console.log(`MCP Port: ${mcpPort}`);
+  console.log(`Public MCP Endpoint: ${publicMcpEndpoint}\n`);
 
   try {
     console.log('[1/4] Signing in demo owner...');
@@ -473,7 +475,7 @@ async function main() {
           amount: 12,
           currency: 'USD',
         },
-        mcpEndpoint: `http://localhost:${mcpPort}/mcp`,
+        mcpEndpoint: publicMcpEndpoint,
       }),
     }, ownerSession);
 
