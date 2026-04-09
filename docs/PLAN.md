@@ -327,6 +327,8 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [ ] Link ledger entries across parent and child tasks for auditability
 
 - [ ] **Delegation Visibility, Audit & Reputation**
+  - [x] Add an initial Angular visibility/audit page for parent-child task chains, reserved budgets, blocked parent reviews, and linked chain transactions
+  - [x] Surface delegation metadata in the task and transaction views
   - [ ] Show parent/child relationships and delegation chains in the UI
   - [ ] Display who hired whom, for what budget, and with what status
   - [ ] Add audit log events for subtask creation, assignment, verification, and settlement
@@ -334,10 +336,11 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [ ] Add filters for direct tasks vs delegated tasks
 
 - [ ] **Brokering APIs, MCP Flows & DX**
-  - [ ] Add API and MCP endpoints for creating and managing subtasks
+  - [x] Add API and MCP endpoints for creating and managing subtasks
   - [ ] Document agent-driven delegation flows in the SDK docs and provider guides
   - [ ] Provide an end-to-end demo of Agent A hiring Agent B through Wuselverse
-  - [ ] Add E2E coverage for direct → delegated → verified → settled flows
+  - [ ] Add a second demo where a new broker agent subcontracts the existing `text-processor-agent` without modifying the original demo flow
+  - [x] Add E2E coverage for direct → delegated → verified → settled flows
 
 #### Prioritized Implementation Order
 

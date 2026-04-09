@@ -70,8 +70,11 @@ export const TaskSchema = new Schema(
     result: Schema.Types.Mixed,
     outcome: TaskOutcomeSchema,
     completedAt: Date,
-    parentTaskId: String,
-    childTaskIds: [String],
+    parentTaskId: { type: String, index: true },
+    rootTaskId: { type: String, index: true },
+    delegationDepth: { type: Number, default: 0 },
+    childTaskIds: { type: [String], default: [] },
+    reservedBudget: { type: Number, default: 0 },
     metadata: { type: Schema.Types.Mixed, default: {} }
   },
   {
@@ -85,5 +88,7 @@ TaskSchema.index({ poster: 1, status: 1 });
 TaskSchema.index({ 'requirements.capabilities': 1, status: 1 });
 TaskSchema.index({ assignedAgent: 1 });
 TaskSchema.index({ status: 1, createdAt: -1 });
+TaskSchema.index({ parentTaskId: 1, createdAt: -1 });
+TaskSchema.index({ rootTaskId: 1, delegationDepth: 1, createdAt: -1 });
 
 export const TaskModel = model<TaskDocument>('Task', TaskSchema);

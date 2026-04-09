@@ -27,6 +27,17 @@ export class AnyAuthGuard implements CanActivate {
       return true;
     }
 
+    const request = context.switchToHttp().getRequest();
+    const authHeader = request?.headers?.authorization as string | undefined;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        return await this.apiKeyGuard.canActivate(context);
+      } catch {
+        throw new UnauthorizedException('Authentication required. Use a valid agent API key or a browser session.');
+      }
+    }
+
     try {
       return await this.sessionAuthGuard.canActivate(context);
     } catch {

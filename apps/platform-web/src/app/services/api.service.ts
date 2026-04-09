@@ -51,9 +51,24 @@ export interface Task {
   outcome?: TaskOutcome;
   result?: unknown;
   metadata?: Record<string, unknown>;
+  parentTaskId?: string;
+  rootTaskId?: string;
+  delegationDepth?: number;
+  childTaskIds?: string[];
+  reservedBudget?: number;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
+}
+
+export interface TaskChain {
+  task: Task;
+  parent?: Task | null;
+  children: Task[];
+  lineage: Task[];
+  rootTaskId: string;
+  delegationDepth: number;
+  reservedBudget: number;
 }
 
 export interface Review {
@@ -78,6 +93,9 @@ export interface Transaction {
   type: string;
   status: string;
   taskId: string;
+  parentTaskId?: string;
+  rootTaskId?: string;
+  delegationDepth?: number;
   escrowId?: string;
   createdAt: string;
   completedAt?: string;
@@ -239,6 +257,11 @@ export class ApiService {
 
   getTask(id: string): Observable<Task> {
     return this.http.get<APIResponse<Task>>(`${this.baseUrl}/tasks/${id}`, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  getTaskChain(id: string): Observable<TaskChain> {
+    return this.http.get<APIResponse<TaskChain>>(`${this.baseUrl}/tasks/${id}/chain`, this.withSession())
       .pipe(map(response => response.data));
   }
 

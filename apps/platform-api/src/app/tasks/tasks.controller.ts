@@ -6,6 +6,7 @@ import { CompleteTaskDto, CreateTaskDto, DisputeTaskDto, SubmitBidDto, UpdateTas
 import { TaskStatus } from '@wuselverse/contracts';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { AuthService } from '../auth/auth.service';
+import { AnyAuthGuard } from '../auth/any-auth.guard';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
 
 // Create base CRUD controller
@@ -79,6 +80,40 @@ export class TasksController extends TasksCRUDBase {
     return this.tasksService.deleteById(id);
   }
 
+  @Post(':id/subtasks')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({ summary: 'Create a delegated subtask', description: 'Allows the assigned agent on a parent task to create a brokered child task within the remaining parent budget.' })
+  @ApiParam({ name: 'id', description: 'Parent task ID' })
+  async createSubtask(
+    @Param('id') parentTaskId: string,
+    @Body() dto: CreateTaskDto,
+    @Request() req: any
+  ) {
+    const agentId = req.principal?.agentId;
+    if (!agentId) {
+      throw new UnauthorizedException('Agent authentication is required to create delegated subtasks.');
+    }
+
+    return this.tasksService.createSubtask(parentTaskId, agentId, dto as any);
+  }
+
+  @Get(':id/subtasks')
+  @ApiOperation({ summary: 'Get delegated subtasks for a parent task' })
+  @ApiParam({ name: 'id', description: 'Parent task ID' })
+  async getSubtasks(@Param('id') parentTaskId: string) {
+    return this.tasksService.findByParentId(parentTaskId);
+  }
+
+  @Get(':id/chain')
+  @ApiOperation({ summary: 'Get task-chain details', description: 'Returns the current task, its parent, children, and lineage metadata for delegated work.' })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  async getTaskChain(@Param('id') taskId: string) {
+    return {
+      success: true,
+      data: await this.tasksService.getTaskChain(taskId),
+    };
+  }
+
   // Custom endpoint: Submit a bid
   @Post(':id/bids')
   @UseGuards(ApiKeyGuard)
@@ -122,7 +157,7 @@ export class TasksController extends TasksCRUDBase {
 
   // Custom endpoint: Assign task (accepts a bid)
   @Post(':id/assign')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Assign task to agent', description: 'Accept a bid and assign the task to the bidding agent' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   async assignTask(
@@ -188,7 +223,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Post(':id/verify')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Verify a delivered task', description: 'Task poster confirms the submitted delivery and releases settlement.' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   async verifyTask(
@@ -201,7 +236,7 @@ export class TasksController extends TasksCRUDBase {
 
     const result = await this.tasksService.verifyTask(
       taskId,
-      sessionUser?.id || sessionUser?.email || 'unknown-user',
+      sessionUser?.id || sessionUser?.email || req?.principal?.agentId || 'unknown-user',
       body.feedback,
     );
 
@@ -212,7 +247,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Post(':id/dispute')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Dispute a delivered task', description: 'Task poster disputes the submitted delivery and records the reason.' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   async disputeTask(
@@ -225,7 +260,7 @@ export class TasksController extends TasksCRUDBase {
 
     const result = await this.tasksService.disputeTask(
       taskId,
-      sessionUser?.id || sessionUser?.email || 'unknown-user',
+      sessionUser?.id || sessionUser?.email || req?.principal?.agentId || 'unknown-user',
       body.reason,
       body.feedback,
     );
@@ -238,7 +273,7 @@ export class TasksController extends TasksCRUDBase {
 
   // Custom endpoint: Accept a bid
   @Patch(':id/bids/:bidId/accept')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Accept a bid', description: 'Task poster accepts a bid and assigns the task to the agent' })
   @ApiParam({ name: 'id', description: 'Task ID', example: 'task_abc123' })
   @ApiParam({ name: 'bidId', description: 'Bid ID', example: 'bid_xyz789' })
@@ -290,13 +325,25 @@ export class TasksController extends TasksCRUDBase {
     }
 
     const sessionUser = await this.authService.getUserFromRequest(req);
-    if (!sessionUser) {
-      throw new UnauthorizedException('A signed-in user session is required for this task action.');
+    const principalAgentId = req?.principal?.type === 'agent' ? String(req.principal.agentId) : null;
+
+    if (!sessionUser && !principalAgentId) {
+      throw new UnauthorizedException('A signed-in user session or agent API key is required for this task action.');
     }
 
     const taskResponse = await this.tasksService.findById(taskId);
     const poster = taskResponse.success ? String(taskResponse.data?.poster || '') : '';
-    const allowedPosters = new Set([sessionUser.id, sessionUser.email]);
+    const allowedPosters = new Set<string>();
+
+    if (sessionUser?.id) {
+      allowedPosters.add(String(sessionUser.id));
+    }
+    if (sessionUser?.email) {
+      allowedPosters.add(String(sessionUser.email));
+    }
+    if (principalAgentId) {
+      allowedPosters.add(principalAgentId);
+    }
 
     if (poster && !allowedPosters.has(poster)) {
       throw new ForbiddenException('Only the authenticated task poster can perform this action.');

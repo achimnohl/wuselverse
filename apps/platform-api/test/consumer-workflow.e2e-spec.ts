@@ -26,6 +26,10 @@ describe('Consumer Workflow (e2e)', () => {
   let agentApiKey: string;
   let bidId: string;
   let consumerId: string;
+  let subtaskId: string;
+  let subtaskBidId: string;
+  let subtaskAgentId: string;
+  let subtaskAgentApiKey: string;
 
   const PLATFORM_PORT = 3101;
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/wuselverse-test-consumer';
@@ -329,11 +333,122 @@ describe('Consumer Workflow (e2e)', () => {
   });
 
   // ============================================
-  // 6. Task Completion (CONSUMER_GUIDE.md section)
+  // 6. Delegated Subtask Brokering (Phase 3)
   // ============================================
 
-  describe('6. Agent Completes Task', () => {
-    it('should allow agent to submit the task for review', async () => {
+  describe('6. Delegated Subtask Brokering', () => {
+    it('should allow the assigned agent to create a linked subtask within the parent budget', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/tasks/${taskId}/subtasks`)
+        .set('Authorization', `Bearer ${agentApiKey}`)
+        .send({
+          title: 'Dependency scan follow-up',
+          description: 'Subcontract dependency and CVE verification for the parent security audit.',
+          requirements: {
+            capabilities: ['dependency-scan'],
+          },
+          budget: {
+            type: 'fixed',
+            amount: 150,
+            currency: 'USD',
+          },
+          acceptanceCriteria: ['Deliver a machine-readable CVE report with remediation notes'],
+        })
+        .expect(201);
+
+      expect(response.body.data.parentTaskId).toBe(taskId);
+      expect(response.body.data.rootTaskId).toBe(taskId);
+      expect(response.body.data.delegationDepth).toBe(1);
+      expect(response.body.data.budget.amount).toBe(150);
+      subtaskId = response.body.data._id;
+    });
+
+    it('should keep the parent task linked to the delegated child task', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/tasks/${taskId}`)
+        .expect(200);
+
+      expect(response.body.data.childTaskIds).toContain(subtaskId);
+      expect(response.body.data.reservedBudget).toBe(150);
+    });
+
+    it('should reject subtasks that exceed the parent task budget ceiling', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/tasks/${taskId}/subtasks`)
+        .set('Authorization', `Bearer ${agentApiKey}`)
+        .send({
+          title: 'Oversized delegated task',
+          description: 'This should fail because it exceeds the remaining parent allocation.',
+          requirements: {
+            capabilities: ['security-audit'],
+          },
+          budget: {
+            type: 'fixed',
+            amount: 1000,
+            currency: 'USD',
+          },
+        })
+        .expect(400);
+    });
+  });
+
+  describe('6b. Delegated Subtask Assignment and Settlement', () => {
+    it('should register a second agent for the delegated child task', async () => {
+      const response = await browserSession.client
+        .post('/api/agents')
+        .set('x-csrf-token', browserSession.csrfToken)
+        .send({
+          name: 'Dependency Scan Specialist',
+          description: 'Focused on dependency analysis and CVE validation.',
+          capabilities: ['dependency-scan'],
+          pricing: {
+            type: 'fixed',
+            amount: 140,
+            currency: 'USD',
+          },
+        })
+        .expect(201);
+
+      subtaskAgentApiKey = response.body.apiKey || response.body.data?.apiKey;
+      subtaskAgentId = response.body.data._id || response.body.data.id;
+      expect(subtaskAgentApiKey).toBeDefined();
+    });
+
+    it('should allow the delegated agent to bid on the child task', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/tasks/${subtaskId}/bids`)
+        .set('Authorization', `Bearer ${subtaskAgentApiKey}`)
+        .send({
+          agentId: subtaskAgentId,
+          amount: 140,
+          proposal: 'I will deliver a CVE-focused dependency scan for the delegated audit work.',
+          estimatedDuration: 21600000,
+        })
+        .expect(201);
+
+      const bid = response.body.data.bids.find((entry: any) => entry.agentId === subtaskAgentId);
+      expect(bid).toBeDefined();
+      subtaskBidId = bid.id;
+    });
+
+    it('should allow the parent agent to accept a bid on its delegated child task', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/tasks/${subtaskId}/assign`)
+        .set('Authorization', `Bearer ${agentApiKey}`)
+        .send({ bidId: subtaskBidId })
+        .expect(201);
+
+      expect(response.body.data.status).toBe('assigned');
+      expect(response.body.data.assignedAgent).toBe(subtaskAgentId);
+    });
+  });
+
+  // ============================================
+  // 7. Task Completion (CONSUMER_GUIDE.md section)
+  // ============================================
+
+  describe('7. Agent Completes Task', () => {
+    it('should allow agent to submit the parent task for review', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/tasks/${taskId}/complete`)
         .set('Authorization', `Bearer ${agentApiKey}`)
@@ -357,7 +472,63 @@ describe('Consumer Workflow (e2e)', () => {
       expect(response.body.data.status).toBe('pending_review');
     });
 
-    it('should allow the consumer to verify the delivered task', async () => {
+    it('should block parent verification while the delegated child task is unresolved', async () => {
+      await browserSession.client
+        .post(`/api/tasks/${taskId}/verify`)
+        .set('x-csrf-token', browserSession.csrfToken)
+        .send({ feedback: 'This should fail until the delegated child task is settled.' })
+        .expect(400);
+    });
+
+    it('should allow the delegated agent to complete the child task', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/tasks/${subtaskId}/complete`)
+        .set('Authorization', `Bearer ${subtaskAgentApiKey}`)
+        .send({
+          output: {
+            scannedPackages: 128,
+            criticalCvEs: 2,
+            recommendations: ['Update express', 'Pin transitive dependencies'],
+          },
+          artifacts: ['dependency-scan.json'],
+        })
+        .expect(201);
+
+      expect(response.body.data.status).toBe('pending_review');
+    });
+
+    it('should allow the parent agent to verify the delegated child task', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/api/tasks/${subtaskId}/verify`)
+        .set('Authorization', `Bearer ${agentApiKey}`)
+        .send({ feedback: 'Verified delegated dependency scan for inclusion in the final report.' })
+        .expect(201);
+
+      expect(response.body.data.status).toBe('completed');
+      expect(response.body.data.verificationStatus).toBe('verified');
+    });
+
+    it('should create chain-linked transactions for the delegated child task', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/transactions/task/${subtaskId}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toBeInstanceOf(Array);
+
+      const escrowTx = response.body.data.find((tx: any) => tx.type === 'escrow_lock');
+      const paymentTx = response.body.data.find((tx: any) => tx.type === 'payment');
+
+      expect(escrowTx).toBeDefined();
+      expect(paymentTx).toBeDefined();
+      expect(escrowTx.metadata.parentTaskId).toBe(taskId);
+      expect(escrowTx.metadata.rootTaskId).toBe(taskId);
+      expect(paymentTx.metadata.parentTaskId).toBe(taskId);
+      expect(paymentTx.metadata.rootTaskId).toBe(taskId);
+      expect(paymentTx.to).toBe(subtaskAgentId);
+    });
+
+    it('should allow the consumer to verify the delivered parent task after the delegated child task settles', async () => {
       const response = await browserSession.client
         .post(`/api/tasks/${taskId}/verify`)
         .set('x-csrf-token', browserSession.csrfToken)
@@ -368,7 +539,7 @@ describe('Consumer Workflow (e2e)', () => {
       expect(response.body.data.verificationStatus).toBe('verified');
     });
 
-    it('should create a payment transaction when the task is verified', async () => {
+    it('should create a payment transaction when the parent task is verified', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/transactions/task/${taskId}`)
         .expect(200);
@@ -386,10 +557,10 @@ describe('Consumer Workflow (e2e)', () => {
   });
 
   // ============================================
-  // 7. Reviewing Work (CONSUMER_GUIDE.md section)
+  // 8. Reviewing Work (CONSUMER_GUIDE.md section)
   // ============================================
 
-  describe('7. Consumer Reviews Completed Work', () => {
+  describe('8. Consumer Reviews Completed Work', () => {
     it('should allow consumer to submit a review', async () => {
       const response = await browserSession.client
         .post('/api/reviews')
@@ -423,10 +594,10 @@ describe('Consumer Workflow (e2e)', () => {
   });
 
   // ============================================
-  // 8. List All Agents (Discovery - CONSUMER_GUIDE.md)
+  // 9. List All Agents (Discovery - CONSUMER_GUIDE.md)
   // ============================================
 
-  describe('8. Consumer Discovers Agents', () => {
+  describe('9. Consumer Discovers Agents', () => {
     it('should list all available agents', async () => {
       const response = await request(app.getHttpServer())
         .get('/api/agents')

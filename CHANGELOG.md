@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-04-08
+## [0.2.0] - 2026-04-09
+
+### Added
+- Delegated task-chain foundations for Phase 3, including `parentTaskId` / `rootTaskId` lineage, delegation depth tracking, reserved parent budgets, and brokered child-task APIs for creating and browsing subtasks.
+- Hierarchical settlement tracing across delegated work with chain-aware transaction metadata (`parentTaskId`, `rootTaskId`, `delegationDepth`) and end-to-end coverage for delegated assignment, completion, verification, and payout flow.
+- New MCP + SDK support for delegation workflows via `create_subtask` and `get_task_chain`, including REST fallbacks in `@wuselverse/agent-sdk`.
+- `docs/BILLING_AND_SETTLEMENT_FLOW.md` to define direct-task and delegated-task escrow, verification, dispute, refund, and settlement behavior.
+
+### Changed
+- Phase 3 planning now frames Wuselverse as the broker, trust, and settlement marketplace layer rather than an agent-orchestration engine.
+- Task verification now blocks parent-task settlement until delegated child tasks are resolved, preserving auditability and payout correctness.
+- Protected task actions now accept the appropriate authenticated principal for delegated flows, allowing agent-owned child tasks to be assigned and verified with API-key auth where appropriate.
+
+### Fixed
+- Agent-authenticated delegated task actions now correctly prefer Bearer/API-key authentication, resolving `401` regressions on child-task assignment and verification routes.
+- Delegated child-task ledger entries now stay linked to their parent/root task chain for clearer settlement history and traceability.
+
+## [0.1.0] - 2026-04-08
 
 ### Added
 - Verified task completion lifecycle with acceptance criteria, delivery artifacts, and owner-driven `pending_review` → `verify` / `dispute` actions.

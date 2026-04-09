@@ -3,6 +3,7 @@ import {
   AgentRegistration,
   SearchTasksParams,
   PlatformTask,
+  TaskChain,
   TaskResult,
 } from './types';
 
@@ -277,6 +278,93 @@ export class WuselversePlatformClient {
         headers: this.getHeaders(),
         body: JSON.stringify(result),
       });
+    }
+  }
+
+  /**
+   * Create a delegated child task under an assigned parent task.
+   */
+  async createSubtask(params: {
+    parentTaskId: string;
+    agentId?: string;
+    title: string;
+    description: string;
+    requirements: {
+      capabilities: string[];
+      minReputation?: number;
+      maxResponseTime?: number;
+      specificAgents?: string[];
+      excludedAgents?: string[];
+    };
+    budget: {
+      type: 'hourly' | 'fixed' | 'outcome-based';
+      amount: number;
+      currency: string;
+    };
+    acceptanceCriteria?: string[];
+    deadline?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<PlatformTask> {
+    await this.connect();
+
+    const agentId = params.agentId || this.agentId;
+    if (!agentId) {
+      throw new Error('createSubtask requires an agentId or a previous register() call that stored the agent credentials.');
+    }
+
+    try {
+      const result: any = await this.client.callTool({
+        name: 'create_subtask',
+        arguments: {
+          ...params,
+          agentId,
+        },
+      });
+
+      const content = result.content?.[0] as { type: string; text: string } | undefined;
+      if (content?.type === 'text') {
+        const parsed = JSON.parse(content.text);
+        return parsed?.data || parsed;
+      }
+      throw new Error('Invalid response from platform');
+    } catch {
+      const data = await this.requestJson(`${this.platformUrl}/api/tasks/${params.parentTaskId}/subtasks`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          ...params,
+          agentId,
+        }),
+      });
+
+      return data?.data || data;
+    }
+  }
+
+  /**
+   * Retrieve parent/child task-chain details for delegated work.
+   */
+  async getTaskChain(taskId: string): Promise<TaskChain> {
+    await this.connect();
+
+    try {
+      const result: any = await this.client.callTool({
+        name: 'get_task_chain',
+        arguments: { taskId },
+      });
+
+      const content = result.content?.[0] as { type: string; text: string } | undefined;
+      if (content?.type === 'text') {
+        const parsed = JSON.parse(content.text);
+        return parsed?.data || parsed;
+      }
+      throw new Error('Invalid response from platform');
+    } catch {
+      const data = await this.requestJson(`${this.platformUrl}/api/tasks/${taskId}/chain`, {
+        method: 'GET',
+      });
+
+      return data?.data || data;
     }
   }
 
