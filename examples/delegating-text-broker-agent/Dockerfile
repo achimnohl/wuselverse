@@ -2,17 +2,15 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy the monorepo and let the existing root .dockerignore exclude noise.
-COPY . .
-
-# Install dependencies required by the example agent runtime and build the shared SDK.
+# Install the example's own dependencies, including the published SDK package.
+COPY package*.json ./
 RUN npm install --include=dev
-RUN npm run build:agent-sdk
+
+# Copy the rest of the agent source.
+COPY . .
 
 ENV NODE_ENV=production
 ENV PORT=8080
-
-WORKDIR /app/examples/delegating-text-broker-agent
 
 EXPOSE 8080
 
