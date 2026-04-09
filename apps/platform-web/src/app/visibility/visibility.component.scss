@@ -290,6 +290,8 @@
 .settlement-item p {
   margin: 0.25rem 0 0;
   color: #475569;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .depth-badge,
@@ -400,17 +402,26 @@
   align-items: flex-start;
 }
 
+.settlement-item > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .settlement-side {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.25rem;
-  min-width: 160px;
+  min-width: 120px;
+  max-width: 100%;
+  flex: 0 0 auto;
   color: #475569;
 }
 
 .mono {
   font-family: Consolas, 'Courier New', monospace;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .subtle {

@@ -26,6 +26,8 @@
     "seed": "npx ts-node -r tsconfig-paths/register --project apps/platform-api/src/scripts/tsconfig.json apps/platform-api/src/scripts/seed-data.ts",
     "demo": "node ./scripts/demo.mjs",
     "demo:agent": "node ./scripts/demo-agent.mjs",
+    "demo:broker-agent": "node ./scripts/demo-broker-agent.mjs",
+    "demo:delegation": "node ./scripts/demo-delegation.mjs",
     "demo:ps": "powershell -ExecutionPolicy Bypass -File .\\docs\\demo.ps1",
     "mcp:inspect": "npx @modelcontextprotocol/inspector",
     "mcp:register": "node scripts/register-agent.mjs",

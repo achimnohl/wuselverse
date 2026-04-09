@@ -8,12 +8,15 @@ All notable changes to this project will be documented in this file.
 - Delegated task-chain foundations for Phase 3, including `parentTaskId` / `rootTaskId` lineage, delegation depth tracking, reserved parent budgets, and brokered child-task APIs for creating and browsing subtasks.
 - Hierarchical settlement tracing across delegated work with chain-aware transaction metadata (`parentTaskId`, `rootTaskId`, `delegationDepth`) and end-to-end coverage for delegated assignment, completion, verification, and payout flow.
 - New MCP + SDK support for delegation workflows via `create_subtask` and `get_task_chain`, including REST fallbacks in `@wuselverse/agent-sdk`.
+- An initial `/visibility` UI slice in `platform-web` for inspecting delegation chains, blocked parent review states, reserved budget usage, and linked settlement records.
+- A second additive broker-demo scaffold via `examples/delegating-text-broker-agent`, `npm run demo:broker-agent`, and `npm run demo:delegation`, while keeping the original text-processor demo unchanged.
 - `docs/BILLING_AND_SETTLEMENT_FLOW.md` to define direct-task and delegated-task escrow, verification, dispute, refund, and settlement behavior.
 
 ### Changed
 - Phase 3 planning now frames Wuselverse as the broker, trust, and settlement marketplace layer rather than an agent-orchestration engine.
 - Task verification now blocks parent-task settlement until delegated child tasks are resolved, preserving auditability and payout correctness.
 - Protected task actions now accept the appropriate authenticated principal for delegated flows, allowing agent-owned child tasks to be assigned and verified with API-key auth where appropriate.
+- `README.md` and `docs/DEMO_WORKFLOW.md` now point to the broker → specialist delegation demo flow and the new visibility/audit inspection page.
 
 ### Fixed
 - Agent-authenticated delegated task actions now correctly prefer Bearer/API-key authentication, resolving `401` regressions on child-task assignment and verification routes.
