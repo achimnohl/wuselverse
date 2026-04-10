@@ -358,6 +358,21 @@ h2 {
   color: #15803d;
 }
 
+.settlement-pill.settlement-blocked {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.settlement-pill.settlement-blocked_by_dispute {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.settlement-pill.settlement-settled {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .status-disputed,
 .status-failed {
   background: #fef2f2;
@@ -377,6 +392,29 @@ h2 {
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   margin-bottom: 1rem;
+}
+
+.settlement-banner {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+}
+
+.settlement-banner-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.settlement-copy {
+  margin: 0.55rem 0 0;
+  color: #334155;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .detail-row {
@@ -538,6 +576,24 @@ h2 {
   word-break: break-word;
   font-size: 0.82rem;
   color: #334155;
+}
+
+.settlement-audit-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.55rem;
+  color: #334155;
+}
+
+.settlement-audit-list li {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.settlement-audit-list span {
+  color: #64748b;
+  font-size: 0.8rem;
 }
 
 .bids-list {

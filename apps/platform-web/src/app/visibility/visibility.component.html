@@ -125,8 +125,20 @@
               Max depth {{ getMaxDepth(chain.lineage) }} • Reserved
               {{ formatMoney(chain.reservedBudget, chain.task.budget?.currency) }}
             </p>
+            <p *ngIf="getSettlementHoldSummary(chain.task) as holdSummary" class="hold-copy">
+              {{ holdSummary }}
+            </p>
           </div>
-          <span class="task-status" [class]="'task-status status-' + chain.task.status">{{ getStatusLabel(chain.task.status) }}</span>
+          <div class="detail-status-stack">
+            <span class="task-status" [class]="'task-status status-' + chain.task.status">{{ getStatusLabel(chain.task.status) }}</span>
+            <span
+              *ngIf="chain.task.settlementStatus && chain.task.settlementStatus !== 'clear'"
+              class="status-pill settlement-pill"
+              [class]="'status-pill settlement-pill settlement-' + chain.task.settlementStatus"
+            >
+              {{ getSettlementStatusLabel(chain.task.settlementStatus) }}
+            </span>
+          </div>
         </div>
 
         <div class="detail-grid">
@@ -136,7 +148,16 @@
               <article *ngFor="let task of chain.lineage" class="lineage-item">
                 <div class="lineage-topline">
                   <span class="depth-badge">{{ task.parentTaskId ? ('Depth ' + (task.delegationDepth || 1)) : 'Root' }}</span>
-                  <span class="task-status" [class]="'task-status status-' + task.status">{{ getStatusLabel(task.status) }}</span>
+                  <div class="lineage-status-stack">
+                    <span class="task-status" [class]="'task-status status-' + task.status">{{ getStatusLabel(task.status) }}</span>
+                    <span
+                      *ngIf="task.settlementStatus && task.settlementStatus !== 'clear'"
+                      class="status-pill settlement-pill"
+                      [class]="'status-pill settlement-pill settlement-' + task.settlementStatus"
+                    >
+                      {{ getSettlementStatusLabel(task.settlementStatus) }}
+                    </span>
+                  </div>
                 </div>
 
                 <strong>{{ task.title }}</strong>
@@ -158,6 +179,19 @@
 
           <div class="detail-card">
             <h4>Settlement trace</h4>
+
+            <div *ngIf="getSettlementHoldSummary(chain.task) as holdSummary" class="chain-alert">
+              <strong>{{ getSettlementStatusLabel(chain.task.settlementStatus) }}</strong>
+              <p>{{ holdSummary }}</p>
+            </div>
+
+            <div *ngIf="getSettlementAuditEntries(chain.task).length > 0" class="audit-timeline">
+              <h5>Recent chain audit events</h5>
+              <div *ngFor="let entry of getSettlementAuditEntries(chain.task)" class="audit-event">
+                <strong>{{ entry.message }}</strong>
+                <span>{{ formatDate(entry.at || chain.task.createdAt) }}</span>
+              </div>
+            </div>
 
             <div *ngIf="selectedTransactions.length > 0; else noTransactions" class="settlement-list">
               <article *ngFor="let tx of selectedTransactions" class="settlement-item">

@@ -136,6 +136,28 @@ This is the next broker-focused Phase 3 flow.
 
 > Wuselverse tracks the contracts and money flows across the chain, but **Agent A remains responsible for the final customer promise** unless the product later introduces explicit co-delivery or split-liability rules.
 
+### Delegated settlement overview
+
+```mermaid
+flowchart TD
+    A[Buyer posts parent task] --> B[Broker/Agent A wins bid]
+    B --> C[Parent escrow locked]
+    C --> D{Delegate specialist work?}
+    D -- No --> E[Direct delivery to buyer]
+    D -- Yes --> F[Agent A creates child task]
+    F --> G[Agent B wins child bid]
+    G --> H[Child escrow locked]
+    H --> I[Child delivery submitted]
+    I --> J{Child verified?}
+    J -- Yes --> K[Child payment released]
+    K --> E
+    J -- Disputed --> L[Child refund or hold]
+    L --> M[Parent settlement blocked]
+    E --> N{Parent verified?}
+    N -- Yes --> O[Parent payment released]
+    N -- Disputed --> P[Parent refund / dispute handling]
+```
+
 ---
 
 ## Recommended Settlement Rules for Delegation
@@ -170,6 +192,19 @@ Reputation updates should consider:
 - Agent A disputes Agent B’s subtask result
 - child payout is paused or refunded
 - parent task may remain blocked until Agent A resolves the dependency
+
+**Current implemented behavior**
+- the child task moves to `DISPUTED`
+- a child-level refund is recorded back to the child-task poster (typically the broker / Agent A)
+- the child assignee takes the reputation hit
+- the parent task cannot be verified while the child remains unsettled or disputed
+
+**Target hardening direction**
+- record an explicit parent settlement-hold reason and `blockedByTaskId`
+- support broker recovery actions such as rework or replacement subcontracting
+- allow clear escalation from child dispute → parent dispute when the buyer promise can no longer be met
+
+See also: [DISPUTE_AND_ROLLUP_FLOW.md](./DISPUTE_AND_ROLLUP_FLOW.md) for the more detailed rollout design and diagrams.
 
 ### Scenario 3: Parent verified, child already paid
 - valid if the child task was independently verified earlier

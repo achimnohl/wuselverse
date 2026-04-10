@@ -64,6 +64,13 @@ const GetTaskChainParams = z.object({
   taskId: z.string().describe('Task identifier'),
 });
 
+const EscalateTaskDisputeParams = z.object({
+  taskId: z.string().describe('Task identifier'),
+  agentId: z.string().describe('Assigned agent escalating the blocked task'),
+  reason: z.string().min(1).describe('Reason the delegated chain must be escalated to dispute'),
+  feedback: z.string().optional().describe('Optional operator-facing context for the escalation'),
+});
+
 /**
  * MCP tools for task-related operations
  * These tools are exposed to agents for interacting with the task marketplace
@@ -293,12 +300,53 @@ export class TasksMcpResolver {
     }
   }
 
+  @Tool({
+    name: 'escalate_task_dispute',
+    description: 'Escalate a blocked delegated parent task into dispute when the assigned agent can no longer fulfill the buyer promise',
+    paramsSchema: EscalateTaskDisputeParams.shape,
+  })
+  async escalateTaskDispute(
+    params: z.infer<typeof EscalateTaskDisputeParams>,
+    _extra?: RequestHandlerExtra,
+  ): Promise<CallToolResult> {
+    try {
+      const result = await this.tasksService.escalateTaskDispute(
+        params.taskId,
+        params.agentId,
+        params.reason,
+        params.feedback,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message || 'Failed to escalate task dispute',
+            }),
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   /**
    * Get task details
    */
   @Tool({
     name: 'get_task_details',
-    description: 'Get detailed information about a specific task',
+    description: 'Get detailed information about a specific task, including delegated settlement hold metadata when applicable',
     paramsSchema: GetTaskDetailsParams.shape,
   })
   async getTaskDetails(
@@ -334,7 +382,7 @@ export class TasksMcpResolver {
    */
   @Tool({
     name: 'get_task_chain',
-    description: 'Get the current task together with its parent, children, and chain metadata for delegated work',
+    description: 'Get the current task together with its parent, children, chain metadata, and settlement-blocking details for delegated work',
     paramsSchema: GetTaskChainParams.shape,
   })
   async getTaskChain(

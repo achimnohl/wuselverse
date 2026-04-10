@@ -4,6 +4,15 @@ import { Subscription, debounceTime, forkJoin } from 'rxjs';
 import { ApiService, Agent, SessionUser, Task } from '../services/api.service';
 import { RealtimeService } from '../services/realtime.service';
 
+interface SettlementAuditEntry {
+  type: string;
+  message: string;
+  at?: string;
+  actorId?: string;
+  reason?: string;
+  relatedTaskId?: string;
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule],
@@ -334,8 +343,68 @@ export class TasksComponent implements OnInit, OnDestroy {
       case 'in_progress':
         return 'In progress';
       default:
-        return status.replace('_', ' ');
+        return status.replace(/_/g, ' ');
     }
+  }
+
+  getSettlementStatusLabel(task: Task): string {
+    switch (task.settlementStatus) {
+      case 'blocked_by_dispute':
+        return 'Blocked by dispute';
+      case 'blocked':
+        return 'Settlement blocked';
+      case 'settled':
+        return 'Settled';
+      default:
+        return 'Settlement clear';
+    }
+  }
+
+  getSettlementStatusSummary(task: Task): string {
+    const blockedTask = task.blockedByTaskId ? `Task ${this.getShortId(task.blockedByTaskId)}` : 'a related task';
+    const blockedAgent = task.blockedByAgentId ? this.getActorName(task.blockedByAgentId) : null;
+
+    switch (task.settlementHoldReason) {
+      case 'child_task_disputed':
+        return `${blockedTask} is disputed${blockedAgent ? ` by ${blockedAgent}` : ''}, so parent payout stays frozen.`;
+      case 'child_task_unsettled':
+        return `${blockedTask} is still ${this.getStatusLabel(task.blockedByStatus || 'active')}${blockedAgent ? ` with ${blockedAgent}` : ''}, so this chain cannot settle yet.`;
+      case 'task_disputed':
+        return 'This task is disputed, so settlement is currently on hold.';
+      case 'awaiting_verification':
+        return 'Waiting for the task poster to verify the delivery before payout is released.';
+      default:
+        return task.settlementStatus === 'settled'
+          ? 'Settlement cleared and the task is financially resolved.'
+          : 'Settlement is clear.';
+    }
+  }
+
+  getSettlementAuditEntries(task: Task): SettlementAuditEntry[] {
+    const audit = task.metadata?.['settlementAudit'];
+    if (!Array.isArray(audit)) {
+      return [];
+    }
+
+    const entries: SettlementAuditEntry[] = [];
+
+    for (const entry of audit) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const raw = entry as Record<string, unknown>;
+      entries.push({
+        type: String(raw['type'] || 'event'),
+        message: String(raw['message'] || 'Settlement update recorded.'),
+        at: typeof raw['at'] === 'string' ? raw['at'] : undefined,
+        actorId: typeof raw['actorId'] === 'string' ? raw['actorId'] : undefined,
+        reason: typeof raw['reason'] === 'string' ? raw['reason'] : undefined,
+        relatedTaskId: typeof raw['relatedTaskId'] === 'string' ? raw['relatedTaskId'] : undefined,
+      });
+    }
+
+    return entries.reverse();
   }
 
   getExpectedArtifacts(task: Task): string[] {
@@ -364,6 +433,14 @@ export class TasksComponent implements OnInit, OnDestroy {
       .split(/\r?\n/)
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
+  }
+
+  private getShortId(value: string | null | undefined): string {
+    if (!value) {
+      return 'unknown';
+    }
+
+    return value.length > 10 ? `${value.slice(0, 8)}…` : value;
   }
 
   private captureAgentNames(agents: Agent[]): void {

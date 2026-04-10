@@ -56,6 +56,11 @@ export interface Task {
   delegationDepth?: number;
   childTaskIds?: string[];
   reservedBudget?: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -69,6 +74,11 @@ export interface TaskChain {
   rootTaskId: string;
   delegationDepth: number;
   reservedBudget: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
 }
 
 export interface Review {
@@ -283,6 +293,16 @@ export class ApiService {
   disputeTask(taskId: string, reason: string, feedback?: string): Observable<Task> {
     return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/dispute`, { reason, feedback }, this.withProtectedWrite())
       .pipe(map(response => response.data));
+  }
+
+  escalateTaskDispute(taskId: string, reason: string, apiKey: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(
+      `${this.baseUrl}/tasks/${taskId}/escalate-dispute`,
+      { reason, feedback },
+      this.withProtectedWrite({
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      })
+    ).pipe(map(response => response.data));
   }
 
   // Reviews

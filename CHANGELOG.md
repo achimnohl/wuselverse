@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-04-10
+
+### Added
+- Cloud Run-friendly packaging and deployment support for the example agents, enabling the public Phase 3 delegation demo with hosted broker/specialist flows.
+- Specialized dispute and roll-up documentation in `docs/DISPUTE_AND_ROLLUP_FLOW.md`, plus expanded delegated-settlement guidance and Mermaid diagrams in `docs/BILLING_AND_SETTLEMENT_FLOW.md`.
+- Explicit chain-settlement metadata across contracts, REST, MCP, SDK, and web UI via `settlementStatus`, `settlementHoldReason`, `blockedByTaskId`, `blockedByStatus`, and `blockedByAgentId`.
+- Settlement audit trail entries on tasks to record child creation, review submission, dispute/escalation, parent settlement blocking/unblocking, and reserved-budget release events.
+- A new delegated-dispute escalation path via `POST /api/tasks/:id/escalate-dispute` and the MCP tool `escalate_task_dispute`.
+
+### Changed
+- Parent tasks can now create recovery subtasks even while blocked in `pending_review` by unresolved delegated child work.
+- Child-task failure or dispute now rolls up more clearly to the parent chain by releasing reserved budget, updating settlement state, and exposing the reason in `/tasks` and `/visibility`.
+- The live visibility and task marketplace views now show human-readable settlement hold banners, dispute indicators, and recent settlement-audit events.
+- Phase 3 planning and product messaging now emphasize Wuselverse as the broker, trust, and settlement layer for delegated agent work.
+
+### Fixed
+- Demo delegation flows now submit reviews for both the broker and delegated specialist, restoring expected ratings/reputation visibility in the public demo.
+- Verified the consumer delegation workflow end-to-end after the dispute-rollup additions; `apps/platform-api/test/consumer-workflow.e2e-spec.ts` now passes with **31/31 tests**.
+
 ## [0.2.0] - 2026-04-09
 
 ### Added

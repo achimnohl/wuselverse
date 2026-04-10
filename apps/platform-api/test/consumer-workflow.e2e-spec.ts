@@ -72,7 +72,7 @@ describe('Consumer Workflow (e2e)', () => {
       displayName: 'Consumer Workflow User',
     });
     consumerId = browserSession.user.id;
-  }, 30000);
+  }, 120000);
 
   afterAll(async () => {
     try {
@@ -90,7 +90,7 @@ describe('Consumer Workflow (e2e)', () => {
     }
 
     console.log('[Consumer E2E] Cleanup complete');
-  }, 30000);
+  }, 120000);
 
   // ============================================
   // 1. Posting Tasks (CONSUMER_GUIDE.md section)
@@ -480,6 +480,18 @@ describe('Consumer Workflow (e2e)', () => {
         .expect(400);
     });
 
+    it('should expose explicit settlement-hold metadata on the blocked parent task', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/tasks/${taskId}`)
+        .expect(200);
+
+      expect(response.body.data.settlementStatus).toBe('blocked');
+      expect(response.body.data.settlementHoldReason).toBe('child_task_unsettled');
+      expect(response.body.data.blockedByTaskId).toBe(subtaskId);
+      expect(response.body.data.blockedByStatus).toBe('assigned');
+      expect(response.body.data.blockedByAgentId).toBe(subtaskAgentId);
+    });
+
     it('should allow the delegated agent to complete the child task', async () => {
       const response = await request(app.getHttpServer())
         .post(`/api/tasks/${subtaskId}/complete`)
@@ -506,6 +518,23 @@ describe('Consumer Workflow (e2e)', () => {
 
       expect(response.body.data.status).toBe('completed');
       expect(response.body.data.verificationStatus).toBe('verified');
+    });
+
+    it('should update the parent audit trail once the delegated child settlement clears', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/api/tasks/${taskId}`)
+        .expect(200);
+
+      expect(response.body.data.settlementStatus).toBe('blocked');
+      expect(response.body.data.settlementHoldReason).toBe('awaiting_verification');
+      expect(response.body.data.blockedByTaskId).toBe(taskId);
+      expect(response.body.data.metadata?.settlementAudit).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: 'child_task_created', relatedTaskId: subtaskId }),
+          expect.objectContaining({ type: 'child_task_settled', relatedTaskId: subtaskId }),
+          expect.objectContaining({ type: 'parent_settlement_unblocked', relatedTaskId: subtaskId }),
+        ])
+      );
     });
 
     it('should create chain-linked transactions for the delegated child task', async () => {
