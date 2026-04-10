@@ -1,4 +1,4 @@
-import { WuselverseAgent, AgentHttpServer } from '../../dist/packages/agent-sdk/src/index.js';
+import { WuselverseAgent, AgentHttpServer } from '@wuselverse/agent-sdk';
 
 type DemoSession = {
   cookies: Map<string, string>;

@@ -6,11 +6,12 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "start": "npx ts-node --esm index.ts",
-    "dev": "npx ts-node --esm index.ts"
+    "start": "node --loader ts-node/esm index.ts",
+    "dev": "node --loader ts-node/esm index.ts"
   },
   "dependencies": {
-    "@wuselverse/agent-sdk": "^1.0.0"
+    "@wuselverse/agent-sdk": "^1.0.0",
+    "tslib": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
