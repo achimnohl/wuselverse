@@ -237,12 +237,12 @@ async function main() {
   try {
     await ensureApiAvailable();
 
-    logStep('[1/8] Signing in demo user...');
+    logStep('[1/9] Signing in demo user...');
     const demoSession = await ensureDemoUserSession();
     logOk(`Signed in as ${demoSession.user?.displayName || config.demoUserDisplayName} (${demoSession.user?.email || config.demoUserEmail})`);
     await pauseBetweenSteps();
 
-    logStep('[2/8] Creating brokered parent task...');
+    logStep('[2/9] Creating brokered parent task...');
     const taskPayload = {
       title: 'Brokered text transformation demo',
       description: 'Use the broker agent to delegate this text-processing request to a specialist and return the final verified result.',
@@ -277,7 +277,7 @@ async function main() {
     logOk(`Parent task created: ${taskId}`);
     await pauseBetweenSteps();
 
-    logStep('[3/8] Waiting for the broker agent to bid...');
+    logStep('[3/9] Waiting for the broker agent to bid...');
     let validBids = [];
 
     for (let attempt = 1; attempt <= config.maxBidWaitSeconds; attempt += 1) {
@@ -303,7 +303,7 @@ async function main() {
     logOk(`Received ${validBids.length} broker bid(s)`);
     await pauseBetweenSteps();
 
-    logStep('[4/8] Accepting the broker bid...');
+    logStep('[4/9] Accepting the broker bid...');
     const selectedBid = validBids[0];
     const bidId = getBidId(selectedBid);
     if (!bidId) {
@@ -319,7 +319,7 @@ async function main() {
     logOk(`Broker bid accepted: ${bidId}`);
     await pauseBetweenSteps();
 
-    logStep('[5/8] Waiting for brokered parent delivery...');
+    logStep('[5/9] Waiting for brokered parent delivery...');
     let parentTask = null;
 
     for (let attempt = 1; attempt <= config.maxCompletionWaitSeconds; attempt += 1) {
@@ -351,7 +351,7 @@ async function main() {
     await pauseBetweenSteps();
 
     if (parentTask.status === 'pending_review') {
-      logStep('[6/8] Verifying the parent delivery...');
+      logStep('[6/9] Verifying the parent delivery...');
       await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -360,11 +360,71 @@ async function main() {
         }),
       }, demoSession);
 
-      logOk('Parent delivery verified');
+      const verifiedResponse = await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}`, { timeoutMs: 10000 });
+      parentTask = getTaskData(verifiedResponse);
+      logOk(`Parent delivery verified (${parentTask?.outcome?.verificationStatus || 'verified'})`);
       await pauseBetweenSteps();
     }
 
-    logStep('[7/8] Fetching task chain details...');
+    logStep('[7/9] Submitting reviews...');
+    const parentReviewPayload = {
+      taskId,
+      from: demoSession.user?.id || config.demoUserEmail,
+      to: parentTask?.assignedAgent,
+      rating: 5,
+      comment: 'Excellent brokered delegation flow with clear child-task verification and final delivery.',
+    };
+
+    if (!parentReviewPayload.to) {
+      throw new Error('The parent task is missing an assigned agent, so no review target is available.');
+    }
+
+    try {
+      await requestJson(`${config.apiBaseUrl}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parentReviewPayload),
+      }, demoSession);
+      logOk('Broker review submitted');
+    } catch (error) {
+      if (error?.status === 409) {
+        logInfo('A broker review already exists for this task, so the demo skipped creating a duplicate.');
+      } else {
+        throw error;
+      }
+    }
+
+    const delegatedChildTaskId = parentResult?.delegatedTaskId || parentResult?.output?.delegatedTaskId;
+    const delegatedChildAgentId = parentResult?.subcontractorAgentId || parentResult?.output?.subcontractorAgentId;
+
+    if (delegatedChildTaskId && delegatedChildAgentId) {
+      const childReviewPayload = {
+        taskId: delegatedChildTaskId,
+        from: demoSession.user?.id || config.demoUserEmail,
+        to: delegatedChildAgentId,
+        rating: 5,
+        comment: 'The specialist text processor completed the delegated child task quickly and correctly.',
+      };
+
+      try {
+        await requestJson(`${config.apiBaseUrl}/api/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(childReviewPayload),
+        }, demoSession);
+        logOk('Specialist review submitted');
+      } catch (error) {
+        if (error?.status === 409) {
+          logInfo('A specialist review already exists for the delegated child task, so the demo skipped creating a duplicate.');
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    await pauseBetweenSteps();
+
+    logStep('[8/9] Fetching task chain details...');
     const chainResponse = await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}/chain`, { timeoutMs: 10000 });
     const chain = getTaskData(chainResponse);
     const childCount = Array.isArray(chain?.children) ? chain.children.length : 0;
@@ -377,7 +437,7 @@ async function main() {
     }
     await pauseBetweenSteps();
 
-    logStep('[8/8] Inspecting linked ledger entries...');
+    logStep('[9/9] Inspecting linked ledger entries...');
     const parentTransactions = await requestJson(`${config.apiBaseUrl}/api/transactions/task/${taskId}`, { timeoutMs: 10000 });
     const txList = Array.isArray(parentTransactions?.data) ? parentTransactions.data : [];
     const rootTaskId = chain?.rootTaskId || taskId;
