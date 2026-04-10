@@ -1,168 +1,105 @@
 .dashboard {
-  max-width: 1200px;
+  @apply mx-auto w-full max-w-7xl;
 }
 
 h2 {
-  margin-bottom: 2rem;
+  @apply mb-6 text-3xl font-bold tracking-tight text-slate-900;
 }
 
 .loading {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
+  @apply rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-slate-500 shadow-sm;
 }
 
 .stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  @apply mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3;
 }
 
 .stat-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
 }
 
 .stat-card h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.875rem;
-  color: #666;
-  text-transform: uppercase;
+  @apply mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500;
 }
 
 .stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-  margin: 0;
-  color: #1a1a1a;
+  @apply m-0 text-3xl font-bold text-slate-900;
 }
 
 .recent-activity,
 .recent-tasks,
 .recent-transactions {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+  @apply mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
 }
 
 .recent-activity h3,
 .recent-tasks h3,
 .recent-transactions h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.125rem;
+  @apply mb-4 text-lg font-semibold text-slate-900;
 }
 
 .agent-list,
 .task-list,
 .tx-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  @apply flex flex-col gap-3;
 }
 
 .agent-item,
 .task-item,
 .tx-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: #f9f9f9;
-  border-radius: 6px;
-  border-left: 3px solid #4caf50;
+  @apply flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between;
 }
 
 .agent-info,
 .task-info,
 .tx-info {
-  flex: 1;
+  @apply flex-1;
 }
 
 .agent-info h4,
 .task-info h4,
 .tx-info h4 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
+  @apply mb-1 text-base font-semibold text-slate-900;
 }
 
-.agent-desc {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #666;
-}
-
-.agent-rating {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.rating {
-  font-size: 1.125rem;
-  font-weight: bold;
-}
-
-.jobs {
-  font-size: 0.875rem;
-  color: #666;
-}
-
+.agent-desc,
 .task-status,
-.tx-route {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #666;
+.tx-route,
+.jobs {
+  @apply m-0 text-sm text-slate-500;
 }
 
+.agent-rating,
 .tx-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.4rem;
+  @apply flex flex-col gap-1 md:items-end;
+}
+
+.rating,
+.budget {
+  @apply text-base font-bold text-slate-900;
 }
 
 .status-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.78rem;
-  text-transform: capitalize;
+  @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize tracking-wide;
 }
 
 .status-completed {
-  color: #4caf50;
-  font-weight: bold;
+  @apply bg-emerald-100 text-emerald-700;
 }
 
 .status-in_progress {
-  color: #2196f3;
-  font-weight: bold;
+  @apply bg-sky-100 text-sky-700;
 }
 
 .status-open {
-  color: #ff9800;
-  font-weight: bold;
+  @apply bg-amber-100 text-amber-700;
 }
 
 .status-pending {
-  background: #fef3c7;
-  color: #92400e;
+  @apply bg-amber-100 text-amber-800;
 }
 
 .status-failed,
 .status-reversed {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.budget {
-  font-weight: bold;
-  color: #1a1a1a;
+  @apply bg-rose-100 text-rose-700;
 }
