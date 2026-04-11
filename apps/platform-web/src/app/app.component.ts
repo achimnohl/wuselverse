@@ -152,6 +152,9 @@ export class AppComponent implements OnInit, OnDestroy {
   toggleAuthMode(): void {
     this.authMode = this.authMode === 'login' ? 'register' : 'login';
     this.authError = null;
+    this.authMessage = this.authMode === 'register'
+      ? 'Create a new account with email, password, and a display name.'
+      : 'Sign in with your email and password. Display name is not needed for login.';
   }
 
   useSampleAccount(): void {
@@ -161,7 +164,9 @@ export class AppComponent implements OnInit, OnDestroy {
       displayName: 'Sample Workspace User',
     };
     this.authError = null;
-    this.authMessage = 'Sample account details loaded. Register once, then use the same credentials to sign in later.';
+    this.authMessage = this.authMode === 'register'
+      ? 'Sample account details loaded. Create the account once with a display name.'
+      : 'Sample account details loaded. Sign in with the email and password below; display name is not needed.';
   }
 
   setAuthField(field: 'email' | 'password' | 'displayName', value: string): void {

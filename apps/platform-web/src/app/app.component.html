@@ -16,6 +16,7 @@
         <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
         <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
         <a routerLink="/visibility" routerLinkActive="active">Visibility & audit</a>
+        <a routerLink="/docs/start-here" routerLinkActive="active">Docs</a>
       </nav>
 
       <button
@@ -60,6 +61,10 @@
     <a routerLink="/visibility" routerLinkActive="active" (click)="closeMobileMenu()">
       <span class="mobile-nav-icon">🧭</span>
       Visibility & audit
+    </a>
+    <a routerLink="/docs/start-here" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📚</span>
+      Docs
     </a>
   </nav>
 
@@ -114,7 +119,7 @@
               name="displayName"
               [value]="authForm.displayName"
               (input)="setAuthField('displayName', $any($event.target).value)"
-              placeholder="Display name"
+              placeholder="Display name (only needed for new accounts)"
               autocomplete="name"
             />
             <input
@@ -127,6 +132,10 @@
               placeholder="Password"
               autocomplete="current-password"
             />
+
+            <p class="session-helper" *ngIf="authMode === 'login'">
+              Sign in uses <strong>email + password</strong> only. A display name is only required when you create a new account.
+            </p>
 
             <div class="session-buttons">
               <button type="button" class="primary-button" (click)="submitAuth()" [disabled]="authBusy">

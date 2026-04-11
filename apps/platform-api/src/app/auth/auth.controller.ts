@@ -10,11 +10,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from './api-key.guard';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterUserDto } from './auth.dto';
 import { SessionAuthGuard } from './session-auth.guard';
 import { SessionCsrfGuard } from './session-csrf.guard';
+
+const REGISTER_THROTTLE = { default: { limit: 5, ttl: 900 } };
+const LOGIN_THROTTLE = { default: { limit: 10, ttl: 900 } };
 
 @ApiTags('auth')
 @Controller('auth')
@@ -23,6 +27,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @Throttle(REGISTER_THROTTLE)
   @ApiOperation({ summary: 'Register a new human user session for the web UI' })
   @ApiBody({ type: RegisterUserDto })
   async register(
@@ -50,6 +55,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign in and create a session cookie for the web UI' })
   @ApiBody({ type: LoginDto })

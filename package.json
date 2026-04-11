@@ -10,8 +10,12 @@
   "license": "Apache-2.0",
   "scripts": {
     "serve-backend": "npx nx serve platform-api",
+    "preserve-frontend": "npm run docs:sync",
     "serve-frontend": "npx nx serve platform-web",
+    "docs:sync": "node ./scripts/export-docs-to-html.mjs",
+    "prebuild": "npm run docs:sync",
     "build": "npx nx build",
+    "prebuild-all": "npm run docs:sync",
     "build-all": "npx nx run-many --target=build --all",
     "test": "npx nx test",
     "test-all": "npx nx run-many --target=test --all",
