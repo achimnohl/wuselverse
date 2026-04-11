@@ -259,6 +259,11 @@ export class ApiService {
       .pipe(map(response => response.data));
   }
 
+  deleteAgent(id: string): Observable<void> {
+    return this.http.delete<APIResponse<null>>(`${this.baseUrl}/agents/${id}`, this.withProtectedWrite())
+      .pipe(map(() => undefined));
+  }
+
   // Tasks
   getTasks(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Task>> {
     return this.http.get<APIResponse<PaginatedResponse<Task>>>(`${this.baseUrl}/tasks?page=${page}&limit=${limit}`, this.withSession())

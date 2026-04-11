@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
+import { createAuthenticatedSession } from './auth-test.utils';
 
 describe('Auth Session Flow (e2e)', () => {
   let app: INestApplication;
@@ -22,6 +23,7 @@ describe('Auth Session Flow (e2e)', () => {
     process.env.PORT = String(PORT);
     process.env.MONGODB_URI = MONGODB_URI;
     process.env.REQUIRE_USER_SESSION_FOR_TASK_POSTING = 'true';
+    process.env.REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -189,5 +191,69 @@ describe('Auth Session Flow (e2e)', () => {
 
     expect(createResponse.body.success).toBe(true);
     expect(createResponse.body.data.poster).toBe(registerResponse.body.data.user.id);
+  });
+
+  it('allows a signed-in owner to delete their own agent via session auth + CSRF', async () => {
+    const ownerSession = await createAuthenticatedSession(app, {
+      email: 'delete.owner@example.com',
+      password: 'deletepass123',
+      displayName: 'Delete Owner',
+    });
+
+    const createAgentResponse = await ownerSession.client
+      .post('/api/agents')
+      .set('x-csrf-token', ownerSession.csrfToken)
+      .send({
+        name: 'Session Delete Agent',
+        slug: 'session-delete-agent',
+        description: 'Used to verify session-based owner deletion.',
+        capabilities: ['cleanup'],
+      })
+      .expect(201);
+
+    const agentId = createAgentResponse.body.data._id;
+    expect(agentId).toBeTruthy();
+
+    const deleteResponse = await ownerSession.client
+      .delete(`/api/agents/${agentId}`)
+      .set('x-csrf-token', ownerSession.csrfToken);
+
+    expect([200, 204]).toContain(deleteResponse.status);
+
+    await request(app.getHttpServer())
+      .get(`/api/agents/${agentId}`)
+      .expect(404);
+  });
+
+  it('rejects deleting another user\'s agent via session auth', async () => {
+    const ownerSession = await createAuthenticatedSession(app, {
+      email: 'delete.primary.owner@example.com',
+      password: 'deletepass123',
+      displayName: 'Primary Delete Owner',
+    });
+
+    const intruderSession = await createAuthenticatedSession(app, {
+      email: 'delete.intruder@example.com',
+      password: 'deletepass123',
+      displayName: 'Delete Intruder',
+    });
+
+    const createAgentResponse = await ownerSession.client
+      .post('/api/agents')
+      .set('x-csrf-token', ownerSession.csrfToken)
+      .send({
+        name: 'Protected Session Delete Agent',
+        slug: 'protected-session-delete-agent',
+        description: 'Used to verify ownership checks during deletion.',
+        capabilities: ['cleanup'],
+      })
+      .expect(201);
+
+    const agentId = createAgentResponse.body.data._id;
+
+    await intruderSession.client
+      .delete(`/api/agents/${agentId}`)
+      .set('x-csrf-token', intruderSession.csrfToken)
+      .expect(403);
   });
 });

@@ -1,35 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  * {
-    box-sizing: border-box;
-  }
-
-  html {
-    @apply h-full scroll-smooth bg-slate-950;
-  }
-
-  body {
-    margin: 0;
-    font-family: Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    @apply min-h-screen bg-slate-100 text-slate-900;
-  }
-
-  code {
-    @apply font-mono text-[0.95em];
-  }
+* {
+  box-sizing: border-box;
 }
 
-@layer components {
-  .surface-card {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
-  }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  .section-heading {
-    @apply text-3xl font-bold tracking-tight text-slate-900;
-  }
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }

@@ -112,6 +112,8 @@
 
     <p *ngIf="registrationMessage" class="register-message success">{{ registrationMessage }}</p>
     <p *ngIf="registrationError" class="register-message error">{{ registrationError }}</p>
+    <p *ngIf="deleteMessage" class="register-message success">{{ deleteMessage }}</p>
+    <p *ngIf="deleteError" class="register-message error">{{ deleteError }}</p>
 
     <div *ngIf="latestIssuedApiKey" class="api-key-panel">
       <span class="api-key-label">New API key</span>
@@ -174,9 +176,19 @@
       <div class="agent-actions">
         <button
           class="btn-audit"
+          type="button"
           (click)="toggleAuditLog(agent.id)"
           [disabled]="!canViewAudit(agent)">
           {{ expandedAgentId === agent.id ? '▼' : '▶' }} Audit Log
+        </button>
+
+        <button
+          *ngIf="canDeleteAgent(agent)"
+          class="btn-delete"
+          type="button"
+          (click)="requestDeleteAgent(agent)"
+          [disabled]="deletingAgentId === agent.id">
+          {{ deletingAgentId === agent.id ? 'Deleting…' : 'Delete agent' }}
         </button>
       </div>
 
@@ -214,6 +226,39 @@
   <div *ngIf="!loading && agents.length === 0" class="empty-state">
     <p>No agents registered yet. Seed the database to see agents!</p>
     <code>npm run seed</code>
+  </div>
+
+  <div *ngIf="pendingDeleteAgent as agentToDelete" class="confirm-overlay">
+    <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-agent-title">
+      <span class="confirm-kicker">Destructive action</span>
+      <h3 id="delete-agent-title">Delete "{{ agentToDelete.name }}"?</h3>
+      <p>
+        This permanently removes the agent from the marketplace and records the action in the audit log.
+        This cannot be undone.
+      </p>
+
+      <div class="confirm-meta">
+        <span><strong>Owner:</strong> {{ agentToDelete.owner }}</span>
+        <span *ngIf="agentToDelete.slug"><strong>Slug:</strong> {{ agentToDelete.slug }}</span>
+      </div>
+
+      <div class="confirm-actions">
+        <button
+          class="btn-secondary"
+          type="button"
+          (click)="cancelDeleteAgent()"
+          [disabled]="deletingAgentId === agentToDelete.id">
+          Cancel
+        </button>
+        <button
+          class="btn-delete confirm-delete"
+          type="button"
+          (click)="confirmDeleteAgent()"
+          [disabled]="deletingAgentId === agentToDelete.id">
+          {{ deletingAgentId === agentToDelete.id ? 'Deleting…' : 'Yes, delete agent' }}
+        </button>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="!loading && totalPages > 1" class="pagination">

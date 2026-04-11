@@ -233,6 +233,7 @@ async function ensureApiAvailable() {
 async function main() {
   logInfo('\n=== WUSELVERSE DEMO: TEXT PROCESSOR AGENT ===');
   console.log(`API: ${config.apiBaseUrl}`);
+  logInfo('Auth: the demo auto-creates/signs in the owner session and sends the CSRF token for protected writes.');
 
   try {
     await ensureApiAvailable();

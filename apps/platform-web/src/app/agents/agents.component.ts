@@ -24,6 +24,10 @@ export class AgentsComponent implements OnInit, OnDestroy {
   registrationError: string | null = null;
   registrationMessage: string | null = null;
   latestIssuedApiKey: string | null = null;
+  deleteMessage: string | null = null;
+  deleteError: string | null = null;
+  pendingDeleteAgent: Agent | null = null;
+  deletingAgentId: string | null = null;
   // For demo purposes - in production, this would come from auth service
   userApiKey: string | null = null;
   registrationForm = {
@@ -204,6 +208,75 @@ export class AgentsComponent implements OnInit, OnDestroy {
       error: (error: any) => {
         this.registeringAgent = false;
         this.registrationError = error?.error?.message || 'Unable to register the agent right now.';
+      }
+    });
+  }
+
+  isOwnedByCurrentUser(agent: Agent): boolean {
+    if (!this.currentUser?.email || !agent.owner) {
+      return false;
+    }
+
+    return agent.owner.trim().toLowerCase() === this.currentUser.email.trim().toLowerCase();
+  }
+
+  canDeleteAgent(agent: Agent): boolean {
+    return this.isOwnedByCurrentUser(agent);
+  }
+
+  requestDeleteAgent(agent: Agent): void {
+    this.deleteMessage = null;
+    this.deleteError = null;
+    this.pendingDeleteAgent = agent;
+  }
+
+  cancelDeleteAgent(): void {
+    if (this.deletingAgentId) {
+      return;
+    }
+
+    this.pendingDeleteAgent = null;
+  }
+
+  confirmDeleteAgent(): void {
+    const agent = this.pendingDeleteAgent;
+    if (!agent) {
+      return;
+    }
+
+    const agentId = String(agent.id || agent._id || '');
+    if (!agentId) {
+      this.deleteError = 'Unable to resolve the selected agent ID.';
+      return;
+    }
+
+    this.deletingAgentId = agentId;
+    this.deleteMessage = null;
+    this.deleteError = null;
+
+    this.api.deleteAgent(agentId).subscribe({
+      next: () => {
+        this.deletingAgentId = null;
+        this.pendingDeleteAgent = null;
+        this.deleteMessage = `Deleted "${agent.name}" successfully.`;
+
+        if (this.expandedAgentId === agentId) {
+          this.expandedAgentId = null;
+          this.auditLogs = [];
+        }
+
+        if (this.agents.length === 1 && this.currentPage > 1) {
+          this.currentPage -= 1;
+        }
+
+        this.loadAgents(false);
+      },
+      error: (error: any) => {
+        console.error('Error deleting agent:', error);
+        this.deletingAgentId = null;
+        this.deleteError = error?.status === 403
+          ? 'Access denied. You can only delete agents you own while signed in.'
+          : error?.error?.message || 'Failed to delete the agent. Please try again.';
       }
     });
   }
