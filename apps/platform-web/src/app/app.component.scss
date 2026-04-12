@@ -2,8 +2,6 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
   background: #0b1120;
 }
 
@@ -172,6 +170,8 @@
   padding: 1rem;
   transform: translateX(-100%);
   transition: transform 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
 
   &.mobile-nav-open {
     transform: translateX(0);
@@ -227,10 +227,15 @@
   justify-items: end;
   align-items: start;
   padding: 5rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .auth-modal {
   width: min(430px, calc(100vw - 1.5rem));
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
   border-radius: 18px;
   background: #0f172a;
@@ -921,7 +926,6 @@
 
   .workspace {
     display: block;
-    overflow: hidden;
   }
 
   .content,
@@ -954,6 +958,7 @@
 
   .auth-modal {
     width: min(430px, 100%);
+    max-height: calc(100vh - 5.25rem);
   }
 
   .session-form {

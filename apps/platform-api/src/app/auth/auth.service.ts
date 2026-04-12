@@ -367,22 +367,6 @@ export class AuthService {
     return this.toSessionUser(user);
   }
 
-  private verifyPassword(password: string, storedHash: string): boolean {
-    const [salt, expectedHash] = storedHash.split(':');
-    if (!salt || !expectedHash) {
-      return false;
-    }
-
-    const derivedBuffer = scryptSync(password, salt, 64);
-    const expectedBuffer = Buffer.from(expectedHash, 'hex');
-
-    if (derivedBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(derivedBuffer, expectedBuffer);
-  }
-
   private hashSessionToken(sessionToken: string): string {
     return createHash('sha256').update(sessionToken).digest('hex');
   }
