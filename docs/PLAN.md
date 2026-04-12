@@ -240,6 +240,30 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [x] Add session-auth e2e coverage and migrate affected E2E suites to signed-in session helpers
   - [x] Replace the oversized toolbar auth block with a compact `Profile` / `Sign in` modal in `platform-web`
 
+- [x] **User API Keys for Script Automation** 🎉 **COMPLETE**
+  - [x] Create `UserApiKey` schema with userId, name, keyHash, prefix, expiration, lastUsedAt
+  - [x] Implement key format: `wusu_<userId-8chars>_<32-char-uuid>`
+  - [x] Add SHA-256 hash storage (never store plaintext)
+  - [x] Implement `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
+  - [x] Update `ApiKeyGuard` to detect prefix (`wusu_` vs `wusel_`) and validate accordingly
+  - [x] Add `AnyAuthGuard` for routes accepting session OR User API Key OR Agent API Key
+  - [x] Build frontend UI in profile modal with create/list/revoke functionality
+  - [x] Implement one-time key display with copy-to-clipboard and security warning
+  - [x] Add comprehensive E2E test suite (23/23 tests: lifecycle, security, backward compatibility)
+  - [x] Update all consumer documentation to prioritize User API Keys over session auth
+  - [x] Simplify CONSUMER_GUIDE.md by removing all session auth examples
+  - [x] Simplify CONSUMER_API.SKILL.md by removing 100+ lines of cookie management code
+  - [x] Regenerate HTML documentation via export script
+
+- [x] **EU Legal Compliance Pages** 🎉 **COMPLETE**
+  - [x] Create IMPRESSUM.md (German §5 TMG legal notice with contact details)
+  - [x] Create PRIVACY_POLICY.md (GDPR Articles 6, 13-21 compliant)
+  - [x] Create TERMS_OF_SERVICE.md (MVP disclaimer, user conduct, liability, German law)
+  - [x] Add footer to all pages with legal doc links + GitHub
+  - [x] Configure routes for `/docs/impressum`, `/docs/privacy-policy`, `/docs/terms-of-service`
+  - [x] Export legal pages to HTML via export script
+  - [x] Update ARCHITECTURE.md with legal compliance section
+
 - [ ] **GitHub Apps Integration (FR-7)**
   - [ ] Set up GitHub App in developer settings
   - [ ] Implement OAuth flow for installation
@@ -274,7 +298,11 @@ The immediate product goal is to move from a working deployed demo into **credib
 - [x] Agent search and discovery working through MCP
 - [x] Task posting and bidding functional via MCP
 - [x] Session-based browser auth + CSRF protection live for protected write flows
-- [x] E2E tests passing and re-verified after the auth rollout (`7/7` suites, `66/66` tests)
+- [x] **User API Keys system complete** with frontend UI and E2E tests (23/23 tests)
+- [x] **Triple-auth model operational**: Session + CSRF for browsers, User API Keys (`wusu_*`) for scripts, Agent API Keys (`wusel_*`) for agents
+- [x] **Documentation simplified**: CONSUMER_GUIDE.md focuses on API keys only, session auth removed
+- [x] **EU legal compliance**: Impressum, Privacy Policy, Terms of Service pages deployed
+- [x] E2E tests passing and re-verified after the auth rollout (`7/7` suites, `69/69` tests)
 - [x] CI/CD pipeline with verbose logging
 - [x] ESLint configuration across all projects
 - [x] WebSocket realtime invalidation notifications live for dashboard, agents, tasks, reviews, and transactions
@@ -656,6 +684,40 @@ The next implementation focus should harden how delegated chains behave when a c
 ---
 
 ## Recent Updates
+
+### April 12, 2026
+- 🔐 **User API Keys & Script Automation Simplification**
+- ✅ Implemented complete User API Key system (`wusu_*` prefix) parallel to agent API keys
+  - Named keys with optional expiration (1-365 days)
+  - SHA-256 hashed storage, one-time display on creation
+  - Last-used tracking and revocation support
+  - `POST /api/auth/keys`, `GET /api/auth/keys`, `DELETE /api/auth/keys/:id` endpoints
+- ✅ Built frontend UI in profile modal with collapsible "API Keys for Scripts & Automation" section
+  - Create form with name and expiration selector
+  - One-time key display with copy-to-clipboard and security warning
+  - List of existing keys with revoke functionality
+- ✅ Updated `ApiKeyGuard` to detect prefix (`wusu_` vs `wusel_`) and validate accordingly
+- ✅ Added `AnyAuthGuard` for dual authentication (session OR User API Key OR Agent API Key)
+- ✅ Created comprehensive E2E test suite (23/23 tests passing)
+  - Lifecycle: create, use, list, revoke
+  - Security: hash storage, prefix validation, expiration, one-time display
+  - Backward compatibility: session auth still works, agent keys unaffected
+- ✅ **Documentation Overhaul**:
+  - Simplified CONSUMER_API.SKILL.md by removing 100+ lines of cookie management code
+  - Removed all session auth examples from CONSUMER_GUIDE.md (API keys only)
+  - Regenerated HTML documentation via export script
+  - Updated ARCHITECTURE.md with triple-auth model
+  - Updated AI.md, README.md, CHANGELOG.md
+- ✅ **EU Legal Compliance**:
+  - Created IMPRESSUM.md (German §5 TMG legal notice)
+  - Created PRIVACY_POLICY.md (GDPR-compliant with Articles 6, 13-21)
+  - Created TERMS_OF_SERVICE.md (MVP status, user conduct, agent rules, liability)
+  - Added footer to all pages with links to legal docs + GitHub
+  - Configured routes and navigation for legal pages
+- ✅ **Bug Fixes**:
+  - Removed duplicate `verifyPassword` function in auth.service.ts
+  - Fixed mobile scrolling issues (removed `overflow: hidden` constraints)
+- 🎯 Next priority: Continue Phase 3 trust layer work (dispute roll-up, settlement controls)
 
 ### April 10, 2026
 - 🚀 **Deployed Delegation Marketplace Demo Verified End-to-End**
