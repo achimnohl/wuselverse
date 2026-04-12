@@ -161,7 +161,7 @@ export class AuthService {
     const csrfValue = csrfToken || this.issueCsrfToken();
     response.cookie(this.csrfCookieName, csrfValue, {
       httpOnly: false,
-      sameSite: 'lax',
+      sameSite: this.getCookieSameSite(),
       secure: this.isSecureCookie(),
       path: '/',
       maxAge: this.sessionTtlMs,
@@ -173,13 +173,13 @@ export class AuthService {
   clearSessionCookie(response: any): void {
     response.clearCookie(this.sessionCookieName, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: this.getCookieSameSite(),
       secure: this.isSecureCookie(),
       path: '/',
     });
     response.clearCookie(this.csrfCookieName, {
       httpOnly: false,
-      sameSite: 'lax',
+      sameSite: this.getCookieSameSite(),
       secure: this.isSecureCookie(),
       path: '/',
     });
@@ -390,14 +390,29 @@ export class AuthService {
   private getCookieOptions() {
     return {
       httpOnly: true,
-      sameSite: 'lax' as const,
+      sameSite: this.getCookieSameSite(),
       secure: this.isSecureCookie(),
       path: '/',
       maxAge: this.sessionTtlMs,
     };
   }
 
+  private getCookieSameSite(): 'lax' | 'strict' | 'none' {
+    const configured = (process.env.SESSION_COOKIE_SAMESITE || '').trim().toLowerCase();
+    if (configured === 'strict' || configured === 'lax' || configured === 'none') {
+      return configured;
+    }
+
+    // Production deployments often serve web and API from different domains.
+    // In that setup, browser session cookies must be SameSite=None.
+    return (process.env.NODE_ENV || '').toLowerCase() === 'production' ? 'none' : 'lax';
+  }
+
   private isSecureCookie(): boolean {
+    if (this.getCookieSameSite() === 'none') {
+      return true;
+    }
+
     return (process.env.NODE_ENV || '').toLowerCase() === 'production';
   }
 }

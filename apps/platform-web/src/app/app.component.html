@@ -175,8 +175,8 @@
             </div>
             <p class="alert-warning">⚠️ Save this key now—it won't be shown again!</p>
             <div class="api-key-display">
-              <code>{{ newlyCreatedKey.key }}</code>
-              <button type="button" class="icon-button" (click)="copyToClipboard(newlyCreatedKey.key)" aria-label="Copy to clipboard" title="Copy to clipboard">
+              <code>{{ newlyCreatedKey.apiKey || newlyCreatedKey.key || '(missing key)' }}</code>
+              <button type="button" class="icon-button" (click)="copyToClipboard(newlyCreatedKey.apiKey || newlyCreatedKey.key || '')" aria-label="Copy to clipboard" title="Copy to clipboard">
                 📋
               </button>
             </div>

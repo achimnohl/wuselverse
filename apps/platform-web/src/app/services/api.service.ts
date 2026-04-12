@@ -148,7 +148,8 @@ export interface UserApiKey {
 }
 
 export interface CreatedUserApiKey extends UserApiKey {
-  key: string; // Full key only shown once at creation
+  apiKey: string; // Full key only shown once at creation
+  key?: string; // Backward compatibility for older responses
 }
 
 export interface AgentRegistrationResult {
