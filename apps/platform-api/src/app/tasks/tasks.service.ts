@@ -1171,62 +1171,169 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    const seenAgentIds = new Set<string>();
+    // Get ALL agents with MCP endpoints
+    const allAgentsResponse = await this.agentsService.findAll({ 
+      mcpEndpoint: { $exists: true, $ne: null }
+    });
+    const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
 
-    for (const capability of requestedCapabilities) {
-      this.logger.debug('Finding agents with capability', { capability });
-      const agentsResponse = await this.agentsService.findByCapability(capability);
-      const agents = agentsResponse.success ? agentsResponse.data?.data || [] : [];
-      this.logger.debug('Found agents', { count: agents.length });
+    // Apply fuzzy matching filter to find relevant agents
+    const relevantAgents = this.filterRelevantAgents(
+      allAgents,
+      requestedCapabilities,
+      task.description,
+      task.title
+    );
 
-      for (const agent of agents) {
-        const agentId = agent._id?.toString?.() || agent.id;
+    this.logger.log(`Filtered agents for task using fuzzy matching`, {
+      taskId: task._id,
+      totalAgents: allAgents.length,
+      relevantAgents: relevantAgents.length,
+      requestedCapabilities
+    });
 
-        if (!agentId || seenAgentIds.has(agentId) || !agent.mcpEndpoint) {
-          if (!agentId) this.logger.debug('Skipping agent: no ID');
-          else if (seenAgentIds.has(agentId)) this.logger.debug('Skipping agent: already evaluated', { agentId });
-          else if (!agent.mcpEndpoint) this.logger.debug('Skipping agent: no MCP endpoint', { agentId });
-          continue;
-        }
+    // Send bid requests to filtered agents
+    for (const agent of relevantAgents) {
+      const agentId = agent._id?.toString?.() || agent.id;
 
-        seenAgentIds.add(agentId);
+      if (!agentId) {
+        this.logger.debug('Skipping agent: no ID');
+        continue;
+      }
 
-        this.logger.debug('Requesting bid from agent', {
-          agentId,
-          agentName: agent.name,
-          mcpEndpoint: agent.mcpEndpoint
+      this.logger.debug('Requesting bid from agent', {
+        agentId,
+        agentName: agent.name,
+        mcpEndpoint: agent.mcpEndpoint
+      });
+
+      try {
+        const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
+          taskId: task._id.toString(),
+          title: task.title,
+          description: task.description,
+          requirements: {
+            skills: requestedCapabilities,
+            budget: task.budget
+              ? {
+                  min: 0,
+                  max: task.budget.amount,
+                  currency: task.budget.currency || 'USD',
+                }
+              : undefined,
+          },
         });
 
-        try {
-          const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
-            taskId: task._id.toString(),
-            title: task.title,
-            description: task.description,
-            requirements: {
-              skills: requestedCapabilities,
-              budget: task.budget
-                ? {
-                    min: 0,
-                    max: task.budget.amount,
-                    currency: task.budget.currency || 'USD',
-                  }
-                : undefined,
-            },
+        if (decision.interested) {
+          await this.submitBid(task._id.toString(), {
+            agentId,
+            amount: decision.proposedAmount ?? 0,
+            proposal: decision.proposal || 'Auto-submitted bid via MCP',
+            estimatedDuration: decision.estimatedDuration,
           });
+        }
+      } catch (error) {
+        this.logger.error(`Failed to request bid from agent ${agentId}`, error);
+      }
+    }
+  }
 
-          if (decision.interested) {
-            await this.submitBid(task._id.toString(), {
-              agentId,
-              amount: decision.proposedAmount ?? 0,
-              proposal: decision.proposal || 'Auto-submitted bid via MCP',
-              estimatedDuration: decision.estimatedDuration,
-            });
-          }
-        } catch (error) {
-          this.logger.error(`Failed to request bid from agent ${agentId}`, error);
+  /**
+   * Filter agents using fuzzy matching strategies
+   */
+  private filterRelevantAgents(
+    agents: any[],
+    requestedCaps: string[],
+    description: string,
+    title: string
+  ): any[] {
+    return agents.filter(agent => {
+      // Extract capability strings (handle both Capability[] and string[] formats)
+      const agentCaps = (agent.capabilities || []).map((c: string | { skill: string }) => 
+        typeof c === 'string' ? c : c.skill
+      );
+      
+      // Strategy 1: Exact match (preserve existing behavior)
+      if (requestedCaps.some(req => agentCaps.includes(req))) {
+        this.logger.debug('Agent matched (exact)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      // Strategy 2: Partial/substring matching
+      // "text-processing" matches "text-reverse", "text-transform", etc.
+      if (this.hasPartialMatch(requestedCaps, agentCaps)) {
+        this.logger.debug('Agent matched (partial)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      // Strategy 3: Keyword overlap
+      // Extract keywords from task, match against agent description
+      if (this.hasKeywordOverlap(
+        requestedCaps.concat([title, description]),
+        agentCaps.concat([agent.description || '', agent.name || ''])
+      )) {
+        this.logger.debug('Agent matched (keywords)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      return false; // No match
+    });
+  }
+
+  /**
+   * Check for partial matches between requested and agent capabilities
+   */
+  private hasPartialMatch(requested: string[], agentCaps: string[]): boolean {
+    for (const req of requested) {
+      const reqParts = req.toLowerCase().split(/[-_\s]+/);
+      for (const cap of agentCaps) {
+        const capParts = cap.toLowerCase().split(/[-_\s]+/);
+        // If any significant word overlaps (length > 3 to avoid noise)
+        if (reqParts.some(part => part.length > 3 && capParts.includes(part))) {
+          return true;
         }
       }
     }
+    return false;
+  }
+
+  /**
+   * Check for keyword overlap between task and agent
+   */
+  private hasKeywordOverlap(requestedTerms: string[], agentTerms: string[]): boolean {
+    const requestedKeywords = this.extractKeywords(requestedTerms.join(' '));
+    const agentKeywords = this.extractKeywords(agentTerms.join(' '));
+    
+    // If 2+ keywords overlap, consider it a match
+    const overlap = requestedKeywords.filter(k => agentKeywords.includes(k));
+    return overlap.length >= 2;
+  }
+
+  /**
+   * Extract meaningful keywords from text
+   */
+  private extractKeywords(text: string): string[] {
+    const stopwords = [
+      'with', 'that', 'this', 'from', 'have', 'will', 'your', 
+      'their', 'what', 'been', 'than', 'more', 'when', 'them',
+      'these', 'would', 'which', 'into', 'only', 'could', 'other'
+    ];
+    
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, ' ') // Remove special chars except hyphens
+      .split(/\s+/)
+      .filter(word => word.length > 3) // Ignore short words
+      .filter(word => !stopwords.includes(word)); // Remove stopwords
   }
 
   /**

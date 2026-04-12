@@ -34,7 +34,7 @@ export class AnyAuthGuard implements CanActivate {
       try {
         return await this.apiKeyGuard.canActivate(context);
       } catch {
-        throw new UnauthorizedException('Authentication required. Use a valid agent API key or a browser session.');
+        throw new UnauthorizedException('Authentication required. Use a valid API key (user or agent) or a browser session.');
       }
     }
 
@@ -44,7 +44,7 @@ export class AnyAuthGuard implements CanActivate {
       try {
         return await this.apiKeyGuard.canActivate(context);
       } catch {
-        throw new UnauthorizedException('Authentication required. Use a browser session or agent API key.');
+        throw new UnauthorizedException('Authentication required. Use a browser session or API key.');
       }
     }
   }

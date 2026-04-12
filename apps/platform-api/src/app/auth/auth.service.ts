@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -15,7 +17,9 @@ import {
 } from 'crypto';
 import { UserDocument } from './user.schema';
 import { UserSessionDocument } from './user-session.schema';
+import { UserApiKeyDocument } from './user-api-key.schema';
 import { LoginDto, RegisterUserDto } from './auth.dto';
+import { CreateUserApiKeyDto, UserApiKeyResponseDto, CreatedUserApiKeyDto } from './user-api-key.dto';
 
 export interface SessionUser {
   id: string;
@@ -38,7 +42,8 @@ export class AuthService {
 
   constructor(
     @InjectModel('User') private readonly userModel: Model<UserDocument>,
-    @InjectModel('UserSession') private readonly userSessionModel: Model<UserSessionDocument>
+    @InjectModel('UserSession') private readonly userSessionModel: Model<UserSessionDocument>,
+    @InjectModel('UserApiKey') private readonly userApiKeyModel: Model<UserApiKeyDocument>
   ) {}
 
   async register(dto: RegisterUserDto, metadata?: SessionMetadata) {
@@ -216,6 +221,150 @@ export class AuthService {
     const salt = randomBytes(16).toString('hex');
     const derivedKey = scryptSync(password, salt, 64).toString('hex');
     return `${salt}:${derivedKey}`;
+  }
+
+  private verifyPassword(password: string, storedHash: string): boolean {
+    const [salt, expectedHash] = storedHash.split(':');
+    if (!salt || !expectedHash) {
+      return false;
+    }
+
+    const derivedBuffer = scryptSync(password, salt, 64);
+    const expectedBuffer = Buffer.from(expectedHash, 'hex');
+
+    if (derivedBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(derivedBuffer, expectedBuffer);
+  }
+
+  // ========================================
+  // User API Key Management
+  // ========================================
+
+  /**
+   * Create a new API key for a user
+   */
+  async createUserApiKey(userId: string, dto: CreateUserApiKeyDto): Promise<CreatedUserApiKeyDto> {
+    this.logger.log(`Creating API key for user ${userId}`, { name: dto.name });
+
+    // Generate unique API key: wusu_<userId-first-8>_<32-char-uuid>
+    const userIdPrefix = userId.substring(0, 8);
+    const uniquePart = randomUUID().replace(/-/g, '');
+    const rawKey = `wusu_${userIdPrefix}_${uniquePart}`;
+    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    const prefix = rawKey.substring(0, 20) + '...'; // First 20 chars for display
+
+    // Calculate expiration
+    let expiresAt: Date | null = null;
+    if (dto.expiresInDays) {
+      expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + dto.expiresInDays);
+    }
+
+    const apiKey = await this.userApiKeyModel.create({
+      userId,
+      name: dto.name,
+      keyHash,
+      prefix,
+      expiresAt,
+      lastUsedAt: null,
+      revokedAt: null,
+    });
+
+    this.logger.log(`API key created: ${apiKey._id}`, { userId, name: dto.name });
+
+    return {
+      id: apiKey._id.toString(),
+      name: apiKey.name,
+      prefix: apiKey.prefix,
+      createdAt: apiKey.createdAt,
+      lastUsedAt: apiKey.lastUsedAt,
+      expiresAt: apiKey.expiresAt,
+      isRevoked: false,
+      apiKey: rawKey, // ONLY returned once!
+    };
+  }
+
+  /**
+   * List all API keys for a user (without actual key values)
+   */
+  async listUserApiKeys(userId: string): Promise<UserApiKeyResponseDto[]> {
+    const keys = await this.userApiKeyModel
+      .find({ userId, revokedAt: null })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return keys.map((key) => ({
+      id: key._id.toString(),
+      name: key.name,
+      prefix: key.prefix,
+      createdAt: key.createdAt,
+      lastUsedAt: key.lastUsedAt,
+      expiresAt: key.expiresAt,
+      isRevoked: !!key.revokedAt,
+    }));
+  }
+
+  /**
+   * Revoke an API key
+   */
+  async revokeUserApiKey(userId: string, keyId: string): Promise<void> {
+    const key = await this.userApiKeyModel.findById(keyId).exec();
+
+    if (!key) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (key.userId !== userId) {
+      throw new UnauthorizedException('You can only revoke your own API keys');
+    }
+
+    if (key.revokedAt) {
+      throw new BadRequestException('API key is already revoked');
+    }
+
+    key.revokedAt = new Date();
+    await key.save();
+
+    this.logger.log(`API key revoked: ${keyId}`, { userId });
+  }
+
+  /**
+   * Validate a user API key and return user info
+   */
+  async validateUserApiKey(rawKey: string): Promise<SessionUser | null> {
+    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+
+    const apiKey = await this.userApiKeyModel
+      .findOne({ keyHash, revokedAt: null })
+      .exec();
+
+    if (!apiKey) {
+      return null; // Invalid or revoked key
+    }
+
+    // Check expiration
+    if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+      this.logger.warn(`Expired API key used: ${apiKey._id}`);
+      return null;
+    }
+
+    // Update last used timestamp (async, don't wait)
+    this.userApiKeyModel
+      .updateOne({ _id: apiKey._id }, { lastUsedAt: new Date() })
+      .exec()
+      .catch(() => null);
+
+    // Get user details
+    const user = await this.userModel.findById(apiKey.userId).exec();
+    if (!user) {
+      this.logger.error(`API key ${apiKey._id} references non-existent user ${apiKey.userId}`);
+      return null;
+    }
+
+    return this.toSessionUser(user);
   }
 
   private verifyPassword(password: string, storedHash: string): boolean {

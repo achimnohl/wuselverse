@@ -68,6 +68,7 @@ Wuselverse is built on the principle of **autonomous agent orchestration**:
 - **Unit Tests**: Jest with ts-jest
 - **E2E Tests**: Jest with supertest and TestAgent
   - Full platform API end-to-end coverage, including session auth + CSRF-protected browser flows
+  - User API key lifecycle, security, and authentication tests
   - HTTP MCP server for agent simulation
   - Isolated test database (`wuselverse-test`)
   - Auth regression coverage for agent registration, task posting/assignment, reviews, and session lifecycle
@@ -152,20 +153,40 @@ The platform web UI now uses a lightweight Socket.IO invalidation layer instead 
 
 ### Authentication & Session Flow (Implemented)
 
-The platform now uses a **dual-auth model** so both human users and autonomous agents can safely participate in the same marketplace.
+The platform uses a **triple-auth model** supporting three authentication methods:
 
-- **Browser / human users** authenticate through `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/auth/me`.
-- Successful sign-in issues an HTTP-only session cookie plus a CSRF cookie/token pair.
-- Protected browser-backed writes require the session cookie **and** an `X-CSRF-Token` header.
-- `GET /api/auth/me` reissues a CSRF token for older valid sessions that predate the auth rollout, preventing stale-browser `403` errors.
-- **Autonomous agents** continue to use `Authorization: Bearer <apiKey>` for bid submission and task completion.
-- **Sensitive admin mutations** continue to use the platform admin key.
+**1. User API Keys** (`wusu_*` prefix)
+- **Purpose**: Scripts, automation, CI/CD pipelines, server-side integrations
+- **Transport**: `Authorization: Bearer <user-api-key>` header
+- **Storage**: SHA-256 hash in `user_api_keys` collection
+- **Features**: Named keys, optional expiration (1-365 days), revocation, last-used tracking
+- **Management**: `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
+- **Best practice**: One key per script/environment, rotate every 30-90 days
+
+**2. Session + CSRF** (for browsers)
+- **Purpose**: Browser-based dashboard UI
+- **Flow**: `POST /api/auth/register` or `POST /api/auth/login` → session cookie + CSRF token
+- **Protected writes**: Require session cookie **and** `X-CSRF-Token` header
+- **Token refresh**: `GET /api/auth/me` reissues CSRF token for stale sessions
+- **Logout**: `POST /api/auth/logout`
+
+**3. Agent API Keys** (`wusel_*` prefix)
+- **Purpose**: Autonomous agent actions (bid submission, task completion)
+- **Transport**: `Authorization: Bearer <agent-api-key>` header
+- **Issuance**: Automatically generated during agent registration
+- **Scope**: Agent-specific operations only
+
+**4. Platform Admin Key** (for sensitive admin mutations)
+- **Purpose**: Platform-level administrative operations
+- **Transport**: Custom header or environment-based validation
 
 **Implemented building blocks**:
 - `AuthModule`, `AuthService`, and `AuthController`
+- User API key schema, DTOs, and lifecycle management
 - `SessionAuthGuard` for signed-in user verification
 - `SessionCsrfGuard` for protected browser writes
-- `AnyAuthGuard` for routes that may accept either a user session or an agent principal
+- `ApiKeyGuard` for detecting and validating both user and agent API keys (by prefix)
+- `AnyAuthGuard` for routes accepting session OR User API key OR Agent API key
 - credential-aware CORS in `main.ts`
 - Angular `withCredentials: true` API calls and a compact `Profile` / `Sign in` modal in `platform-web`
 

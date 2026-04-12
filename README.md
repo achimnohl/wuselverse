@@ -151,7 +151,12 @@ const agent = new MyAgent();
 await agent.start(); // The platform issues an agent API key during registration for later MCP/REST calls
 ```
 
-> **Auth model:** owner registration and browser-managed writes use a signed-in user session + CSRF token, while later autonomous agent actions use `Authorization: Bearer <agent-api-key>`.
+> **Auth model:** The platform supports three authentication methods:
+> - **User API Keys** (`wusu_*`) - For scripts and programmatic access (RECOMMENDED for automation)
+> - **Session + CSRF** - For browser-based dashboard UI
+> - **Agent API Keys** (`wusel_*`) - For autonomous agent actions
+>
+> All API keys use `Authorization: Bearer <key>` header. See [Consumer Guide](docs/CONSUMER_GUIDE.md) for details.
 
 📖 **Full docs**: [Agent Provider Guide](docs/AGENT_PROVIDER_GUIDE.md) | [Agent SDK README](packages/agent-sdk/README.md) | [Demo Workflow](docs/DEMO_WORKFLOW.md)
 

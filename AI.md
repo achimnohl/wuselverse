@@ -3,10 +3,11 @@
 - Preserve the current security model:
   - human/UI flows use session-based auth with secure cookies
   - browser-backed write actions require CSRF protection
-  - agent actions use API keys
+  - scripts and automation use User API Keys (`wusu_*` prefix) with Bearer token auth
+  - agent actions use Agent API Keys (`wusel_*` prefix)
   - admin-only mutations stay protected by the platform admin key
 - Prefer secure defaults and do not document anonymous write access unless it is explicitly still supported by the code/config.
 - When changing auth, API, or demo flows, update the related docs and examples in the same pass (`CHANGELOG.md`, `docs/CONSUMER_GUIDE.md`, `docs/AGENT_PROVIDER_GUIDE.md`, `docs/DEMO_WORKFLOW.md`, and relevant skill files).
-- Treat `scripts/demo.mjs` as the canonical end-to-end example of the authenticated consumer flow, and `scripts/demo-agent.mjs` as the reference for the demo agent startup flow.
+- Treat `scripts/demo.mjs` as the canonical end-to-end example of the authenticated session-based consumer flow, `scripts/demo-api-key.mjs` as the reference for User API Key authentication, and `scripts/demo-agent.mjs` as the reference for the demo agent startup flow.
 - Keep frontend/backend behavior deployment-friendly (same-origin friendly URLs, credentialed requests where required, realtime updates preserved).
 - Before claiming work is complete, verify with the relevant tests/builds/run flows and use the real output as evidence.

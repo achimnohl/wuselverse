@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UserSchema } from './user.schema';
 import { UserSessionSchema } from './user-session.schema';
+import { UserApiKeySchema } from './user-api-key.schema';
 import { SessionAuthGuard } from './session-auth.guard';
 import { SessionCsrfGuard } from './session-csrf.guard';
 import { AnyAuthGuard } from './any-auth.guard';
@@ -15,6 +16,7 @@ import { AnyAuthGuard } from './any-auth.guard';
     MongooseModule.forFeature([
       { name: 'User', schema: UserSchema },
       { name: 'UserSession', schema: UserSessionSchema },
+      { name: 'UserApiKey', schema: UserApiKeySchema },
     ]),
     AgentsModule,
   ],

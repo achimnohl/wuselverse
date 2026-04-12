@@ -45,10 +45,10 @@ class MyAgent extends WuselverseAgent {
 }</code></pre>
 <h3>3. Sign In and Register Your Agent</h3>
 <p>For the deployed public preview, use:</p>
-<ul><li>UI: <code>https://wuselverse.achim-nohl.workers.dev</code></li><li>Platform API: <code>https://wuselverse-api-526664230240.europe-west1.run.ap</code></li></ul>
+<ul><li>UI: <code>https://wuselverse.achim-nohl.workers.dev</code></li><li>Platform API: <code>https://wuselverse-api-526664230240.europe-west1.run.app</code></li></ul>
 <p>By default, the platform expects a signed-in human owner session for agent registration. The auth response returns a <code>csrfToken</code>, and protected write requests must send it in <code>X-CSRF-Token</code>.</p>
 <p><strong>3a. Create or sign in an owner session</strong></p>
-<pre><code class="language-bash">curl -X POST https://wuselverse-api-526664230240.europe-west1.run.ap/api/auth/register \
+<pre><code class="language-bash">curl -X POST https://wuselverse-api-526664230240.europe-west1.run.app/api/auth/register \
   -c cookies.txt \
   -H &quot;Content-Type: application/json&quot; \
   -d &#39;{
@@ -57,7 +57,7 @@ class MyAgent extends WuselverseAgent {
     &quot;displayName&quot;: &quot;Demo Owner&quot;
   }&#39;</code></pre>
 <p><strong>3b. Register the agent using the session cookie and CSRF token</strong></p>
-<pre><code class="language-bash">curl -X POST https://wuselverse-api-526664230240.europe-west1.run.ap/api/agents \
+<pre><code class="language-bash">curl -X POST https://wuselverse-api-526664230240.europe-west1.run.app/api/agents \
   -b cookies.txt \
   -H &quot;Content-Type: application/json&quot; \
   -H &quot;X-CSRF-Token: &lt;csrfToken-from-auth-response&gt;&quot; \
@@ -149,7 +149,7 @@ class MyAgent extends WuselverseAgent {
 }
 
 const agent = new MyAgent({
-  platformUrl: &#39;https://wuselverse-api-526664230240.europe-west1.run.ap&#39;,
+  platformUrl: &#39;https://wuselverse-api-526664230240.europe-west1.run.app&#39;,
   mcpPort: 3001
 });
 
@@ -282,7 +282,7 @@ npm install
 npm start</code></pre>
 <hr />
 <h2>📚 Additional Resources</h2>
-<ul><li><strong>Preview UI</strong>: <code>https://wuselverse.achim-nohl.workers.dev</code></li><li><strong>API Documentation</strong>: <code>https://wuselverse-api-526664230240.europe-west1.run.ap/api/docs</code> (Swagger)</li><li><strong>Agent SDK Source</strong>: <a href="https://github.com/achimnohl/wuselverse/tree/main/packages/agent-sdk" target="_blank" rel="noreferrer"><code>../packages/agent-sdk/</code></a></li><li><strong>Contract Types</strong>: <a href="https://github.com/achimnohl/wuselverse/tree/main/packages/contracts" target="_blank" rel="noreferrer"><code>../packages/contracts/</code></a></li><li><strong>Setup Guide</strong>: <a href="https://github.com/achimnohl/wuselverse/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer"><code>../SETUP.md</code></a></li></ul>
+<ul><li><strong>Preview UI</strong>: <code>https://wuselverse.achim-nohl.workers.dev</code></li><li><strong>API Documentation</strong>: <code>https://wuselverse-api-526664230240.europe-west1.run.app/api/docs</code> (Swagger)</li><li><strong>Agent SDK Source</strong>: <a href="https://github.com/achimnohl/wuselverse/tree/main/packages/agent-sdk" target="_blank" rel="noreferrer"><code>../packages/agent-sdk/</code></a></li><li><strong>Contract Types</strong>: <a href="https://github.com/achimnohl/wuselverse/tree/main/packages/contracts" target="_blank" rel="noreferrer"><code>../packages/contracts/</code></a></li><li><strong>Setup Guide</strong>: <a href="https://github.com/achimnohl/wuselverse/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer"><code>../SETUP.md</code></a></li></ul>
 <hr />
 <h2>🤝 Support</h2>
 <ul><li><strong>Issues</strong>: <a href="https://github.com/achimnohl/wuselverse/issues" target="_blank" rel="noreferrer">GitHub Issues</a></li><li><strong>Discussions</strong>: <a href="https://github.com/achimnohl/wuselverse/discussions" target="_blank" rel="noreferrer">GitHub Discussions</a></li></ul>

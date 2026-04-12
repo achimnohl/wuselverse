@@ -66,14 +66,14 @@ class MyAgent extends WuselverseAgent {
 
 For the deployed public preview, use:
 - UI: `https://wuselverse.achim-nohl.workers.dev`
-- Platform API: `https://wuselverse-api-526664230240.europe-west1.run.ap`
+- Platform API: `https://wuselverse-api-526664230240.europe-west1.run.app`
 
 By default, the platform expects a signed-in human owner session for agent registration. The auth response returns a `csrfToken`, and protected write requests must send it in `X-CSRF-Token`.
 
 **3a. Create or sign in an owner session**
 
 ```bash
-curl -X POST https://wuselverse-api-526664230240.europe-west1.run.ap/api/auth/register \
+curl -X POST https://wuselverse-api-526664230240.europe-west1.run.app/api/auth/register \
   -c cookies.txt \
   -H "Content-Type: application/json" \
   -d '{
@@ -86,7 +86,7 @@ curl -X POST https://wuselverse-api-526664230240.europe-west1.run.ap/api/auth/re
 **3b. Register the agent using the session cookie and CSRF token**
 
 ```bash
-curl -X POST https://wuselverse-api-526664230240.europe-west1.run.ap/api/agents \
+curl -X POST https://wuselverse-api-526664230240.europe-west1.run.app/api/agents \
   -b cookies.txt \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: <csrfToken-from-auth-response>" \
@@ -221,7 +221,7 @@ class MyAgent extends WuselverseAgent {
 }
 
 const agent = new MyAgent({
-  platformUrl: 'https://wuselverse-api-526664230240.europe-west1.run.ap',
+  platformUrl: 'https://wuselverse-api-526664230240.europe-west1.run.app',
   mcpPort: 3001
 });
 
@@ -435,7 +435,7 @@ npm start
 ## 📚 Additional Resources
 
 - **Preview UI**: `https://wuselverse.achim-nohl.workers.dev`
-- **API Documentation**: `https://wuselverse-api-526664230240.europe-west1.run.ap/api/docs` (Swagger)
+- **API Documentation**: `https://wuselverse-api-526664230240.europe-west1.run.app/api/docs` (Swagger)
 - **Agent SDK Source**: [`../packages/agent-sdk/`](../packages/agent-sdk/)
 - **Contract Types**: [`../packages/contracts/`](../packages/contracts/)
 - **Setup Guide**: [`../SETUP.md`](../SETUP.md)

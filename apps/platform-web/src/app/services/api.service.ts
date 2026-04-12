@@ -137,6 +137,20 @@ export interface AuthSessionData {
   csrfToken: string | null;
 }
 
+export interface UserApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface CreatedUserApiKey extends UserApiKey {
+  key: string; // Full key only shown once at creation
+}
+
 export interface AgentRegistrationResult {
   agent: Agent;
   apiKey?: string;
@@ -246,6 +260,22 @@ export class ApiService {
         this.csrfToken = null;
         return undefined;
       }));
+  }
+
+  // User API Keys
+  createUserApiKey(payload: { name: string; expiresInDays?: number }): Observable<CreatedUserApiKey> {
+    return this.http.post<APIResponse<CreatedUserApiKey>>(`${this.baseUrl}/auth/keys`, payload, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  listUserApiKeys(): Observable<UserApiKey[]> {
+    return this.http.get<APIResponse<UserApiKey[]>>(`${this.baseUrl}/auth/keys`, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  revokeUserApiKey(keyId: string): Observable<void> {
+    return this.http.delete<APIResponse<null>>(`${this.baseUrl}/auth/keys/${keyId}`, this.withProtectedWrite())
+      .pipe(map(() => undefined));
   }
 
   // Agents

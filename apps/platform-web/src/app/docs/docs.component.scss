@@ -7,9 +7,9 @@
   display: grid;
   gap: 1rem;
   padding: 1rem 1.1rem 1.2rem;
-  border: 1px solid #2d2d30;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  background: #1b1b1c;
+  background: #111827;
   color: #d4d4d4;
 }
 
@@ -110,30 +110,41 @@
   padding: 0.55rem 0.65rem;
   border-radius: 6px;
   text-decoration: none;
-  color: #d4d4d4;
+  color: #9ca3af;
   background: transparent;
   border: 1px solid transparent;
-  transition: border-color 0.18s ease, background 0.18s ease;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
 .docs-link strong {
   display: block;
   margin-bottom: 0.12rem;
-  color: #dcdcdc;
+  color: #d1d5db;
   font-size: 0.92rem;
 }
 
 .docs-link small {
   display: block;
-  color: #8b949e;
+  color: #93a0b4;
   line-height: 1.45;
   font-size: 0.78rem;
 }
 
 .docs-link:hover,
 .docs-link.active {
-  border-color: #3c3c3c;
-  background: #2a2d2e;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.docs-link:hover strong,
+.docs-link.active strong {
+  color: #ffffff;
+}
+
+.docs-link:hover small,
+.docs-link.active small {
+  color: #cbd5e1;
 }
 
 .docs-badge,
@@ -154,8 +165,8 @@
 .docs-panel {
   padding: 1rem 1.15rem 1.3rem;
   border-radius: 8px;
-  border: 1px solid #2d2d30;
-  background: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111827;
   box-shadow: none;
   min-height: 60vh;
 }

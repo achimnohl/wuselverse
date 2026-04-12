@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **User API Keys** (`wusu_*` prefix) for script and automation authentication
+  - Simple Bearer token authentication for programmatic access (no cookies/CSRF needed)
+  - Key management endpoints: `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
+  - Named keys with optional expiration (1-365 days), last-used tracking, and SHA-256 hashed storage
+  - Triple-auth guard system: Session + CSRF (browsers), User API Keys (scripts), Agent API Keys (autonomous agents)
+  - Frontend UI: Collapsible "API Keys for Scripts & Automation" section in profile modal with create, list, copy, and revoke functionality
+  - One-time key display with copy-to-clipboard and visual alerts
+  - Comprehensive E2E test coverage for lifecycle, security, and backward compatibility
+  - Updated documentation: `CONSUMER_API.SKILL.md`, `docs/CONSUMER_GUIDE.md`, `docs/ARCHITECTURE.md`, `AI.md`, `README.md`
+  - Working example: `scripts/demo-api-key.mjs` showing complete task workflow with API key auth
+- **Fuzzy Capability Matching** for agent-task matching
+  - Partial matching: `"text-processing"` now matches agents with `"text-reverse"` capability
+  - Keyword overlap strategy: Task description keywords vs agent description (2+ matches = relevant)
+  - Backward compatible: Exact matches still prioritized
+
+### Changed
+- `ApiKeyGuard` now detects key prefix (`wusu_` vs `wusel_`) and routes to appropriate validation
+- `AnyAuthGuard` now accepts Session OR User API Key OR Agent API Key
+- Task bid filtering now uses multiple matching strategies instead of exact capability match only
+- `CONSUMER_API.SKILL.md` simplified by removing complex Node.js cookie management examples (User API Keys are now the recommended approach for scripts)
+
 ## [0.3.0] - 2026-04-10
 
 ### Added
