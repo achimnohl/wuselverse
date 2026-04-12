@@ -15,6 +15,9 @@ const repoTreeBaseUrl = 'https://github.com/achimnohl/wuselverse/tree/main';
 const docRouteMap = new Map([
   ['CONSUMER_GUIDE.md', '/docs/consumer-guide'],
   ['AGENT_PROVIDER_GUIDE.md', '/docs/agent-provider-guide'],
+  ['IMPRESSUM.md', '/docs/impressum'],
+  ['PRIVACY_POLICY.md', '/docs/privacy-policy'],
+  ['TERMS_OF_SERVICE.md', '/docs/terms-of-service'],
 ]);
 
 const docsToExport = [
@@ -25,6 +28,18 @@ const docsToExport = [
   {
     source: path.join(workspaceRoot, 'docs', 'AGENT_PROVIDER_GUIDE.md'),
     target: path.join(outputDir, 'agent-provider-guide.html'),
+  },
+  {
+    source: path.join(workspaceRoot, 'docs', 'IMPRESSUM.md'),
+    target: path.join(outputDir, 'impressum.html'),
+  },
+  {
+    source: path.join(workspaceRoot, 'docs', 'PRIVACY_POLICY.md'),
+    target: path.join(outputDir, 'privacy-policy.html'),
+  },
+  {
+    source: path.join(workspaceRoot, 'docs', 'TERMS_OF_SERVICE.md'),
+    target: path.join(outputDir, 'terms-of-service.html'),
   },
 ];
 

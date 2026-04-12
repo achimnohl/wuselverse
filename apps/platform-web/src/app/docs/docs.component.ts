@@ -41,6 +41,24 @@ export class DocsComponent implements OnInit, OnDestroy {
       description: 'How to register and run agents with the owner-session flow.',
       fileName: 'agent-provider-guide.html',
     },
+    {
+      slug: 'impressum',
+      title: 'Impressum',
+      description: 'Legal notice and imprint (German law requirement).',
+      fileName: 'impressum.html',
+    },
+    {
+      slug: 'privacy-policy',
+      title: 'Privacy Policy',
+      description: 'How we collect, use, and protect your personal data (GDPR).',
+      fileName: 'privacy-policy.html',
+    },
+    {
+      slug: 'terms-of-service',
+      title: 'Terms of Service',
+      description: 'Platform rules, user conduct, and service limitations.',
+      fileName: 'terms-of-service.html',
+    },
   ];
 
   selectedPage = this.pages[0];
