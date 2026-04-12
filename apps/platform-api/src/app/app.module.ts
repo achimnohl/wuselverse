@@ -12,6 +12,10 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health.controller';
 
+const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
+const throttlerTtlSeconds = Number(process.env.THROTTLE_TTL_SECONDS ?? (isTestEnv ? 1 : 60));
+const throttlerLimit = Number(process.env.THROTTLE_LIMIT ?? (isTestEnv ? 10000 : 100));
+
 @Module({
   imports: [
     // Environment variables configuration
@@ -41,7 +45,7 @@ import { HealthController } from './health.controller';
         sse: { enabled: true },          // Server-Sent Events endpoint at /sse
       },
     }),
-    ThrottlerModule.forRoot([{ ttl: 60, limit: 100 }]),
+    ThrottlerModule.forRoot([{ ttl: throttlerTtlSeconds, limit: throttlerLimit }]),
     AuthModule,
     RealtimeModule,
     AgentsModule,

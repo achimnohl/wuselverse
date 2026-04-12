@@ -20,8 +20,14 @@ import { CreateUserApiKeyDto, UserApiKeyResponseDto, CreatedUserApiKeyDto } from
 import { SessionAuthGuard } from './session-auth.guard';
 import { SessionCsrfGuard } from './session-csrf.guard';
 
-const REGISTER_THROTTLE = { default: { limit: 5, ttl: 900 } };
-const LOGIN_THROTTLE = { default: { limit: 10, ttl: 900 } };
+const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
+const registerLimit = Number(process.env.REGISTER_THROTTLE_LIMIT ?? (isTestEnv ? 10000 : 5));
+const registerTtlSeconds = Number(process.env.REGISTER_THROTTLE_TTL_SECONDS ?? (isTestEnv ? 1 : 900));
+const loginLimit = Number(process.env.LOGIN_THROTTLE_LIMIT ?? (isTestEnv ? 10000 : 10));
+const loginTtlSeconds = Number(process.env.LOGIN_THROTTLE_TTL_SECONDS ?? (isTestEnv ? 1 : 900));
+
+const REGISTER_THROTTLE = { default: { limit: registerLimit, ttl: registerTtlSeconds } };
+const LOGIN_THROTTLE = { default: { limit: loginLimit, ttl: loginTtlSeconds } };
 
 @ApiTags('auth')
 @Controller('auth')

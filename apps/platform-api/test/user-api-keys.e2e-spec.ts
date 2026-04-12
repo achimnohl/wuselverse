@@ -44,11 +44,11 @@ describe('User API Keys (e2e)', () => {
       csrfToken = response.body.data.csrfToken;
 
       // Extract session cookie
-      const cookies = response.headers['set-cookie'];
+      const cookies = response.headers['set-cookie'] as unknown as string[];
       expect(cookies).toBeDefined();
       sessionCookie = cookies
         .find((c: string) => c.startsWith('wuselverse_session='))
-        ?.split(';')[0];
+        ?.split(';')[0] || '';
       expect(sessionCookie).toBeDefined();
     });
 
@@ -188,10 +188,10 @@ describe('User API Keys (e2e)', () => {
       testUserId = response.body.data.user.id;
       testCsrfToken = response.body.data.csrfToken;
 
-      const cookies = response.headers['set-cookie'];
+      const cookies = response.headers['set-cookie'] as unknown as string[];
       testSessionCookie = cookies
         .find((c: string) => c.startsWith('wuselverse_session='))
-        ?.split(';')[0];
+        ?.split(';')[0] || '';
     });
 
     it('should require authentication to create API keys', async () => {
@@ -252,9 +252,9 @@ describe('User API Keys (e2e)', () => {
         })
         .expect(201);
 
-      const sessionCookie = registerResponse.headers['set-cookie']
+      const sessionCookie = (registerResponse.headers['set-cookie'] as unknown as string[])
         .find((c: string) => c.startsWith('wuselverse_session='))
-        ?.split(';')[0];
+        ?.split(';')[0] || '';
 
       const csrfToken = registerResponse.body.data.csrfToken;
       const userId = registerResponse.body.data.user.id;
@@ -277,3 +277,5 @@ describe('User API Keys (e2e)', () => {
     });
   });
 });
+
+
