@@ -117,6 +117,11 @@ export interface PlatformTask {
   delegationDepth?: number;
   childTaskIds?: string[];
   reservedBudget?: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
   assignedAgent?: string;
   acceptanceCriteria?: string[];
   metadata?: Record<string, any>;
@@ -130,4 +135,9 @@ export interface TaskChain {
   rootTaskId: string;
   delegationDepth: number;
   reservedBudget: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
 }

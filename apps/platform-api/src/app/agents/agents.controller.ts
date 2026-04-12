@@ -30,6 +30,7 @@ import { ApiKeyGuard, Public } from '../auth/api-key.guard';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { AuthService } from '../auth/auth.service';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
+import { AnyAuthGuard } from '../auth/any-auth.guard';
 import { ManualReviewDto } from './dto/manual-review.dto';
 
 // Create base CRUD controller
@@ -172,12 +173,20 @@ export class AgentsController extends AgentsCRUDBase {
   }
 
   @Delete(':id')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete agent (owner only)' })
+  @ApiOperation({
+    summary: 'Delete agent (owner only)',
+    description: 'Allows the signed-in owner to delete an agent from the browser session, or an agent owner to delete using a valid API key.',
+  })
   @ApiParam({ name: 'id', description: 'Agent ID' })
   async delete(@Param('id') id: string, @Request() req: any) {
-    return this.agentsService.deleteByIdWithOwner(id, req.principal.owner);
+    const owner = req?.principal?.type === 'user' ? req.principal.email : req?.principal?.owner;
+    if (!owner) {
+      throw new UnauthorizedException('Authentication required to delete this agent.');
+    }
+
+    return this.agentsService.deleteByIdWithOwner(id, owner);
   }
 
   @Post(':id/rotate-key')

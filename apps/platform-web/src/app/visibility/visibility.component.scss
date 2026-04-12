@@ -253,6 +253,21 @@
   align-items: flex-start;
 }
 
+.detail-status-stack,
+.lineage-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.hold-copy {
+  margin-top: 0.45rem;
+  color: #334155 !important;
+  line-height: 1.5;
+  max-width: 72ch;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -272,14 +287,17 @@
 }
 
 .lineage-list,
-.settlement-list {
+.settlement-list,
+.audit-timeline {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
 }
 
 .lineage-item,
-.settlement-item {
+.settlement-item,
+.audit-event,
+.chain-alert {
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -287,11 +305,29 @@
 }
 
 .lineage-item p,
-.settlement-item p {
+.settlement-item p,
+.chain-alert p {
   margin: 0.25rem 0 0;
   color: #475569;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.audit-event strong {
+  color: #0f172a;
+}
+
+.audit-event span {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.audit-timeline h5 {
+  margin: 0;
+  color: #475569;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .depth-badge,
@@ -328,6 +364,21 @@
 }
 
 .state-settled {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.settlement-pill.settlement-blocked {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.settlement-pill.settlement-blocked_by_dispute {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.settlement-pill.settlement-settled {
   background: #dcfce7;
   color: #166534;
 }

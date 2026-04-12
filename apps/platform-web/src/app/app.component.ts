@@ -2,7 +2,7 @@ import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Subscription, debounceTime, forkJoin } from 'rxjs';
-import { ApiService, Agent, Review, SessionUser, Task } from './services/api.service';
+import { ApiService, Agent, Review, SessionUser, Task, UserApiKey, CreatedUserApiKey } from './services/api.service';
 import { RealtimeService } from './services/realtime.service';
 
 type ActivityKind =
@@ -57,6 +57,17 @@ export class AppComponent implements OnInit, OnDestroy {
   isMobileLayout = false;
   activeWorkspaceTab: 'workspace' | 'activity' = 'workspace';
   mobileMenuOpen = false;
+
+  // User API Keys
+  userApiKeys: UserApiKey[] = [];
+  apiKeysBusy = false;
+  apiKeysError: string | null = null;
+  newlyCreatedKey: CreatedUserApiKey | null = null;
+  apiKeyForm = {
+    name: '',
+    expiresInDays: 90
+  };
+  showApiKeySection = false;
 
   private updatesSub?: Subscription;
   private animationTimeouts: ReturnType<typeof setTimeout>[] = [];
@@ -152,6 +163,9 @@ export class AppComponent implements OnInit, OnDestroy {
   toggleAuthMode(): void {
     this.authMode = this.authMode === 'login' ? 'register' : 'login';
     this.authError = null;
+    this.authMessage = this.authMode === 'register'
+      ? 'Create a new account with email, password, and a display name.'
+      : 'Sign in with your email and password. Display name is not needed for login.';
   }
 
   useSampleAccount(): void {
@@ -161,7 +175,9 @@ export class AppComponent implements OnInit, OnDestroy {
       displayName: 'Sample Workspace User',
     };
     this.authError = null;
-    this.authMessage = 'Sample account details loaded. Register once, then use the same credentials to sign in later.';
+    this.authMessage = this.authMode === 'register'
+      ? 'Sample account details loaded. Create the account once with a display name.'
+      : 'Sample account details loaded. Sign in with the email and password below; display name is not needed.';
   }
 
   setAuthField(field: 'email' | 'password' | 'displayName', value: string): void {
@@ -227,12 +243,97 @@ export class AppComponent implements OnInit, OnDestroy {
         this.authBusy = false;
         this.authDialogOpen = false;
         this.authMessage = 'Signed out. Sign back in to create and manage protected marketplace actions.';
+        this.userApiKeys = [];
+        this.newlyCreatedKey = null;
+        this.showApiKeySection = false;
       },
       error: (error: any) => {
         this.authBusy = false;
         this.authError = error?.error?.message || 'Unable to sign out right now.';
       },
     });
+  }
+
+  toggleApiKeySection(): void {
+    this.showApiKeySection = !this.showApiKeySection;
+    if (this.showApiKeySection && this.userApiKeys.length === 0) {
+      this.loadUserApiKeys();
+    }
+  }
+
+  loadUserApiKeys(): void {
+    this.apiKeysBusy = true;
+    this.apiKeysError = null;
+
+    this.api.listUserApiKeys().subscribe({
+      next: (keys) => {
+        this.userApiKeys = keys;
+        this.apiKeysBusy = false;
+      },
+      error: (error: any) => {
+        this.apiKeysBusy = false;
+        this.apiKeysError = error?.error?.message || 'Unable to load API keys.';
+      },
+    });
+  }
+
+  createApiKey(): void {
+    if (!this.apiKeyForm.name.trim()) {
+      this.apiKeysError = 'Enter a name for your API key.';
+      return;
+    }
+
+    this.apiKeysBusy = true;
+    this.apiKeysError = null;
+    this.newlyCreatedKey = null;
+
+    this.api.createUserApiKey({
+      name: this.apiKeyForm.name,
+      expiresInDays: this.apiKeyForm.expiresInDays
+    }).subscribe({
+      next: (createdKey) => {
+        this.newlyCreatedKey = createdKey;
+        this.userApiKeys = [createdKey, ...this.userApiKeys];
+        this.apiKeysBusy = false;
+        this.apiKeyForm = { name: '', expiresInDays: 90 };
+      },
+      error: (error: any) => {
+        this.apiKeysBusy = false;
+        this.apiKeysError = error?.error?.message || 'Unable to create API key.';
+      },
+    });
+  }
+
+  revokeApiKey(keyId: string): void {
+    if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) {
+      return;
+    }
+
+    this.apiKeysBusy = true;
+    this.apiKeysError = null;
+
+    this.api.revokeUserApiKey(keyId).subscribe({
+      next: () => {
+        this.userApiKeys = this.userApiKeys.map(key =>
+          key.id === keyId ? { ...key, revokedAt: new Date().toISOString() } : key
+        );
+        this.apiKeysBusy = false;
+      },
+      error: (error: any) => {
+        this.apiKeysBusy = false;
+        this.apiKeysError = error?.error?.message || 'Unable to revoke API key.';
+      },
+    });
+  }
+
+  copyToClipboard(text: string): void {
+    navigator.clipboard.writeText(text).then(() => {
+      // Could add a toast notification here
+    });
+  }
+
+  dismissNewKey(): void {
+    this.newlyCreatedKey = null;
   }
 
   private loadCurrentUser(): void {

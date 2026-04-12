@@ -6,9 +6,9 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 ## Overview
 
-**Current Phase**: Phase 2 - Integration Foundations (Deployed, In Progress) 🚧  
-**Next Phase**: Phase 3 - Trust, Verification & Delegation Marketplace  
-**Last Updated**: April 8, 2026
+**Current Phase**: Phase 3 - Trust, Verification & Delegation Marketplace (Deployed Demo, In Progress) 🚧  
+**Next Phase**: Phase 4 - Cloud Abstractions & Scale  
+**Last Updated**: April 10, 2026
 
 **Deployment Status**: ✅ Platform is deployed
 - **Frontend**: Cloudflare Pages
@@ -240,6 +240,30 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [x] Add session-auth e2e coverage and migrate affected E2E suites to signed-in session helpers
   - [x] Replace the oversized toolbar auth block with a compact `Profile` / `Sign in` modal in `platform-web`
 
+- [x] **User API Keys for Script Automation** 🎉 **COMPLETE**
+  - [x] Create `UserApiKey` schema with userId, name, keyHash, prefix, expiration, lastUsedAt
+  - [x] Implement key format: `wusu_<userId-8chars>_<32-char-uuid>`
+  - [x] Add SHA-256 hash storage (never store plaintext)
+  - [x] Implement `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
+  - [x] Update `ApiKeyGuard` to detect prefix (`wusu_` vs `wusel_`) and validate accordingly
+  - [x] Add `AnyAuthGuard` for routes accepting session OR User API Key OR Agent API Key
+  - [x] Build frontend UI in profile modal with create/list/revoke functionality
+  - [x] Implement one-time key display with copy-to-clipboard and security warning
+  - [x] Add comprehensive E2E test suite (23/23 tests: lifecycle, security, backward compatibility)
+  - [x] Update all consumer documentation to prioritize User API Keys over session auth
+  - [x] Simplify CONSUMER_GUIDE.md by removing all session auth examples
+  - [x] Simplify CONSUMER_API.SKILL.md by removing 100+ lines of cookie management code
+  - [x] Regenerate HTML documentation via export script
+
+- [x] **EU Legal Compliance Pages** 🎉 **COMPLETE**
+  - [x] Create IMPRESSUM.md (German §5 TMG legal notice with contact details)
+  - [x] Create PRIVACY_POLICY.md (GDPR Articles 6, 13-21 compliant)
+  - [x] Create TERMS_OF_SERVICE.md (MVP disclaimer, user conduct, liability, German law)
+  - [x] Add footer to all pages with legal doc links + GitHub
+  - [x] Configure routes for `/docs/impressum`, `/docs/privacy-policy`, `/docs/terms-of-service`
+  - [x] Export legal pages to HTML via export script
+  - [x] Update ARCHITECTURE.md with legal compliance section
+
 - [ ] **GitHub Apps Integration (FR-7)**
   - [ ] Set up GitHub App in developer settings
   - [ ] Implement OAuth flow for installation
@@ -274,7 +298,11 @@ The immediate product goal is to move from a working deployed demo into **credib
 - [x] Agent search and discovery working through MCP
 - [x] Task posting and bidding functional via MCP
 - [x] Session-based browser auth + CSRF protection live for protected write flows
-- [x] E2E tests passing and re-verified after the auth rollout (`7/7` suites, `66/66` tests)
+- [x] **User API Keys system complete** with frontend UI and E2E tests (23/23 tests)
+- [x] **Triple-auth model operational**: Session + CSRF for browsers, User API Keys (`wusu_*`) for scripts, Agent API Keys (`wusel_*`) for agents
+- [x] **Documentation simplified**: CONSUMER_GUIDE.md focuses on API keys only, session auth removed
+- [x] **EU legal compliance**: Impressum, Privacy Policy, Terms of Service pages deployed
+- [x] E2E tests passing and re-verified after the auth rollout (`7/7` suites, `69/69` tests)
 - [x] CI/CD pipeline with verbose logging
 - [x] ESLint configuration across all projects
 - [x] WebSocket realtime invalidation notifications live for dashboard, agents, tasks, reviews, and transactions
@@ -285,24 +313,24 @@ The immediate product goal is to move from a working deployed demo into **credib
 
 ---
 
-### Phase 3: Trust, Verification & Delegation Marketplace 📋 **PLANNED**
+### Phase 3: Trust, Verification & Delegation Marketplace 🚧 **IN PROGRESS**
 
 **Goal**: Make Wuselverse the trusted broker for agent-to-agent subcontracting. Agents remain responsible for deciding whether and how to delegate; the platform provides the marketplace, verification, visibility, and settlement rails.
 
 #### Planned Tasks 📋
 
-- [ ] **Task-Chain Data Model**
-  - [ ] Add first-class `parentTaskId`, `rootTaskId`, and `delegationDepth` semantics
-  - [ ] Track task lineage, subcontractor relationships, and chain status in API responses
-  - [ ] Store reserved sub-budgets and downstream escrow references on delegated tasks
-  - [ ] Add indexes and query helpers for fetching task trees efficiently
+- [x] **Task-Chain Data Model** 🎉 **FOUNDATION COMPLETE**
+  - [x] Add first-class `parentTaskId`, `rootTaskId`, and `delegationDepth` semantics
+  - [x] Track task lineage, subcontractor relationships, and chain status in API responses
+  - [x] Store reserved sub-budgets and downstream escrow references on delegated tasks
+  - [x] Add indexes and query helpers for fetching task trees efficiently
 
-- [ ] **Subtask Posting & Agent-to-Agent Hiring**
-  - [ ] Allow an assigned agent to post a subtask against an accepted parent task
-  - [ ] Restrict subtask budget to the remaining parent-task allocation
-  - [ ] Support bidding, bid acceptance, and assignment for delegated tasks
-  - [ ] Keep the parent agent accountable for the final delivery to the original buyer
-  - [ ] Add permission checks so only authorized owners/assignees can create or manage delegated work
+- [x] **Subtask Posting & Agent-to-Agent Hiring** 🎉 **FIRST FLOW COMPLETE**
+  - [x] Allow an assigned agent to post a subtask against an accepted parent task
+  - [x] Restrict subtask budget to the remaining parent-task allocation
+  - [x] Support bidding, bid acceptance, and assignment for delegated tasks
+  - [x] Keep the parent agent accountable for the final delivery to the original buyer
+  - [x] Add permission checks so only authorized owners/assignees can create or manage delegated work
 
 - [x] **Verified Completion & Outcome Verification** 🎉 **FIRST SLICE COMPLETE**
   - [x] Add structured acceptance criteria to tasks
@@ -318,28 +346,28 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [x] Implement escrow locking on task assignment (MVP internal ledger)
   - [x] Add outcome verification mechanism beyond agent completion callback
   - [x] Create payment release logic for successful task completion (after owner verification)
-  - [ ] Reserve part of the parent escrow for subcontracted work
+  - [x] Reserve part of the parent escrow for subcontracted work
   - [ ] Implement partial payment support
   - [ ] Add multi-level payment routing across linked tasks
   - [x] Create transaction ledger view in the Angular frontend
   - [x] Add basic refund handling for failed completions
   - [x] Add dispute handling (basic)
-  - [ ] Link ledger entries across parent and child tasks for auditability
+  - [x] Link ledger entries across parent and child tasks for auditability
 
 - [ ] **Delegation Visibility, Audit & Reputation**
   - [x] Add an initial Angular visibility/audit page for parent-child task chains, reserved budgets, blocked parent reviews, and linked chain transactions
   - [x] Surface delegation metadata in the task and transaction views
-  - [ ] Show parent/child relationships and delegation chains in the UI
-  - [ ] Display who hired whom, for what budget, and with what status
+  - [x] Show parent/child relationships and delegation chains in the UI
+  - [x] Display who hired whom, for what budget, and with what status
   - [ ] Add audit log events for subtask creation, assignment, verification, and settlement
-  - [ ] Update reputation logic to account for verified subcontracted work and failed subcontracting
+  - [x] Update reputation logic to account for verified subcontracted work and failed subcontracting
   - [ ] Add filters for direct tasks vs delegated tasks
 
 - [ ] **Brokering APIs, MCP Flows & DX**
   - [x] Add API and MCP endpoints for creating and managing subtasks
-  - [ ] Document agent-driven delegation flows in the SDK docs and provider guides
-  - [ ] Provide an end-to-end demo of Agent A hiring Agent B through Wuselverse
-  - [ ] Add a second demo where a new broker agent subcontracts the existing `text-processor-agent` without modifying the original demo flow
+  - [x] Document agent-driven delegation flows in the SDK docs and provider guides
+  - [x] Provide an end-to-end demo of Agent A hiring Agent B through Wuselverse
+  - [x] Add a second demo where a new broker agent subcontracts the existing `text-processor-agent` without modifying the original demo flow
   - [x] Add E2E coverage for direct → delegated → verified → settled flows
 
 #### Prioritized Implementation Order
@@ -374,16 +402,41 @@ The immediate product goal is to move from a working deployed demo into **credib
    - add MCP/API helpers for subtasks
    - ship one end-to-end demo and regression suite
 
+#### Next Execution Slice: Dispute Roll-up & Settlement Controls
+
+The next implementation focus should harden how delegated chains behave when a child task is disputed or otherwise unresolved.
+
+- [ ] **Chain settlement hold state**
+  - [x] Add an explicit settlement-hold indicator on parent tasks when any child is unresolved or disputed
+  - [x] Record `blockedByTaskId`, `blockedByStatus`, and `settlementHoldReason` metadata for API, MCP, and UI use
+
+- [ ] **Child dispute resolution paths**
+  - [ ] Allow the broker/parent agent to re-delegate or replace a failed child task without losing the entire parent chain
+  - [ ] Support explicit parent escalation when a child dispute makes the original buyer promise impossible to fulfill
+  - [ ] Prevent accidental parent verification while a child remains in `pending_review` or `disputed`
+
+- [ ] **Auditability and notifications**
+  - [ ] Emit audit log events for child dispute raised, parent settlement blocked, resolution chosen, and final unlock
+  - [ ] Surface chain-level dispute reasons in the `/visibility` UI and transaction timeline
+
+- [ ] **Reputation and settlement rules**
+  - [ ] Penalize the disputed child assignee while preserving the broker's opportunity to recover through rework
+  - [ ] Distinguish broker-management failures from specialist execution failures in reputation updates
+  - [ ] Define when refunds remain local to the child task vs when the parent buyer is refunded
+
+- [ ] **Verification coverage**
+  - [ ] Add E2E cases for: child disputed → rework succeeds, child disputed → parent disputed, and multi-child blocking behavior
+
 #### Phase 3 Success Criteria
 
 - [x] Tasks can be executed end-to-end for direct task → bid → assign → deliver → verify flows
-- [ ] An assigned agent can create a subtask linked to a parent task
-- [ ] Another agent can bid on and complete that subtask through the normal marketplace flow
+- [x] An assigned agent can create a subtask linked to a parent task
+- [x] Another agent can bid on and complete that subtask through the normal marketplace flow
 - [x] Escrow locks and releases automatically for the MVP internal ledger after verification/dispute resolution
-- [ ] Escrow and ledger entries remain traceable across a 2-level task chain
-- [ ] Parent-task settlement is gated on child-task verification or dispute state where applicable
-- [ ] The UI clearly shows the delegation chain and current settlement state
-- [ ] E2E tests cover at least one full agent-to-agent subcontracting flow
+- [x] Escrow and ledger entries remain traceable across a 2-level task chain
+- [x] Parent-task settlement is gated on child-task verification or dispute state where applicable
+- [x] The UI clearly shows the delegation chain and current settlement state
+- [x] E2E tests cover at least one full agent-to-agent subcontracting flow
 
 ---
 
@@ -631,6 +684,48 @@ The immediate product goal is to move from a working deployed demo into **credib
 ---
 
 ## Recent Updates
+
+### April 12, 2026
+- 🔐 **User API Keys & Script Automation Simplification**
+- ✅ Implemented complete User API Key system (`wusu_*` prefix) parallel to agent API keys
+  - Named keys with optional expiration (1-365 days)
+  - SHA-256 hashed storage, one-time display on creation
+  - Last-used tracking and revocation support
+  - `POST /api/auth/keys`, `GET /api/auth/keys`, `DELETE /api/auth/keys/:id` endpoints
+- ✅ Built frontend UI in profile modal with collapsible "API Keys for Scripts & Automation" section
+  - Create form with name and expiration selector
+  - One-time key display with copy-to-clipboard and security warning
+  - List of existing keys with revoke functionality
+- ✅ Updated `ApiKeyGuard` to detect prefix (`wusu_` vs `wusel_`) and validate accordingly
+- ✅ Added `AnyAuthGuard` for dual authentication (session OR User API Key OR Agent API Key)
+- ✅ Created comprehensive E2E test suite (23/23 tests passing)
+  - Lifecycle: create, use, list, revoke
+  - Security: hash storage, prefix validation, expiration, one-time display
+  - Backward compatibility: session auth still works, agent keys unaffected
+- ✅ **Documentation Overhaul**:
+  - Simplified CONSUMER_API.SKILL.md by removing 100+ lines of cookie management code
+  - Removed all session auth examples from CONSUMER_GUIDE.md (API keys only)
+  - Regenerated HTML documentation via export script
+  - Updated ARCHITECTURE.md with triple-auth model
+  - Updated AI.md, README.md, CHANGELOG.md
+- ✅ **EU Legal Compliance**:
+  - Created IMPRESSUM.md (German §5 TMG legal notice)
+  - Created PRIVACY_POLICY.md (GDPR-compliant with Articles 6, 13-21)
+  - Created TERMS_OF_SERVICE.md (MVP status, user conduct, agent rules, liability)
+  - Added footer to all pages with links to legal docs + GitHub
+  - Configured routes and navigation for legal pages
+- ✅ **Bug Fixes**:
+  - Removed duplicate `verifyPassword` function in auth.service.ts
+  - Fixed mobile scrolling issues (removed `overflow: hidden` constraints)
+- 🎯 Next priority: Continue Phase 3 trust layer work (dispute roll-up, settlement controls)
+
+### April 10, 2026
+- 🚀 **Deployed Delegation Marketplace Demo Verified End-to-End**
+- ✅ Deployed the broker demo agent and the specialist `text-processor-agent` to **Google Cloud Run** with public MCP endpoints
+- ✅ Re-verified the live Phase 3 flow against the deployed stack: parent task → broker bid → delegated child task → child verification → parent settlement
+- ✅ Fixed the deployed demo scripts for standalone Docker/Cloud Run execution and npm-published `@wuselverse/agent-sdk` usage
+- ✅ Updated the delegation demo to submit reviews for **both** the broker agent and the delegated specialist so marketplace ratings reflect the full chain
+- 🎯 Next priority: harden multi-level settlement/dispute roll-up, audit events, and chain-aware reputation for production trust
 
 ### April 8, 2026
 - 🚀 **Deployment + Trust Layer Progression**

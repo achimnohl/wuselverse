@@ -20,6 +20,15 @@ interface ChainSummary {
   state: ChainState;
 }
 
+interface SettlementAuditEntry {
+  type: string;
+  message: string;
+  at?: string;
+  actorId?: string;
+  reason?: string;
+  relatedTaskId?: string;
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule],
@@ -172,6 +181,72 @@ export class VisibilityAuditComponent implements OnInit, OnDestroy {
     }
   }
 
+  getSettlementStatusLabel(status: Task['settlementStatus'] | undefined): string {
+    switch (status) {
+      case 'blocked_by_dispute':
+        return 'Blocked by dispute';
+      case 'blocked':
+        return 'Settlement blocked';
+      case 'settled':
+        return 'Settled';
+      default:
+        return 'Settlement clear';
+    }
+  }
+
+  getSettlementHoldSummary(task: Task): string | null {
+    if (task.settlementStatus === 'settled') {
+      return 'Settlement cleared and the task is financially resolved.';
+    }
+
+    if (!task.settlementStatus || task.settlementStatus === 'clear') {
+      return null;
+    }
+
+    const blockedTask = task.blockedByTaskId ? `Task ${this.getShortId(task.blockedByTaskId)}` : 'a related task';
+    const blockedAgent = task.blockedByAgentId ? this.formatParty(task.blockedByAgentId) : null;
+
+    switch (task.settlementHoldReason) {
+      case 'child_task_disputed':
+        return `${blockedTask} is disputed${blockedAgent ? ` by ${blockedAgent}` : ''}, so parent settlement remains frozen.`;
+      case 'child_task_unsettled':
+        return `${blockedTask} is still ${this.getStatusLabel(task.blockedByStatus || 'active')}${blockedAgent ? ` with ${blockedAgent}` : ''}, so the parent cannot settle yet.`;
+      case 'task_disputed':
+        return 'This task itself is disputed, so settlement is blocked until it is resolved.';
+      case 'awaiting_verification':
+        return 'Waiting for poster verification before payout can be released.';
+      default:
+        return 'Settlement is currently on hold.';
+    }
+  }
+
+  getSettlementAuditEntries(task: Task): SettlementAuditEntry[] {
+    const audit = task.metadata?.['settlementAudit'];
+    if (!Array.isArray(audit)) {
+      return [];
+    }
+
+    const entries: SettlementAuditEntry[] = [];
+
+    for (const entry of audit) {
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+
+      const raw = entry as Record<string, unknown>;
+      entries.push({
+        type: String(raw['type'] || 'event'),
+        message: String(raw['message'] || 'Settlement update recorded.'),
+        at: typeof raw['at'] === 'string' ? raw['at'] : undefined,
+        actorId: typeof raw['actorId'] === 'string' ? raw['actorId'] : undefined,
+        reason: typeof raw['reason'] === 'string' ? raw['reason'] : undefined,
+        relatedTaskId: typeof raw['relatedTaskId'] === 'string' ? raw['relatedTaskId'] : undefined,
+      });
+    }
+
+    return entries.reverse();
+  }
+
   getStatusLabel(status: string): string {
     switch (status) {
       case 'pending_review':
@@ -220,7 +295,10 @@ export class VisibilityAuditComponent implements OnInit, OnDestroy {
       );
     }
 
-    if (task.status === 'pending_review' && (task.childTaskIds?.length ?? 0) > 0 && task.outcome?.verificationStatus !== 'verified') {
+    const settlementNote = this.getSettlementHoldSummary(task);
+    if (settlementNote) {
+      notes.push(settlementNote);
+    } else if (task.status === 'pending_review' && (task.childTaskIds?.length ?? 0) > 0 && task.outcome?.verificationStatus !== 'verified') {
       notes.push('Final settlement stays blocked until delegated child work is resolved.');
     }
 
@@ -297,11 +375,11 @@ export class VisibilityAuditComponent implements OnInit, OnDestroy {
         );
 
         let state: ChainState = 'active';
-        if (disputedChildren > 0) {
+        if (rootTask.settlementStatus === 'blocked_by_dispute' || disputedChildren > 0) {
           state = 'at_risk';
-        } else if (rootTask.status === 'pending_review' && unresolvedChildren > 0) {
+        } else if (rootTask.settlementStatus === 'blocked' || (rootTask.status === 'pending_review' && unresolvedChildren > 0)) {
           state = 'blocked';
-        } else if (children.length > 0 && unresolvedChildren === 0 && rootTask.outcome?.verificationStatus === 'verified') {
+        } else if (rootTask.settlementStatus === 'settled' || (children.length > 0 && unresolvedChildren === 0 && rootTask.outcome?.verificationStatus === 'verified')) {
           state = 'settled';
         }
 
@@ -346,6 +424,11 @@ export class VisibilityAuditComponent implements OnInit, OnDestroy {
       rootTaskId,
       delegationDepth: 0,
       reservedBudget: Number(rootTask.reservedBudget ?? 0),
+      settlementStatus: rootTask.settlementStatus,
+      settlementHoldReason: rootTask.settlementHoldReason,
+      blockedByTaskId: rootTask.blockedByTaskId,
+      blockedByStatus: rootTask.blockedByStatus,
+      blockedByAgentId: rootTask.blockedByAgentId,
     };
   }
 

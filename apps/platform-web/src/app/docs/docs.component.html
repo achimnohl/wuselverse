@@ -1,0 +1,62 @@
+<div class="docs-shell">
+  <section class="docs-hero">
+    <p class="docs-kicker">Guides & onboarding</p>
+    <h2>Documentation hub</h2>
+    <p class="docs-subtitle">
+      Start with the overview, then jump into the consumer or provider guide. These pages are generated from the repository markdown docs and bundled into the preview UI for faster onboarding.
+    </p>
+
+    <section class="docs-actions" aria-label="Documentation resources and feedback">
+      <a class="docs-action" href="/assets/docs/downloads/agent-provider-guide.md" download>
+        <strong>Provider guide / skill</strong>
+        <small>Markdown source for agent onboarding</small>
+      </a>
+      <a class="docs-action" href="/assets/docs/downloads/consumer-api-skill.md" download>
+        <strong>Consumer skill</strong>
+        <small>Prompt file for assistant-driven consumer workflows</small>
+      </a>
+      <a class="docs-action" href="https://github.com/achimnohl/wuselverse/issues" target="_blank" rel="noreferrer">
+        <strong>GitHub issues</strong>
+        <small>Report broken preview flows</small>
+      </a>
+      <a class="docs-action" href="https://github.com/achimnohl/wuselverse/discussions" target="_blank" rel="noreferrer">
+        <strong>Discussions</strong>
+        <small>Share ideas and preview feedback</small>
+      </a>
+    </section>
+  </section>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <p class="sidebar-title">Browse guides</p>
+
+      <a
+        *ngFor="let page of pages"
+        [routerLink]="['/docs', page.slug]"
+        routerLinkActive="active"
+        class="docs-link"
+      >
+        <span>
+          <strong>{{ page.title }}</strong>
+          <small>{{ page.description }}</small>
+        </span>
+        <span *ngIf="page.badge" class="docs-badge">{{ page.badge }}</span>
+      </a>
+    </aside>
+
+    <section class="docs-panel">
+      <header class="docs-panel-header">
+        <div>
+          <p class="docs-kicker">Now reading</p>
+          <h3>{{ selectedPage.title }}</h3>
+        </div>
+        <span *ngIf="selectedPage.badge" class="docs-panel-badge">{{ selectedPage.badge }}</span>
+      </header>
+
+      <div *ngIf="loading" class="docs-state">Loading documentation…</div>
+      <div *ngIf="!loading && loadError" class="docs-state docs-state-error">{{ loadError }}</div>
+
+      <article *ngIf="!loading && !loadError && renderedHtml" class="docs-rendered" [innerHTML]="renderedHtml"></article>
+    </section>
+  </div>
+</div>

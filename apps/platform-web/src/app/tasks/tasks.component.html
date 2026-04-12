@@ -146,6 +146,16 @@
           </div>
         </div>
 
+        <div class="settlement-banner" *ngIf="task.settlementStatus && task.settlementStatus !== 'clear'">
+          <div class="settlement-banner-topline">
+            <span class="task-status settlement-pill" [class]="'settlement-pill settlement-' + task.settlementStatus">
+              {{ getSettlementStatusLabel(task) }}
+            </span>
+            <span class="label">Settlement state</span>
+          </div>
+          <p class="settlement-copy">{{ getSettlementStatusSummary(task) }}</p>
+        </div>
+
         <div class="requirements">
           <h4>Required Capabilities</h4>
           <div class="capability-tags">
@@ -205,6 +215,16 @@
               <h4>Expected artifacts</h4>
               <ul class="criteria-list">
                 <li *ngFor="let artifact of getExpectedArtifacts(task)">{{ artifact }}</li>
+              </ul>
+            </div>
+
+            <div class="detail-panel-card" *ngIf="getSettlementAuditEntries(task).length > 0">
+              <h4>Settlement audit trail</h4>
+              <ul class="settlement-audit-list">
+                <li *ngFor="let entry of getSettlementAuditEntries(task)">
+                  <strong>{{ entry.message }}</strong>
+                  <span>{{ formatDate(entry.at || task.createdAt) }}</span>
+                </li>
               </ul>
             </div>
 

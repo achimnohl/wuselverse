@@ -16,6 +16,7 @@
         <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
         <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
         <a routerLink="/visibility" routerLinkActive="active">Visibility & audit</a>
+        <a routerLink="/docs/start-here" routerLinkActive="active">Docs</a>
       </nav>
 
       <button
@@ -60,6 +61,10 @@
     <a routerLink="/visibility" routerLinkActive="active" (click)="closeMobileMenu()">
       <span class="mobile-nav-icon">🧭</span>
       Visibility & audit
+    </a>
+    <a routerLink="/docs/start-here" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">📚</span>
+      Docs
     </a>
   </nav>
 
@@ -114,7 +119,7 @@
               name="displayName"
               [value]="authForm.displayName"
               (input)="setAuthField('displayName', $any($event.target).value)"
-              placeholder="Display name"
+              placeholder="Display name (only needed for new accounts)"
               autocomplete="name"
             />
             <input
@@ -127,6 +132,10 @@
               placeholder="Password"
               autocomplete="current-password"
             />
+
+            <p class="session-helper" *ngIf="authMode === 'login'">
+              Sign in uses <strong>email + password</strong> only. A display name is only required when you create a new account.
+            </p>
 
             <div class="session-buttons">
               <button type="button" class="primary-button" (click)="submitAuth()" [disabled]="authBusy">
@@ -141,6 +150,101 @@
 
         <p class="session-meta" *ngIf="authMessage && !authError">{{ authMessage }}</p>
         <p class="session-error" *ngIf="authError">{{ authError }}</p>
+      </div>
+
+      <!-- User API Keys Section -->
+      <div class="api-keys-panel" *ngIf="currentUser">
+        <div class="api-keys-header">
+          <button type="button" class="link-button" (click)="toggleApiKeySection()">
+            <span class="api-keys-toggle">{{ showApiKeySection ? '▼' : '▶' }}</span>
+            <strong>API Keys for Scripts & Automation</strong>
+          </button>
+        </div>
+
+        <div class="api-keys-content" *ngIf="showApiKeySection">
+          <p class="api-keys-helper">
+            Generate API keys for scripts, CI/CD, and programmatic access. Use <code>Authorization: Bearer &lt;key&gt;</code> for authentication.
+          </p>
+
+          <!-- Newly Created Key Alert -->
+          <div class="api-key-created-alert" *ngIf="newlyCreatedKey">
+            <div class="alert-header">
+              <span class="alert-icon">🔑</span>
+              <strong>API Key Created</strong>
+              <button type="button" class="icon-button" (click)="dismissNewKey()" aria-label="Dismiss">✕</button>
+            </div>
+            <p class="alert-warning">⚠️ Save this key now—it won't be shown again!</p>
+            <div class="api-key-display">
+              <code>{{ newlyCreatedKey.key }}</code>
+              <button type="button" class="icon-button" (click)="copyToClipboard(newlyCreatedKey.key)" aria-label="Copy to clipboard" title="Copy to clipboard">
+                📋
+              </button>
+            </div>
+            <small class="alert-meta">Name: {{ newlyCreatedKey.name }} • Expires: {{ newlyCreatedKey.expiresAt ? (newlyCreatedKey.expiresAt | date: 'short') : 'Never' }}</small>
+          </div>
+
+          <!-- Create API Key Form -->
+          <div class="api-key-form">
+            <div class="form-row">
+              <input
+                class="session-input"
+                type="text"
+                name="apiKeyName"
+                [value]="apiKeyForm.name"
+                (input)="apiKeyForm.name = $any($event.target).value"
+                placeholder="Key name (e.g., 'Production Script')"
+                [disabled]="apiKeysBusy"
+              />
+              <select
+                class="session-input"
+                name="apiKeyExpiry"
+                [value]="apiKeyForm.expiresInDays"
+                (change)="apiKeyForm.expiresInDays = +$any($event.target).value"
+                [disabled]="apiKeysBusy"
+              >
+                <option [value]="30">Expires in 30 days</option>
+                <option [value]="90">Expires in 90 days</option>
+                <option [value]="180">Expires in 180 days</option>
+                <option [value]="365">Expires in 1 year</option>
+              </select>
+            </div>
+            <button type="button" class="primary-button" (click)="createApiKey()" [disabled]="apiKeysBusy || !apiKeyForm.name.trim()">
+              {{ apiKeysBusy ? 'Creating…' : 'Generate New API Key' }}
+            </button>
+          </div>
+
+          <p class="session-error" *ngIf="apiKeysError">{{ apiKeysError }}</p>
+
+          <!-- Existing API Keys List -->
+          <div class="api-keys-list" *ngIf="userApiKeys.length > 0">
+            <h4>Your API Keys</h4>
+            <div class="api-key-item" *ngFor="let key of userApiKeys" [class.revoked]="!!key.revokedAt">
+              <div class="api-key-info">
+                <strong>{{ key.name }}</strong>
+                <code class="api-key-prefix">{{ key.prefix }}...</code>
+                <div class="api-key-meta">
+                  <small>Created: {{ key.createdAt | date: 'short' }}</small>
+                  <small *ngIf="key.expiresAt">Expires: {{ key.expiresAt | date: 'short' }}</small>
+                  <small *ngIf="key.lastUsedAt">Last used: {{ key.lastUsedAt | date: 'short' }}</small>
+                  <small *ngIf="key.revokedAt" class="revoked-label">Revoked: {{ key.revokedAt | date: 'short' }}</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="danger-button-small"
+                (click)="revokeApiKey(key.id)"
+                [disabled]="apiKeysBusy || !!key.revokedAt"
+                *ngIf="!key.revokedAt"
+              >
+                Revoke
+              </button>
+            </div>
+          </div>
+
+          <p class="api-keys-helper" *ngIf="userApiKeys.length === 0 && !apiKeysBusy">
+            No API keys yet. Create one above to get started.
+          </p>
+        </div>
       </div>
     </section>
   </div>
@@ -214,4 +318,19 @@
       </div>
     </aside>
   </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="footer-brand">🌀 Wuselverse</span>
+        <span class="footer-status">MVP Preview</span>
+      </div>
+      <nav class="footer-links">
+        <a routerLink="/docs/impressum">Impressum</a>
+        <a routerLink="/docs/privacy-policy">Privacy Policy</a>
+        <a routerLink="/docs/terms-of-service">Terms of Service</a>
+        <a href="https://github.com/achimnohl/wuselverse" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </footer>
 </div>

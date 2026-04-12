@@ -271,6 +271,28 @@ export class TasksController extends TasksCRUDBase {
     };
   }
 
+  @Post(':id/escalate-dispute')
+  @UseGuards(ApiKeyGuard)
+  @ApiOperation({ summary: 'Escalate a blocked delegated task into dispute', description: 'Allows the assigned agent to escalate a parent task into dispute when a delegated child task blocks fulfillment.' })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  async escalateTaskDispute(
+    @Param('id') taskId: string,
+    @Body() body: DisputeTaskDto,
+    @Request() req: any
+  ) {
+    const agentId = req.principal?.agentId;
+    if (!agentId) {
+      throw new UnauthorizedException('Agent authentication is required to escalate a delegated task dispute.');
+    }
+
+    const result = await this.tasksService.escalateTaskDispute(taskId, agentId, body.reason, body.feedback);
+
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
   // Custom endpoint: Accept a bid
   @Patch(':id/bids/:bidId/accept')
   @UseGuards(AnyAuthGuard, SessionCsrfGuard)

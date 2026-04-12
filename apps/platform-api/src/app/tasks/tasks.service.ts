@@ -23,6 +23,39 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     super(taskModel);
   }
 
+  override async findAll(filter: any = {}, options: any = {}) {
+    const result = await super.findAll(filter, options);
+
+    if (!result.success || !result.data) {
+      return result;
+    }
+
+    const decoratedTasks = await Promise.all(
+      (result.data.data || []).map((task: any) => this.decorateTaskWithSettlementState(task))
+    );
+
+    return {
+      ...result,
+      data: {
+        ...result.data,
+        data: decoratedTasks as any,
+      },
+    };
+  }
+
+  override async findById(id: string) {
+    const result = await super.findById(id);
+
+    if (!result.success || !result.data) {
+      return result;
+    }
+
+    return {
+      ...result,
+      data: (await this.decorateTaskWithSettlementState(result.data)) as any,
+    };
+  }
+
   /**
    * Override create to add default metadata if not provided
    */
@@ -104,9 +137,11 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       .sort({ createdAt: -1 })
       .exec();
 
+    const decoratedTasks = await Promise.all(tasks.map((task) => this.decorateTaskWithSettlementState(task)));
+
     return {
       success: true,
-      data: tasks,
+      data: decoratedTasks,
     };
   }
 
@@ -135,14 +170,24 @@ export class TasksService extends BaseMongoService<TaskDocument> {
         .exec(),
     ]);
 
+    const decoratedTask = await this.decorateTaskWithSettlementState(task);
+    const decoratedParent = parentTask && parentTask.success ? await this.decorateTaskWithSettlementState(parentTask.data) : null;
+    const decoratedChildren = await Promise.all(children.map((child) => this.decorateTaskWithSettlementState(child)));
+    const decoratedLineage = await Promise.all(lineage.map((entry) => this.decorateTaskWithSettlementState(entry)));
+
     return {
-      task,
-      parent: parentTask && parentTask.success ? parentTask.data : null,
-      children,
-      lineage,
+      task: decoratedTask,
+      parent: decoratedParent,
+      children: decoratedChildren,
+      lineage: decoratedLineage,
       rootTaskId,
-      delegationDepth: Number(task.delegationDepth ?? 0),
-      reservedBudget: Number(task.reservedBudget ?? 0),
+      delegationDepth: Number((decoratedTask as any).delegationDepth ?? 0),
+      reservedBudget: Number((decoratedTask as any).reservedBudget ?? 0),
+      settlementStatus: (decoratedTask as any).settlementStatus,
+      settlementHoldReason: (decoratedTask as any).settlementHoldReason,
+      blockedByTaskId: (decoratedTask as any).blockedByTaskId,
+      blockedByStatus: (decoratedTask as any).blockedByStatus,
+      blockedByAgentId: (decoratedTask as any).blockedByAgentId,
     };
   }
 
@@ -159,8 +204,17 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       throw new BadRequestException('Only the assigned agent can create a delegated subtask');
     }
 
-    if (![TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(parentTask.status as TaskStatus)) {
-      throw new BadRequestException('Parent task must be assigned or in progress before creating subtasks');
+    const blockingChildTasks = await this.findBlockingChildTasks(parentTask);
+    const canRecoverFromBlockedReview =
+      parentTask.status === TaskStatus.PENDING_REVIEW && blockingChildTasks.length > 0;
+
+    if (
+      ![TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(parentTask.status as TaskStatus) &&
+      !canRecoverFromBlockedReview
+    ) {
+      throw new BadRequestException(
+        'Parent task must be assigned, in progress, or blocked by delegated child settlement before creating subtasks'
+      );
     }
 
     const requestedBudget = Number(createDto?.budget?.amount ?? 0);
@@ -223,6 +277,33 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     if (!parentUpdate.success) {
       throw new BadRequestException(parentUpdate.error || 'Failed to update parent task after creating subtask');
     }
+
+    await Promise.all([
+      this.appendSettlementAuditEvent(parentTaskId, {
+        type: 'child_task_created',
+        message: `Delegated child task ${createdSubtaskId} was created with a reserved budget of ${parentCurrency} ${requestedBudget.toFixed(2)}.`,
+        actorId: agentId,
+        relatedTaskId: createdSubtaskId,
+        details: this.buildTaskChainMetadata(parentTask, {
+          childTaskId: createdSubtaskId,
+          reservedBudgetAfter: reservedBudget + requestedBudget,
+          childBudget: requestedBudget,
+        }),
+      }),
+      createdSubtaskId
+        ? this.appendSettlementAuditEvent(createdSubtaskId, {
+            type: 'created_from_parent',
+            message: `Created as a delegated child of task ${parentTaskId}.`,
+            actorId: agentId,
+            relatedTaskId: parentTaskId,
+            details: this.buildTaskChainMetadata(createResult.data, {
+              parentTaskId,
+            }),
+          })
+        : Promise.resolve(),
+    ]);
+
+    this.platformEvents.notifyTasksChanged();
 
     const refreshedSubtask = createdSubtaskId ? await this.findById(createdSubtaskId) : createResult;
     return refreshedSubtask.success ? refreshedSubtask : createResult;
@@ -294,7 +375,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     }
 
     const task = taskResponse.data;
-    const bid = task.bids?.find(b => b.id === bidId);
+    const bid = task.bids?.find((b: Bid) => b.id === bidId);
 
     if (!bid) {
       this.logger.debug('Bid not found', { taskId, bidId, totalBids: task.bids?.length || 0 });
@@ -313,7 +394,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     });
 
     // Update all bids: accepted one becomes ACCEPTED, others REJECTED
-    task.bids = task.bids?.map(b => ({
+    task.bids = task.bids?.map((b: Bid) => ({
       ...b,
       status: b.id === bidId ? BidStatus.ACCEPTED : BidStatus.REJECTED
     }));
@@ -397,8 +478,10 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       this.taskModel.countDocuments(query).exec(),
     ]);
 
+    const decoratedItems = await Promise.all(items.map((task) => this.decorateTaskWithSettlementState(task)));
+
     return {
-      items,
+      items: decoratedItems,
       total,
       page,
       limit,
@@ -496,6 +579,17 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       throw new Error('Failed to update task');
     }
 
+    await this.appendSettlementAuditEvent(taskId, {
+      type: resultData.success ? 'submitted_for_review' : 'reported_failed',
+      message: resultData.success
+        ? 'Delivery submitted for verification by the assigned agent.'
+        : 'Assigned agent reported an unsuccessful completion attempt.',
+      actorId: agentId,
+      details: this.buildTaskChainMetadata(task, {
+        artifactsCount: resultData.artifacts?.length || 0,
+      }),
+    });
+
     this.platformEvents.notifyTasksChanged();
 
     if (!resultData.success) {
@@ -571,6 +665,15 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       throw new Error('Failed to verify task');
     }
 
+    await this.appendSettlementAuditEvent(taskId, {
+      type: 'verified',
+      message: 'Task poster verified the delivery and released settlement.',
+      actorId: verifierId,
+      details: this.buildTaskChainMetadata(task, {
+        feedback: feedback || task.outcome?.feedback || null,
+      }),
+    });
+
     this.platformEvents.notifyTasksChanged();
     await this.recordSettlementOutcome(task, task.assignedAgent, true, { outcome: 'verified' });
     await this.updateAgentReputationSafely(task.assignedAgent, true, task.result?.metadata?.responseTime);
@@ -583,7 +686,13 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     };
   }
 
-  async disputeTask(taskId: string, disputedBy: string, reason: string, feedback?: string) {
+  async disputeTask(
+    taskId: string,
+    disputedBy: string,
+    reason: string,
+    feedback?: string,
+    options: { allowAssignedAgentEscalation?: boolean } = {}
+  ) {
     const taskResponse = await this.findById(taskId);
 
     if (!taskResponse.success || !taskResponse.data) {
@@ -602,7 +711,14 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       };
     }
 
-    if (task.status !== TaskStatus.PENDING_REVIEW) {
+    const blockingChildTasks = await this.findBlockingChildTasks(task);
+    const canAssignedAgentEscalate =
+      options.allowAssignedAgentEscalation &&
+      task.assignedAgent === disputedBy &&
+      blockingChildTasks.length > 0 &&
+      [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.PENDING_REVIEW].includes(task.status as TaskStatus);
+
+    if (task.status !== TaskStatus.PENDING_REVIEW && !canAssignedAgentEscalate) {
       throw new BadRequestException('Only tasks pending review can be disputed.');
     }
 
@@ -622,7 +738,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       'outcome.completedAt': completedAt,
       'outcome.verifiedAt': reviewedAt,
       'outcome.verifiedBy': disputedBy,
-      'outcome.feedback': feedback || task.outcome?.feedback || 'Disputed by task poster.',
+      'outcome.feedback':
+        feedback ||
+        task.outcome?.feedback ||
+        (canAssignedAgentEscalate
+          ? 'Escalated to dispute by the assigned agent due to a blocked delegated dependency.'
+          : 'Disputed by task poster.'),
       'outcome.disputeReason': reason,
     } as any);
 
@@ -630,10 +751,23 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       throw new Error('Failed to dispute task');
     }
 
+    await this.appendSettlementAuditEvent(taskId, {
+      type: canAssignedAgentEscalate ? 'escalated_to_dispute' : 'disputed',
+      message: canAssignedAgentEscalate
+        ? 'Assigned agent escalated the blocked delegation chain into dispute.'
+        : 'Task poster disputed the delivery outcome.',
+      actorId: disputedBy,
+      reason,
+      details: this.buildTaskChainMetadata(task, {
+        escalatedByAssignedAgent: canAssignedAgentEscalate,
+      }),
+    });
+
     this.platformEvents.notifyTasksChanged();
     await this.recordSettlementOutcome(task, task.assignedAgent, false, {
       outcome: 'disputed',
       reason,
+      escalatedByAssignedAgent: canAssignedAgentEscalate,
     });
     await this.updateAgentReputationSafely(task.assignedAgent, false, task.result?.metadata?.responseTime);
 
@@ -644,6 +778,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       reviewedAt,
       disputeReason: reason,
     };
+  }
+
+  async escalateTaskDispute(taskId: string, agentId: string, reason: string, feedback?: string) {
+    return this.disputeTask(taskId, agentId, reason, feedback, {
+      allowAssignedAgentEscalation: true,
+    });
   }
 
   private async recordSettlementOutcome(
@@ -679,6 +819,16 @@ export class TasksService extends BaseMongoService<TaskDocument> {
           ...metadata,
         }),
       });
+
+      if (task.parentTaskId) {
+        await this.recordParentSettlementStatusFromChild(String(task.parentTaskId), task, success, agentId, metadata);
+
+        if (!success) {
+          await this.releaseParentReservedBudget(String(task.parentTaskId), Number(task.budget?.amount ?? settledAmount));
+        }
+      }
+
+      this.platformEvents.notifyTasksChanged();
     } catch (error) {
       this.logger.error(`Failed to record settlement transaction for task ${String(task._id || task.id)}`, error as Error);
     }
@@ -690,6 +840,203 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     } catch (error) {
       this.logger.error(`Failed to update agent reputation for ${agentId}`, error);
     }
+  }
+
+  private async releaseParentReservedBudget(parentTaskId: string, amountToRelease: number): Promise<void> {
+    if (!parentTaskId || !Number.isFinite(amountToRelease) || amountToRelease <= 0) {
+      return;
+    }
+
+    const parentResponse = await super.findById(parentTaskId);
+    if (!parentResponse.success || !parentResponse.data) {
+      return;
+    }
+
+    const currentReservedBudget = Number(parentResponse.data.reservedBudget ?? 0);
+    const nextReservedBudget = Math.max(0, currentReservedBudget - amountToRelease);
+
+    await super.updateById(parentTaskId, {
+      reservedBudget: nextReservedBudget,
+    } as any);
+
+    await this.appendSettlementAuditEvent(parentTaskId, {
+      type: 'reserved_budget_released',
+      message: `Released ${(parentResponse.data.budget?.currency || 'USD')} ${amountToRelease.toFixed(2)} of reserved child-task budget back to the parent.`,
+      details: {
+        amountReleased: amountToRelease,
+        reservedBudgetBefore: currentReservedBudget,
+        reservedBudgetAfter: nextReservedBudget,
+      },
+    });
+  }
+
+  private async appendSettlementAuditEvent(
+    taskId: string,
+    event: {
+      type: string;
+      message: string;
+      actorId?: string;
+      reason?: string;
+      relatedTaskId?: string;
+      details?: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    if (!taskId) {
+      return;
+    }
+
+    const taskResponse = await super.findById(taskId);
+    if (!taskResponse.success || !taskResponse.data) {
+      return;
+    }
+
+    const metadata = taskResponse.data.metadata && typeof taskResponse.data.metadata === 'object'
+      ? { ...(taskResponse.data.metadata as Record<string, unknown>) }
+      : {};
+    const existingAudit = Array.isArray(metadata['settlementAudit'])
+      ? (metadata['settlementAudit'] as Array<Record<string, unknown>>)
+      : [];
+
+    const nextAudit = [
+      ...existingAudit,
+      {
+        ...event,
+        at: new Date().toISOString(),
+      },
+    ].slice(-25);
+
+    await super.updateById(taskId, {
+      metadata: {
+        ...metadata,
+        settlementAudit: nextAudit,
+      },
+    } as any);
+  }
+
+  private async recordParentSettlementStatusFromChild(
+    parentTaskId: string,
+    childTask: any,
+    success: boolean,
+    agentId: string,
+    metadata: Record<string, unknown>
+  ): Promise<void> {
+    if (!parentTaskId) {
+      return;
+    }
+
+    const childTaskId = this.getTaskId(childTask);
+    const outcome = String(metadata['outcome'] || (success ? 'verified' : 'disputed'));
+    const reason = typeof metadata['reason'] === 'string' ? metadata['reason'] : undefined;
+
+    await this.appendSettlementAuditEvent(parentTaskId, {
+      type: success ? 'child_task_settled' : 'parent_settlement_blocked',
+      message: success
+        ? `Child task ${childTaskId} settled successfully (${outcome}).`
+        : `Settlement is blocked by child task ${childTaskId}${reason ? `: ${reason}` : '.'}`,
+      actorId: agentId,
+      reason,
+      relatedTaskId: childTaskId,
+      details: this.buildTaskChainMetadata(childTask, {
+        outcome,
+        success,
+      }),
+    });
+
+    const parentResponse = await super.findById(parentTaskId);
+    if (!parentResponse.success || !parentResponse.data) {
+      return;
+    }
+
+    const remainingBlockers = await this.findBlockingChildTasks(parentResponse.data);
+    if (success && remainingBlockers.length === 0) {
+      await this.appendSettlementAuditEvent(parentTaskId, {
+        type: 'parent_settlement_unblocked',
+        message: 'All delegated child tasks are now settled. Parent verification can proceed.',
+        actorId: agentId,
+        relatedTaskId: childTaskId,
+        details: this.buildTaskChainMetadata(parentResponse.data),
+      });
+    }
+  }
+
+  private async decorateTaskWithSettlementState(task: any): Promise<any> {
+    if (!task) {
+      return task;
+    }
+
+    const settlementState = await this.buildSettlementState(task);
+    const baseTask = typeof task?.toObject === 'function' ? task.toObject() : task;
+
+    return {
+      ...baseTask,
+      ...settlementState,
+    };
+  }
+
+  private async buildSettlementState(task: any): Promise<{
+    settlementStatus: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+    settlementHoldReason?: string;
+    blockedByTaskId?: string;
+    blockedByStatus?: string;
+    blockedByAgentId?: string;
+  }> {
+    const taskId = this.getTaskId(task);
+    const ownStatus = String(task?.status || 'unknown');
+    const ownVerificationStatus = String(task?.outcome?.verificationStatus || '');
+
+    if (ownStatus === TaskStatus.DISPUTED || ownVerificationStatus === 'disputed') {
+      return {
+        settlementStatus: 'blocked_by_dispute',
+        settlementHoldReason: 'task_disputed',
+        blockedByTaskId: taskId,
+        blockedByStatus: ownStatus,
+        blockedByAgentId: task?.assignedAgent ? String(task.assignedAgent) : undefined,
+      };
+    }
+
+    const childTasks = taskId
+      ? await this.taskModel.find({ parentTaskId: taskId }).sort({ createdAt: 1 }).exec()
+      : [];
+
+    const blockingChild = childTasks.find((child: any) => {
+      if (child.status === TaskStatus.COMPLETED && child.outcome?.verificationStatus === 'verified') {
+        return false;
+      }
+      return true;
+    });
+
+    if (blockingChild) {
+      const blockingStatus = String(blockingChild?.status || 'unknown');
+      const blockedByDispute = blockingStatus === TaskStatus.DISPUTED || blockingChild?.outcome?.verificationStatus === 'disputed';
+
+      return {
+        settlementStatus: blockedByDispute ? 'blocked_by_dispute' : 'blocked',
+        settlementHoldReason: blockedByDispute ? 'child_task_disputed' : 'child_task_unsettled',
+        blockedByTaskId: this.getTaskId(blockingChild),
+        blockedByStatus: blockingStatus,
+        blockedByAgentId: blockingChild?.assignedAgent ? String(blockingChild.assignedAgent) : undefined,
+      };
+    }
+
+    if (ownStatus === TaskStatus.COMPLETED && ownVerificationStatus === 'verified') {
+      return {
+        settlementStatus: 'settled',
+      };
+    }
+
+    if (ownStatus === TaskStatus.PENDING_REVIEW || ownVerificationStatus === 'unverified') {
+      return {
+        settlementStatus: 'blocked',
+        settlementHoldReason: 'awaiting_verification',
+        blockedByTaskId: taskId,
+        blockedByStatus: ownStatus,
+        blockedByAgentId: task?.assignedAgent ? String(task.assignedAgent) : undefined,
+      };
+    }
+
+    return {
+      settlementStatus: 'clear',
+    };
   }
 
   /**
@@ -824,62 +1171,169 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    const seenAgentIds = new Set<string>();
+    // Get ALL agents with MCP endpoints
+    const allAgentsResponse = await this.agentsService.findAll({ 
+      mcpEndpoint: { $exists: true, $ne: null }
+    });
+    const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
 
-    for (const capability of requestedCapabilities) {
-      this.logger.debug('Finding agents with capability', { capability });
-      const agentsResponse = await this.agentsService.findByCapability(capability);
-      const agents = agentsResponse.success ? agentsResponse.data?.data || [] : [];
-      this.logger.debug('Found agents', { count: agents.length });
+    // Apply fuzzy matching filter to find relevant agents
+    const relevantAgents = this.filterRelevantAgents(
+      allAgents,
+      requestedCapabilities,
+      task.description,
+      task.title
+    );
 
-      for (const agent of agents) {
-        const agentId = agent._id?.toString?.() || agent.id;
+    this.logger.log(`Filtered agents for task using fuzzy matching`, {
+      taskId: task._id,
+      totalAgents: allAgents.length,
+      relevantAgents: relevantAgents.length,
+      requestedCapabilities
+    });
 
-        if (!agentId || seenAgentIds.has(agentId) || !agent.mcpEndpoint) {
-          if (!agentId) this.logger.debug('Skipping agent: no ID');
-          else if (seenAgentIds.has(agentId)) this.logger.debug('Skipping agent: already evaluated', { agentId });
-          else if (!agent.mcpEndpoint) this.logger.debug('Skipping agent: no MCP endpoint', { agentId });
-          continue;
-        }
+    // Send bid requests to filtered agents
+    for (const agent of relevantAgents) {
+      const agentId = agent._id?.toString?.() || agent.id;
 
-        seenAgentIds.add(agentId);
+      if (!agentId) {
+        this.logger.debug('Skipping agent: no ID');
+        continue;
+      }
 
-        this.logger.debug('Requesting bid from agent', {
-          agentId,
-          agentName: agent.name,
-          mcpEndpoint: agent.mcpEndpoint
+      this.logger.debug('Requesting bid from agent', {
+        agentId,
+        agentName: agent.name,
+        mcpEndpoint: agent.mcpEndpoint
+      });
+
+      try {
+        const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
+          taskId: task._id.toString(),
+          title: task.title,
+          description: task.description,
+          requirements: {
+            skills: requestedCapabilities,
+            budget: task.budget
+              ? {
+                  min: 0,
+                  max: task.budget.amount,
+                  currency: task.budget.currency || 'USD',
+                }
+              : undefined,
+          },
         });
 
-        try {
-          const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
-            taskId: task._id.toString(),
-            title: task.title,
-            description: task.description,
-            requirements: {
-              skills: requestedCapabilities,
-              budget: task.budget
-                ? {
-                    min: 0,
-                    max: task.budget.amount,
-                    currency: task.budget.currency || 'USD',
-                  }
-                : undefined,
-            },
+        if (decision.interested) {
+          await this.submitBid(task._id.toString(), {
+            agentId,
+            amount: decision.proposedAmount ?? 0,
+            proposal: decision.proposal || 'Auto-submitted bid via MCP',
+            estimatedDuration: decision.estimatedDuration,
           });
+        }
+      } catch (error) {
+        this.logger.error(`Failed to request bid from agent ${agentId}`, error);
+      }
+    }
+  }
 
-          if (decision.interested) {
-            await this.submitBid(task._id.toString(), {
-              agentId,
-              amount: decision.proposedAmount ?? 0,
-              proposal: decision.proposal || 'Auto-submitted bid via MCP',
-              estimatedDuration: decision.estimatedDuration,
-            });
-          }
-        } catch (error) {
-          this.logger.error(`Failed to request bid from agent ${agentId}`, error);
+  /**
+   * Filter agents using fuzzy matching strategies
+   */
+  private filterRelevantAgents(
+    agents: any[],
+    requestedCaps: string[],
+    description: string,
+    title: string
+  ): any[] {
+    return agents.filter(agent => {
+      // Extract capability strings (handle both Capability[] and string[] formats)
+      const agentCaps = (agent.capabilities || []).map((c: string | { skill: string }) => 
+        typeof c === 'string' ? c : c.skill
+      );
+      
+      // Strategy 1: Exact match (preserve existing behavior)
+      if (requestedCaps.some(req => agentCaps.includes(req))) {
+        this.logger.debug('Agent matched (exact)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      // Strategy 2: Partial/substring matching
+      // "text-processing" matches "text-reverse", "text-transform", etc.
+      if (this.hasPartialMatch(requestedCaps, agentCaps)) {
+        this.logger.debug('Agent matched (partial)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      // Strategy 3: Keyword overlap
+      // Extract keywords from task, match against agent description
+      if (this.hasKeywordOverlap(
+        requestedCaps.concat([title, description]),
+        agentCaps.concat([agent.description || '', agent.name || ''])
+      )) {
+        this.logger.debug('Agent matched (keywords)', { 
+          agentId: agent._id?.toString?.() || agent.id,
+          agentName: agent.name 
+        });
+        return true;
+      }
+      
+      return false; // No match
+    });
+  }
+
+  /**
+   * Check for partial matches between requested and agent capabilities
+   */
+  private hasPartialMatch(requested: string[], agentCaps: string[]): boolean {
+    for (const req of requested) {
+      const reqParts = req.toLowerCase().split(/[-_\s]+/);
+      for (const cap of agentCaps) {
+        const capParts = cap.toLowerCase().split(/[-_\s]+/);
+        // If any significant word overlaps (length > 3 to avoid noise)
+        if (reqParts.some(part => part.length > 3 && capParts.includes(part))) {
+          return true;
         }
       }
     }
+    return false;
+  }
+
+  /**
+   * Check for keyword overlap between task and agent
+   */
+  private hasKeywordOverlap(requestedTerms: string[], agentTerms: string[]): boolean {
+    const requestedKeywords = this.extractKeywords(requestedTerms.join(' '));
+    const agentKeywords = this.extractKeywords(agentTerms.join(' '));
+    
+    // If 2+ keywords overlap, consider it a match
+    const overlap = requestedKeywords.filter(k => agentKeywords.includes(k));
+    return overlap.length >= 2;
+  }
+
+  /**
+   * Extract meaningful keywords from text
+   */
+  private extractKeywords(text: string): string[] {
+    const stopwords = [
+      'with', 'that', 'this', 'from', 'have', 'will', 'your', 
+      'their', 'what', 'been', 'than', 'more', 'when', 'them',
+      'these', 'would', 'which', 'into', 'only', 'could', 'other'
+    ];
+    
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, ' ') // Remove special chars except hyphens
+      .split(/\s+/)
+      .filter(word => word.length > 3) // Ignore short words
+      .filter(word => !stopwords.includes(word)); // Remove stopwords
   }
 
   /**

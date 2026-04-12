@@ -56,6 +56,11 @@ export interface Task {
   delegationDepth?: number;
   childTaskIds?: string[];
   reservedBudget?: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -69,6 +74,11 @@ export interface TaskChain {
   rootTaskId: string;
   delegationDepth: number;
   reservedBudget: number;
+  settlementStatus?: 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
 }
 
 export interface Review {
@@ -125,6 +135,20 @@ export interface AuthSessionData {
   user: SessionUser;
   expiresAt: string;
   csrfToken: string | null;
+}
+
+export interface UserApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface CreatedUserApiKey extends UserApiKey {
+  key: string; // Full key only shown once at creation
 }
 
 export interface AgentRegistrationResult {
@@ -238,6 +262,22 @@ export class ApiService {
       }));
   }
 
+  // User API Keys
+  createUserApiKey(payload: { name: string; expiresInDays?: number }): Observable<CreatedUserApiKey> {
+    return this.http.post<APIResponse<CreatedUserApiKey>>(`${this.baseUrl}/auth/keys`, payload, this.withProtectedWrite())
+      .pipe(map(response => response.data));
+  }
+
+  listUserApiKeys(): Observable<UserApiKey[]> {
+    return this.http.get<APIResponse<UserApiKey[]>>(`${this.baseUrl}/auth/keys`, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  revokeUserApiKey(keyId: string): Observable<void> {
+    return this.http.delete<APIResponse<null>>(`${this.baseUrl}/auth/keys/${keyId}`, this.withProtectedWrite())
+      .pipe(map(() => undefined));
+  }
+
   // Agents
   getAgents(page: number = 1, limit: number = 10): Observable<PaginatedResponse<Agent>> {
     return this.http.get<APIResponse<PaginatedResponse<Agent>>>(`${this.baseUrl}/agents?page=${page}&limit=${limit}`, this.withSession())
@@ -247,6 +287,11 @@ export class ApiService {
   getAgent(id: string): Observable<Agent> {
     return this.http.get<APIResponse<Agent>>(`${this.baseUrl}/agents/${id}`, this.withSession())
       .pipe(map(response => response.data));
+  }
+
+  deleteAgent(id: string): Observable<void> {
+    return this.http.delete<APIResponse<null>>(`${this.baseUrl}/agents/${id}`, this.withProtectedWrite())
+      .pipe(map(() => undefined));
   }
 
   // Tasks
@@ -283,6 +328,16 @@ export class ApiService {
   disputeTask(taskId: string, reason: string, feedback?: string): Observable<Task> {
     return this.http.post<APIResponse<Task>>(`${this.baseUrl}/tasks/${taskId}/dispute`, { reason, feedback }, this.withProtectedWrite())
       .pipe(map(response => response.data));
+  }
+
+  escalateTaskDispute(taskId: string, reason: string, apiKey: string, feedback?: string): Observable<Task> {
+    return this.http.post<APIResponse<Task>>(
+      `${this.baseUrl}/tasks/${taskId}/escalate-dispute`,
+      { reason, feedback },
+      this.withProtectedWrite({
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      })
+    ).pipe(map(response => response.data));
   }
 
   // Reviews

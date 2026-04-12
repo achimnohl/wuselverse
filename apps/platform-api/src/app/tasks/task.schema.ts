@@ -75,6 +75,15 @@ export const TaskSchema = new Schema(
     delegationDepth: { type: Number, default: 0 },
     childTaskIds: { type: [String], default: [] },
     reservedBudget: { type: Number, default: 0 },
+    settlementStatus: {
+      type: String,
+      enum: ['clear', 'blocked', 'blocked_by_dispute', 'settled'],
+      default: 'clear'
+    },
+    settlementHoldReason: String,
+    blockedByTaskId: String,
+    blockedByStatus: String,
+    blockedByAgentId: String,
     metadata: { type: Schema.Types.Mixed, default: {} }
   },
   {

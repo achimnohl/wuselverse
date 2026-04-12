@@ -1,20 +1,33 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Request,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from './api-key.guard';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterUserDto } from './auth.dto';
+import { CreateUserApiKeyDto, UserApiKeyResponseDto, CreatedUserApiKeyDto } from './user-api-key.dto';
 import { SessionAuthGuard } from './session-auth.guard';
 import { SessionCsrfGuard } from './session-csrf.guard';
+
+const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
+const registerLimit = Number(process.env.REGISTER_THROTTLE_LIMIT ?? (isTestEnv ? 10000 : 5));
+const registerTtlSeconds = Number(process.env.REGISTER_THROTTLE_TTL_SECONDS ?? (isTestEnv ? 1 : 900));
+const loginLimit = Number(process.env.LOGIN_THROTTLE_LIMIT ?? (isTestEnv ? 10000 : 10));
+const loginTtlSeconds = Number(process.env.LOGIN_THROTTLE_TTL_SECONDS ?? (isTestEnv ? 1 : 900));
+
+const REGISTER_THROTTLE = { default: { limit: registerLimit, ttl: registerTtlSeconds } };
+const LOGIN_THROTTLE = { default: { limit: loginLimit, ttl: loginTtlSeconds } };
 
 @ApiTags('auth')
 @Controller('auth')
@@ -23,6 +36,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @Throttle(REGISTER_THROTTLE)
   @ApiOperation({ summary: 'Register a new human user session for the web UI' })
   @ApiBody({ type: RegisterUserDto })
   async register(
@@ -50,6 +64,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign in and create a session cookie for the web UI' })
   @ApiBody({ type: LoginDto })
@@ -106,6 +121,67 @@ export class AuthController {
         user: req.user,
         csrfToken,
       },
+    };
+  }
+
+  // ========================================
+  // User API Key Management
+  // ========================================
+
+  @Post('keys')
+  @UseGuards(SessionAuthGuard, SessionCsrfGuard)
+  @ApiOperation({ 
+    summary: 'Create a new API key',
+    description: 'Creates a new API key for script/programmatic access. The full key is returned ONCE and cannot be retrieved again. Store it securely!'
+  })
+  @ApiBody({ type: CreateUserApiKeyDto })
+  async createApiKey(
+    @Body() dto: CreateUserApiKeyDto,
+    @Request() req: any
+  ): Promise<{ success: boolean; data: CreatedUserApiKeyDto }> {
+    const userId = req.user.id;
+    const apiKey = await this.authService.createUserApiKey(userId, dto);
+
+    return {
+      success: true,
+      data: apiKey,
+    };
+  }
+
+  @Get('keys')
+  @UseGuards(SessionAuthGuard)
+  @ApiOperation({ 
+    summary: 'List your API keys',
+    description: 'Returns all active API keys for the current user. Does not return the actual key values.'
+  })
+  async listApiKeys(@Request() req: any): Promise<{ success: boolean; data: UserApiKeyResponseDto[] }> {
+    const userId = req.user.id;
+    const keys = await this.authService.listUserApiKeys(userId);
+
+    return {
+      success: true,
+      data: keys,
+    };
+  }
+
+  @Delete('keys/:id')
+  @UseGuards(SessionAuthGuard, SessionCsrfGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ 
+    summary: 'Revoke an API key',
+    description: 'Revokes an API key. This action cannot be undone. The key will no longer be usable for authentication.'
+  })
+  @ApiParam({ name: 'id', description: 'API key ID' })
+  async revokeApiKey(
+    @Param('id') id: string,
+    @Request() req: any
+  ): Promise<{ success: boolean; message: string }> {
+    const userId = req.user.id;
+    await this.authService.revokeUserApiKey(userId, id);
+
+    return {
+      success: true,
+      message: 'API key revoked successfully',
     };
   }
 }

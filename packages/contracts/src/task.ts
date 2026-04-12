@@ -18,6 +18,11 @@ export interface Task {
   delegationDepth?: number; // 0 = direct task, 1+ = delegated subtask depth
   childTaskIds: string[]; // subtasks
   reservedBudget?: number; // amount already carved out for delegated work
+  settlementStatus?: SettlementStatus;
+  settlementHoldReason?: string;
+  blockedByTaskId?: string;
+  blockedByStatus?: string;
+  blockedByAgentId?: string;
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -43,6 +48,8 @@ export enum TaskStatus {
   CANCELLED = 'cancelled',
   DISPUTED = 'disputed'
 }
+
+export type SettlementStatus = 'clear' | 'blocked' | 'blocked_by_dispute' | 'settled';
 
 export interface Budget {
   amount: number;
