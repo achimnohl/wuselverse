@@ -29,7 +29,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Post()
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Create a new task', description: 'Creates a task. When session auth is enabled, the poster identity is bound to the signed-in user.' })
   async create(
     @Body() dto: CreateTaskDto,
@@ -37,21 +37,29 @@ export class TasksController extends TasksCRUDBase {
   ) {
     const requireUserSession = (process.env.REQUIRE_USER_SESSION_FOR_TASK_POSTING ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
+    const apiKeyUser = req?.principal?.type === 'user'
+      ? {
+          id: req.principal.userId as string | undefined,
+          email: req.principal.email as string | undefined,
+          displayName: req.principal.displayName as string | undefined,
+        }
+      : null;
+    const authenticatedUser = sessionUser || apiKeyUser;
 
-    if (requireUserSession && !sessionUser) {
+    if (requireUserSession && !authenticatedUser) {
       throw new UnauthorizedException('A signed-in user session is required to create tasks.');
     }
 
     const payload = {
       ...dto,
-      poster: sessionUser?.id || dto.poster,
+      poster: authenticatedUser?.id || authenticatedUser?.email || dto.poster,
       metadata: {
         ...(dto.metadata || {}),
-        ...(sessionUser
+        ...(authenticatedUser
           ? {
-              posterUserId: sessionUser.id,
-              posterDisplayName: sessionUser.displayName,
-              posterEmail: sessionUser.email,
+              posterUserId: authenticatedUser.id,
+              posterDisplayName: authenticatedUser.displayName,
+              posterEmail: authenticatedUser.email,
             }
           : {}),
       },
@@ -61,7 +69,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Put(':id')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Update a task', description: 'Updates a task. When task session auth is enabled, only the authenticated poster can update it.' })
   async update(
     @Param('id') id: string,
@@ -73,7 +81,7 @@ export class TasksController extends TasksCRUDBase {
   }
 
   @Delete(':id')
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Delete a task', description: 'Deletes a task. When task session auth is enabled, only the authenticated poster can delete it.' })
   async delete(@Param('id') id: string, @Request() req: any) {
     await this.assertTaskPosterAccess(req, id);
@@ -347,9 +355,11 @@ export class TasksController extends TasksCRUDBase {
     }
 
     const sessionUser = await this.authService.getUserFromRequest(req);
+    const principalUserId = req?.principal?.type === 'user' ? String(req.principal.userId || '') : null;
+    const principalUserEmail = req?.principal?.type === 'user' ? String(req.principal.email || '') : null;
     const principalAgentId = req?.principal?.type === 'agent' ? String(req.principal.agentId) : null;
 
-    if (!sessionUser && !principalAgentId) {
+    if (!sessionUser && !principalAgentId && !principalUserId && !principalUserEmail) {
       throw new UnauthorizedException('A signed-in user session or agent API key is required for this task action.');
     }
 
@@ -362,6 +372,12 @@ export class TasksController extends TasksCRUDBase {
     }
     if (sessionUser?.email) {
       allowedPosters.add(String(sessionUser.email));
+    }
+    if (principalUserId) {
+      allowedPosters.add(principalUserId);
+    }
+    if (principalUserEmail) {
+      allowedPosters.add(principalUserEmail);
     }
     if (principalAgentId) {
       allowedPosters.add(principalAgentId);

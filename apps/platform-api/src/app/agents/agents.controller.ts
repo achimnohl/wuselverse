@@ -26,7 +26,7 @@ import {
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { AgentsService } from './agents.service';
 import { RegisterAgentDto, UpdateAgentDto } from './dto';
-import { ApiKeyGuard, Public } from '../auth/api-key.guard';
+import { ApiKeyGuard } from '../auth/api-key.guard';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { AuthService } from '../auth/auth.service';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
@@ -55,8 +55,7 @@ export class AgentsController extends AgentsCRUDBase {
   // ── Public: Registration (returns apiKey once) ──────────────────────────
 
   @Post()
-  @Public()
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({
     summary: 'Register or update an agent',
     description:
@@ -66,21 +65,29 @@ export class AgentsController extends AgentsCRUDBase {
   async create(@Body() dto: RegisterAgentDto, @Request() req: any) {
     const requireOwnerSession = (process.env.REQUIRE_USER_SESSION_FOR_AGENT_REGISTRATION ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
+    const apiKeyUser = req?.principal?.type === 'user'
+      ? {
+          id: req.principal.userId as string | undefined,
+          email: req.principal.email as string | undefined,
+          displayName: req.principal.displayName as string | undefined,
+        }
+      : null;
+    const authenticatedUser = sessionUser || apiKeyUser;
 
-    if (requireOwnerSession && !sessionUser) {
+    if (requireOwnerSession && !authenticatedUser) {
       throw new UnauthorizedException('A signed-in user session is required to register an agent.');
     }
 
     const payload = {
       ...dto,
-      owner: sessionUser?.email || dto.owner,
+      owner: authenticatedUser?.email || dto.owner,
       metadata: {
         ...((dto as any).metadata || {}),
-        ...(sessionUser
+        ...(authenticatedUser
           ? {
-              ownerUserId: sessionUser.id,
-              ownerDisplayName: sessionUser.displayName,
-              ownerEmail: sessionUser.email,
+              ownerUserId: authenticatedUser.id,
+              ownerDisplayName: authenticatedUser.displayName,
+              ownerEmail: authenticatedUser.email,
             }
           : {}),
       },
@@ -91,7 +98,7 @@ export class AgentsController extends AgentsCRUDBase {
       owner: payload.owner,
       capabilities: payload.capabilities?.length || 0,
       mcpEndpoint: payload.mcpEndpoint || 'none',
-      ownerAuthenticated: !!sessionUser,
+      ownerAuthenticated: !!authenticatedUser,
     });
     const result = await this.agentsService.create(payload as any);
     this.logger.log('POST /agents - Registration result', {

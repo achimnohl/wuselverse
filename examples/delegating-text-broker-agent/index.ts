@@ -144,50 +144,6 @@ async function requestJson(url: string, options: any = {}, session?: DemoSession
   return payload;
 }
 
-async function ensureDemoOwnerSession(platformUrl: string): Promise<DemoSession> {
-  const session: DemoSession = {
-    cookies: new Map<string, string>(),
-    csrfToken: null,
-    user: null,
-  };
-
-  const email = process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com';
-  const password = process.env.DEMO_OWNER_PASSWORD || 'demodemo';
-  const displayName = process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User';
-
-  let authResponse: any;
-  try {
-    authResponse = await requestJson(`${platformUrl}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, displayName }),
-    }, session);
-  } catch (error: any) {
-    if (error?.status !== 409) {
-      throw error;
-    }
-
-    authResponse = await requestJson(`${platformUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }, session);
-  }
-
-  const meResponse = await requestJson(`${platformUrl}/api/auth/me`, {}, session);
-  session.user = meResponse?.data?.user || authResponse?.data?.user || null;
-
-  if (!session.cookies.get('wuselverse_session')) {
-    throw new Error('Demo owner session was created but no session cookie was issued.');
-  }
-
-  if (!session.csrfToken) {
-    throw new Error('Demo owner session was created but no CSRF token was issued.');
-  }
-
-  return session;
-}
-
 class DelegatingTextBrokerAgent extends WuselverseAgent {
   private readonly apiKey: string;
   private readonly agentId: string;
@@ -444,6 +400,8 @@ async function main() {
   const platformUrl = process.env.PLATFORM_URL || 'http://localhost:3000';
   const mcpPort = parseInt(process.env.PORT || process.env.MCP_PORT || '3004', 10);
   const publicMcpEndpoint = process.env.PUBLIC_MCP_ENDPOINT || `http://localhost:${mcpPort}/mcp`;
+  const ownerApiKey = process.env.WUSELVERSE_API_KEY || process.env.DEMO_OWNER_API_KEY || '';
+  const ownerIdentity = process.env.DEMO_OWNER_EMAIL || process.env.DEMO_OWNER || 'api-key-owner';
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║   Delegating Text Broker Agent for Wuselverse Phase 3 Demo  ║');
@@ -452,16 +410,22 @@ async function main() {
   console.log(`MCP Port: ${mcpPort}`);
   console.log(`Public MCP Endpoint: ${publicMcpEndpoint}\n`);
 
+  if (!ownerApiKey) {
+    console.error('❌ Missing WUSELVERSE_API_KEY (or DEMO_OWNER_API_KEY).');
+    console.error('Set a user API key before starting the broker demo agent.');
+    process.exit(1);
+  }
+
   try {
-    console.log('[1/4] Signing in demo owner...');
-    const ownerSession = await ensureDemoOwnerSession(platformUrl);
-    console.log(`✓ Demo owner ready: ${ownerSession.user?.displayName || ownerSession.user?.email || 'demo user'}`);
+    console.log('[1/4] Using owner API key...');
+    console.log(`✓ Owner identity: ${ownerIdentity}`);
 
     console.log('\n[2/4] Registering broker agent with platform...');
     const registration: any = await requestJson(`${platformUrl}/api/agents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${ownerApiKey}`,
       },
       body: JSON.stringify({
         name: 'Delegating Text Broker Agent',
@@ -469,7 +433,7 @@ async function main() {
         offerDescription: '# 🧭 Delegating Text Broker\n\nI accept higher-level text requests and route the specialist step through Wuselverse using delegated child tasks.\n\nFor the Phase 3 demo I specifically subcontract the existing Text Processor Agent and return the verified final result.',
         userManual: '# Delegating Text Broker Agent\n\n## Demo capabilities\n- `delegated-text-workflow`\n- `text-broker`\n- `task-delegation`\n\nPost a parent task requesting one of those capabilities plus `metadata.input.text` and `metadata.input.operation`.\nThe broker agent will create a child task, wait for the text processor to deliver, verify the child work, and then complete the parent delivery.',
         capabilities: ['delegated-text-workflow', 'text-broker', 'task-delegation'],
-        owner: ownerSession.user?.email || 'demo.user@example.com',
+        owner: ownerIdentity,
         pricing: {
           type: 'fixed',
           amount: 12,
@@ -477,7 +441,7 @@ async function main() {
         },
         mcpEndpoint: publicMcpEndpoint,
       }),
-    }, ownerSession);
+    });
 
     const agentId = registration?.data?._id || registration?.data?.id || 'unknown';
     const apiKey = registration?.apiKey || '';
