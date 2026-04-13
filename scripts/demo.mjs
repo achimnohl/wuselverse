@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * @deprecated
+ * This session-cookie demo is deprecated and kept for backward compatibility.
+ * Use scripts/demo-api-key.mjs instead.
+ */
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function parseArgs(argv) {
@@ -231,6 +237,7 @@ async function ensureApiAvailable() {
 }
 
 async function main() {
+  logInfo('[DEPRECATED] scripts/demo.mjs is deprecated. Use scripts/demo-api-key.mjs (or npm run demo) instead.');
   logInfo('\n=== WUSELVERSE DEMO: TEXT PROCESSOR AGENT ===');
   console.log(`API: ${config.apiBaseUrl}`);
   logInfo('Auth: the demo auto-creates/signs in the owner session and sends the CSRF token for protected writes.');

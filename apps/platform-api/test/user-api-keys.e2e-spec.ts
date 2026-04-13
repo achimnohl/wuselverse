@@ -116,7 +116,7 @@ describe('User API Keys (e2e)', () => {
       expect(response.body.data).toBeDefined();
     });
 
-    it('allows task posting without session even with invalid API key when session requirement is disabled', async () => {
+    it('rejects task posting with invalid API key', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/tasks')
         .set('Authorization', 'Bearer wusu_invalid_key_12345')
@@ -127,9 +127,7 @@ describe('User API Keys (e2e)', () => {
           requirements: { capabilities: ['test'] },
           budget: { type: 'fixed', amount: 50, currency: 'USD' },
         })
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
+        .expect(401);
     });
 
     it('should revoke an API key', async () => {
@@ -142,7 +140,7 @@ describe('User API Keys (e2e)', () => {
       expect(response.body.message).toContain('revoked');
     });
 
-    it('allows task posting with revoked API key when session requirement is disabled', async () => {
+    it('rejects task posting with revoked API key', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/tasks')
         .set('Authorization', `Bearer ${userApiKey}`)
@@ -153,9 +151,7 @@ describe('User API Keys (e2e)', () => {
           requirements: { capabilities: ['test'] },
           budget: { type: 'fixed', amount: 50, currency: 'USD' },
         })
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
+        .expect(401);
     });
 
     it('should not list revoked keys', async () => {

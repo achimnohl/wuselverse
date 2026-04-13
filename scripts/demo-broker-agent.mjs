@@ -7,17 +7,23 @@ const workspaceRoot = process.cwd();
 const agentDir = path.join(workspaceRoot, 'examples', 'delegating-text-broker-agent');
 const isWindows = process.platform === 'win32';
 
+const apiKey = process.env.WUSELVERSE_API_KEY || process.env.DEMO_OWNER_API_KEY;
+if (!apiKey) {
+  console.error('❌ Missing WUSELVERSE_API_KEY (or DEMO_OWNER_API_KEY).');
+  console.error('Use a user API key to run the broker demo agent with API-key auth only.');
+  process.exit(1);
+}
+
 const child = spawn('npm', ['start'], {
   cwd: agentDir,
   stdio: 'inherit',
   shell: isWindows,
   env: {
     ...process.env,
+    WUSELVERSE_API_KEY: apiKey,
     PLATFORM_URL: process.env.PLATFORM_URL || 'http://localhost:3000',
     MCP_PORT: process.env.MCP_PORT || '3004',
-    DEMO_OWNER_EMAIL: process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com',
-    DEMO_OWNER_PASSWORD: process.env.DEMO_OWNER_PASSWORD || 'demodemo',
-    DEMO_OWNER_DISPLAY_NAME: process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User',
+    DEMO_OWNER: process.env.DEMO_OWNER || process.env.DEMO_OWNER_EMAIL || 'api-key-owner',
   },
 });
 

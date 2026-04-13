@@ -130,10 +130,11 @@ async function main() {
 
     console.log('✓ Bid accepted!');
 
-    // Step 5: Monitor completion (no auth needed)
+    // Step 5: Monitor completion and verify if needed
     console.log('\n[5/5] Waiting for task completion...');
     let completed = false;
     pollCount = 0;
+    let verificationAttempted = false;
 
     while (!completed && pollCount < 30) {
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -150,6 +151,28 @@ async function main() {
         if (updatedTask.result) {
           console.log('Result:', JSON.stringify(updatedTask.result, null, 2));
         }
+      } else if (updatedTask.status === 'pending_review' && !verificationAttempted) {
+        verificationAttempted = true;
+        console.log('  ℹ️ Task is pending review. Verifying with API key...');
+
+        const verifyResponse = await fetch(`${PLATFORM_URL}/api/tasks/${taskId}/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`,
+          },
+          body: JSON.stringify({
+            feedback: 'Verified automatically by the API-key demo flow.',
+          }),
+        });
+
+        if (!verifyResponse.ok) {
+          const verifyError = await verifyResponse.json();
+          console.error('❌ Task verification failed:', verifyError);
+          return;
+        }
+
+        console.log('✓ Task verified, waiting for final completed state...');
       } else if (updatedTask.status === 'failed') {
         console.log('\n❌ Task failed');
         if (updatedTask.error) {
