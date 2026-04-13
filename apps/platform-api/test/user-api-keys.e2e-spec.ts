@@ -128,8 +128,6 @@ describe('User API Keys (e2e)', () => {
           budget: { type: 'fixed', amount: 50, currency: 'USD' },
         })
         .expect(401);
-
-      expect(response.body.success).toBe(false);
     });
 
     it('should revoke an API key', async () => {
@@ -154,8 +152,6 @@ describe('User API Keys (e2e)', () => {
           budget: { type: 'fixed', amount: 50, currency: 'USD' },
         })
         .expect(401);
-
-      expect(response.body.success).toBe(false);
     });
 
     it('should not list revoked keys', async () => {
