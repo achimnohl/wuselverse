@@ -33,13 +33,11 @@ function parseArgs(argv) {
 
 const argv = parseArgs(process.argv.slice(2));
 const config = {
-  apiBaseUrl: String(argv.apiBaseUrl || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
+  apiBaseUrl: String(argv.apiBaseUrl || process.env.PLATFORM_URL || process.env.API_BASE_URL || 'http://localhost:3000').replace(/\/$/, ''),
   maxBidWaitSeconds: Number(argv.maxBidWaitSeconds || process.env.MAX_BID_WAIT_SECONDS || 20),
   maxCompletionWaitSeconds: Number(argv.maxCompletionWaitSeconds || process.env.MAX_COMPLETION_WAIT_SECONDS || 45),
   pauseSeconds: Number(argv.pauseSeconds || process.env.DEMO_PAUSE_SECONDS || 2),
-  demoUserEmail: String(argv.demoUserEmail || process.env.DEMO_USER_EMAIL || process.env.DEMO_OWNER_EMAIL || 'demo.user@example.com'),
-  demoUserPassword: String(argv.demoUserPassword || process.env.DEMO_USER_PASSWORD || process.env.DEMO_OWNER_PASSWORD || 'demodemo'),
-  demoUserDisplayName: String(argv.demoUserDisplayName || process.env.DEMO_USER_DISPLAY_NAME || process.env.DEMO_OWNER_DISPLAY_NAME || 'Demo User'),
+  apiKey: String(argv.apiKey || process.env.WUSELVERSE_API_KEY || ''),
 };
 
 const colors = {
@@ -72,74 +70,19 @@ async function pauseBetweenSteps() {
   }
 }
 
-function isWriteMethod(method = 'GET') {
-  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
-}
-
-function getSetCookieHeaders(response) {
-  if (typeof response.headers.getSetCookie === 'function') {
-    return response.headers.getSetCookie();
-  }
-
-  const singleCookie = response.headers.get('set-cookie');
-  return singleCookie ? [singleCookie] : [];
-}
-
-function updateCookieJar(cookieJar, setCookieHeaders) {
-  for (const cookie of setCookieHeaders) {
-    const [nameValue] = cookie.split(';');
-    const separatorIndex = nameValue.indexOf('=');
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const name = nameValue.slice(0, separatorIndex).trim();
-    const value = nameValue.slice(separatorIndex + 1).trim();
-    cookieJar.set(name, value);
-  }
-}
-
-function buildCookieHeader(cookieJar) {
-  return [...cookieJar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
-}
-
-function createSessionContext() {
-  return {
-    cookies: new Map(),
-    csrfToken: null,
-    user: null,
-  };
-}
-
-async function requestJson(url, options = {}, session = null) {
+async function requestJson(url, options = {}) {
   const { timeoutMs = 15000, headers = {}, ...rest } = options;
-  const method = String(rest.method || 'GET').toUpperCase();
   const requestHeaders = {
     Accept: 'application/json',
     ...headers,
   };
-
-  if (session?.cookies?.size) {
-    requestHeaders.Cookie = buildCookieHeader(session.cookies);
-  }
-
-  if (session?.csrfToken && isWriteMethod(method) && !requestHeaders['X-CSRF-Token']) {
-    requestHeaders['X-CSRF-Token'] = session.csrfToken;
-  }
+  const method = String(rest.method || 'GET').toUpperCase();
 
   const response = await fetch(url, {
     ...rest,
     headers: requestHeaders,
     signal: AbortSignal.timeout(timeoutMs),
   });
-
-  if (session) {
-    updateCookieJar(session.cookies, getSetCookieHeaders(response));
-    if (session.cookies.has('wuselverse_csrf')) {
-      session.csrfToken = session.cookies.get('wuselverse_csrf');
-    }
-  }
 
   const text = await response.text();
   let payload = null;
@@ -152,10 +95,6 @@ async function requestJson(url, options = {}, session = null) {
     }
   }
 
-  if (session && payload?.data?.csrfToken) {
-    session.csrfToken = payload.data.csrfToken;
-  }
-
   if (!response.ok) {
     const details = typeof payload === 'string' ? payload : JSON.stringify(payload);
     const error = new Error(`${method} ${url} failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ''}`);
@@ -165,50 +104,6 @@ async function requestJson(url, options = {}, session = null) {
   }
 
   return payload;
-}
-
-async function ensureDemoUserSession() {
-  const session = createSessionContext();
-  const registerPayload = {
-    email: config.demoUserEmail,
-    password: config.demoUserPassword,
-    displayName: config.demoUserDisplayName,
-  };
-
-  let authResponse;
-  try {
-    authResponse = await requestJson(`${config.apiBaseUrl}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(registerPayload),
-    }, session);
-  } catch (error) {
-    if (error.status !== 409) {
-      throw error;
-    }
-
-    authResponse = await requestJson(`${config.apiBaseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: config.demoUserEmail,
-        password: config.demoUserPassword,
-      }),
-    }, session);
-  }
-
-  const meResponse = await requestJson(`${config.apiBaseUrl}/api/auth/me`, {}, session);
-  session.user = meResponse?.data?.user || authResponse?.data?.user || null;
-
-  if (!session.cookies.get('wuselverse_session')) {
-    throw new Error('Demo sign-in succeeded but no session cookie was issued.');
-  }
-
-  if (!session.csrfToken) {
-    throw new Error('Demo sign-in succeeded but no CSRF token was issued.');
-  }
-
-  return session;
 }
 
 function getTaskData(payload) {
@@ -234,19 +129,30 @@ async function main() {
   logInfo('\n=== WUSELVERSE DEMO: BROKER AGENT → TEXT PROCESSOR SUBCONTRACT ===');
   console.log(`API: ${config.apiBaseUrl}`);
 
+  if (!config.apiKey) {
+    console.error(colorize('red', '\n[ERROR] Missing WUSELVERSE_API_KEY (or --apiKey).'));
+    console.log('Set it and rerun, for example:');
+    console.log('  PowerShell: $env:WUSELVERSE_API_KEY="wusu_..."; node ./scripts/demo-delegation.mjs');
+    process.exit(1);
+  }
+
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${config.apiKey}`,
+  };
+
   try {
     await ensureApiAvailable();
 
-    logStep('[1/9] Signing in demo user...');
-    const demoSession = await ensureDemoUserSession();
-    logOk(`Signed in as ${demoSession.user?.displayName || config.demoUserDisplayName} (${demoSession.user?.email || config.demoUserEmail})`);
+    logStep('[1/9] Using API key authentication...');
+    logOk(`API key detected: ${config.apiKey.slice(0, 20)}...`);
     await pauseBetweenSteps();
 
     logStep('[2/9] Creating brokered parent task...');
     const taskPayload = {
       title: 'Brokered text transformation demo',
       description: 'Use the broker agent to delegate this text-processing request to a specialist and return the final verified result.',
-      poster: demoSession.user?.id || config.demoUserEmail,
+      poster: 'api-key-user',
       requirements: { capabilities: ['delegated-text-workflow'] },
       budget: { type: 'fixed', amount: 18, currency: 'USD' },
       acceptanceCriteria: [
@@ -264,9 +170,9 @@ async function main() {
 
     const createResponse = await requestJson(`${config.apiBaseUrl}/api/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify(taskPayload),
-    }, demoSession);
+    });
 
     const createdTask = getTaskData(createResponse);
     const taskId = createdTask?._id ?? createdTask?.id;
@@ -312,9 +218,9 @@ async function main() {
 
     await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}/assign`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({ bidId }),
-    }, demoSession);
+    });
 
     logOk(`Broker bid accepted: ${bidId}`);
     await pauseBetweenSteps();
@@ -354,11 +260,11 @@ async function main() {
       logStep('[6/9] Verifying the parent delivery...');
       await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}/verify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           feedback: 'Verified automatically by the delegated broker demo flow.',
         }),
-      }, demoSession);
+      });
 
       const verifiedResponse = await requestJson(`${config.apiBaseUrl}/api/tasks/${taskId}`, { timeoutMs: 10000 });
       parentTask = getTaskData(verifiedResponse);
@@ -369,7 +275,6 @@ async function main() {
     logStep('[7/9] Submitting reviews...');
     const parentReviewPayload = {
       taskId,
-      from: demoSession.user?.id || config.demoUserEmail,
       to: parentTask?.assignedAgent,
       rating: 5,
       comment: 'Excellent brokered delegation flow with clear child-task verification and final delivery.',
@@ -382,9 +287,9 @@ async function main() {
     try {
       await requestJson(`${config.apiBaseUrl}/api/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify(parentReviewPayload),
-      }, demoSession);
+      });
       logOk('Broker review submitted');
     } catch (error) {
       if (error?.status === 409) {
@@ -400,7 +305,6 @@ async function main() {
     if (delegatedChildTaskId && delegatedChildAgentId) {
       const childReviewPayload = {
         taskId: delegatedChildTaskId,
-        from: demoSession.user?.id || config.demoUserEmail,
         to: delegatedChildAgentId,
         rating: 5,
         comment: 'The specialist text processor completed the delegated child task quickly and correctly.',
@@ -409,9 +313,9 @@ async function main() {
       try {
         await requestJson(`${config.apiBaseUrl}/api/reviews`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify(childReviewPayload),
-        }, demoSession);
+        });
         logOk('Specialist review submitted');
       } catch (error) {
         if (error?.status === 409) {
