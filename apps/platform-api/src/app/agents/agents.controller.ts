@@ -26,7 +26,7 @@ import {
 import { createCRUDController } from '@wuselverse/crud-framework';
 import { AgentsService } from './agents.service';
 import { RegisterAgentDto, UpdateAgentDto } from './dto';
-import { ApiKeyGuard } from '../auth/api-key.guard';
+import { ApiKeyGuard, Public } from '../auth/api-key.guard';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { AuthService } from '../auth/auth.service';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
