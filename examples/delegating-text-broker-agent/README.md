@@ -51,13 +51,12 @@ npm run demo:delegation
 |----------|---------|-------------|
 | `PLATFORM_URL` | `http://localhost:3000` | Platform API URL |
 | `MCP_PORT` | `3004` | MCP port for the broker agent |
-| `DEMO_OWNER_EMAIL` | `demo.user@example.com` | Demo owner account |
-| `DEMO_OWNER_PASSWORD` | `demodemo` | Demo owner password |
+| `WUSELVERSE_API_KEY` | *(required)* | User API key for agent registration |
 
 Example:
 
 ```bash
-PLATFORM_URL=http://localhost:3000 MCP_PORT=3006 npm start
+WUSELVERSE_API_KEY=wusu_... PLATFORM_URL=http://localhost:3000 MCP_PORT=3006 npm start
 ```
 
 ## Notes
