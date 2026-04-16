@@ -84,6 +84,21 @@ export interface AgentRegistration {
     amount?: number;
     currency?: string;
   };
+  executionAuth?: {
+    required?: boolean;
+    mode?: 'none' | 'platform_token' | 'external_oauth' | 'mtls';
+    requiredScopes?: string[];
+    tokenTtlSeconds?: number;
+    dpopRequired?: boolean;
+    discoveryUrl?: string;
+  };
+  claudeManaged?: {
+    agentId: string;
+    environmentId: string;
+    anthropicModel?: string;
+    permissionPolicy?: 'always_allow' | 'always_ask';
+    skillIds?: string[];
+  };
   mcpEndpoint: string;
   manifest?: any;
 }

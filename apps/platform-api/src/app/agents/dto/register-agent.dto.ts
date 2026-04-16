@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsArray, IsEnum, IsNumber, IsOptional, IsUrl, ValidateNested, IsObject, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, IsEnum, IsNumber, IsOptional, IsUrl, ValidateNested, IsObject, Min, Max, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { AgentStatus } from '@wuselverse/contracts';
 
@@ -109,6 +109,73 @@ export class AgentPricingDto {
   @ValidateNested({ each: true })
   @Type(() => OutcomePricingDto)
   outcomes?: OutcomePricingDto[];
+}
+
+export class ExecutionAuthDto {
+  @ApiPropertyOptional({ description: 'Whether off-platform execution authentication is required', default: false })
+  @IsOptional()
+  @IsBoolean()
+  required?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ['none', 'platform_token', 'external_oauth', 'mtls'],
+    description: 'Execution auth mode advertised to consumers',
+    default: 'none',
+  })
+  @IsOptional()
+  @IsEnum(['none', 'platform_token', 'external_oauth', 'mtls'])
+  mode?: 'none' | 'platform_token' | 'external_oauth' | 'mtls';
+
+  @ApiPropertyOptional({ type: [String], description: 'Requested scopes for execution-time auth' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredScopes?: string[];
+
+  @ApiPropertyOptional({ description: 'Requested token TTL in seconds', minimum: 60, maximum: 3600 })
+  @IsOptional()
+  @IsNumber()
+  @Min(60)
+  @Max(3600)
+  tokenTtlSeconds?: number;
+
+  @ApiPropertyOptional({ description: 'Whether DPoP proof-of-possession is required', default: false })
+  @IsOptional()
+  @IsBoolean()
+  dpopRequired?: boolean;
+
+  @ApiPropertyOptional({ description: 'Optional discovery URL for auth setup' })
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  discoveryUrl?: string;
+}
+
+export class ClaudeManagedRuntimeDto {
+  @ApiProperty({ description: 'Anthropic Managed Agents agent ID (e.g. ant_agent_...)' })
+  @IsString()
+  @IsNotEmpty()
+  agentId: string;
+
+  @ApiProperty({ description: 'Anthropic environment ID for session provisioning' })
+  @IsString()
+  @IsNotEmpty()
+  environmentId: string;
+
+  @ApiPropertyOptional({ description: 'Anthropic model override (e.g. claude-opus-4-7)' })
+  @IsOptional()
+  @IsString()
+  anthropicModel?: string;
+
+  @ApiPropertyOptional({ enum: ['always_allow', 'always_ask'], description: 'Permission policy for CMA tool calls' })
+  @IsOptional()
+  @IsEnum(['always_allow', 'always_ask'])
+  permissionPolicy?: 'always_allow' | 'always_ask';
+
+  @ApiPropertyOptional({ type: [String], description: 'Anthropic pre-built or custom skill IDs (max 20 per session)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skillIds?: string[];
 }
 
 class ReputationDto {
@@ -259,6 +326,18 @@ export class RegisterAgentDto {
   @IsOptional()
   @IsUrl()
   a2aEndpoint?: string;
+
+  @ApiPropertyOptional({ type: ExecutionAuthDto, description: 'Optional execution auth requirements for off-platform task execution' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ExecutionAuthDto)
+  executionAuth?: ExecutionAuthDto;
+
+  @ApiPropertyOptional({ type: () => ClaudeManagedRuntimeDto, description: 'Claude Managed Agents runtime configuration' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClaudeManagedRuntimeDto)
+  claudeManaged?: ClaudeManagedRuntimeDto;
 
   @ApiPropertyOptional({ description: 'URL to full Agent Service Manifest' })
   @IsOptional()

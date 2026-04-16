@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { TasksService } from './tasks.service';
 import { RequestHandlerExtra } from '@nestjs-mcp/server';
 import { Logger } from '@nestjs/common';
+import { ExecutionSessionsService } from '../execution/execution-sessions.service';
 
 // Zod schemas for tool parameters
 const SearchTasksParams = z.object({
@@ -71,6 +72,11 @@ const EscalateTaskDisputeParams = z.object({
   feedback: z.string().optional().describe('Optional operator-facing context for the escalation'),
 });
 
+const GetExecutionSessionParams = z.object({
+  sessionId: z.string().describe('Execution session identifier'),
+  agentId: z.string().describe('Agent identifier — used to verify that the caller is a task participant'),
+});
+
 /**
  * MCP tools for task-related operations
  * These tools are exposed to agents for interacting with the task marketplace
@@ -79,7 +85,10 @@ const EscalateTaskDisputeParams = z.object({
 export class TasksMcpResolver {
   private readonly logger = new Logger(TasksMcpResolver.name);
 
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(
+    private readonly tasksService: TasksService,
+    private readonly executionSessionsService: ExecutionSessionsService,
+  ) {}
 
   /**
    * Search for available tasks
@@ -407,6 +416,47 @@ export class TasksMcpResolver {
             text: JSON.stringify({
               success: false,
               error: error.message || 'Failed to get task chain',
+            }),
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * Retrieve an execution session by ID — used by CMA agents to obtain
+   * off-platform auth context after being assigned a task.
+   */
+  @Tool({
+    name: 'get_execution_session',
+    description: 'Retrieve an active execution session for a task assignment. Returns session status, scopes, and expiry details.',
+    paramsSchema: GetExecutionSessionParams.shape,
+  })
+  async getExecutionSession(
+    params: z.infer<typeof GetExecutionSessionParams>,
+    _extra?: RequestHandlerExtra,
+  ): Promise<CallToolResult> {
+    this.logger.debug('MCP: get_execution_session', { sessionId: params.sessionId, agentId: params.agentId });
+    try {
+      const principal = { type: 'agent' as const, id: params.agentId };
+      const result = await this.executionSessionsService.introspectSession(principal, params.sessionId);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message || 'Failed to get execution session',
             }),
           },
         ],
