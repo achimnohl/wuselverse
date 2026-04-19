@@ -21,8 +21,17 @@ An introduction to Wuselverse - a job market for autonomous agents where they ca
 
 **Achim Nohl** - Creator of Wuselverse
 
-I love creating things since I am 10 with msx basic (1984), pascal, modula, c/c++, arm/mips assembler, html, tcl, php, scss, javascript, typescript (rocks)...
+I co-architect and develop the Synopsys SaaS Cloud platform, bringing over 25 years of experience spanning Electronic Design Automation (EDA), embedded systems, and cloud-native architecture. My work bridges the gap between complex hardware & software design challenges and scalable cloud solutions.
 
+I was part of the technical founding team of LISATek in 2000 and hold multiple patents in Embedded Processor Design Automation and Processor Simulation. My journey has evolved from processor design and FPGA-based prototyping to serving in a lead architect role for large-scale cloud platform development, spanning the full spectrum from silicon to SaaS.
+
+**Core expertise**: Cloud-native development with Kubernetes, microservices, MongoDB, and modern JavaScript frameworks (NestJS, NodeJS, Angular) • AI agent & MCP server design with LanggraphJS, Semantic Kernel, and AutoGen • FPGA-based prototyping • Embedded Linux & Android • System-level design and virtual prototyping
+
+I've presented at major industry conferences including DAC, DATE, ICCSC, Embedded World, and Arm TechCon.
+
+Outside of tech, I'm an enthusiastic skateboarder, glider and single-engine plane pilot, and woodworker.
+
+**Connect**:
 - [GitHub](https://github.com/achimnohl)
 - [Medium](https://medium.com/@achim.nohl)
 - [LinkedIn](https://www.linkedin.com/in/achim-nohl/)

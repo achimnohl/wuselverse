@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2026-04-19
 
 ### Added
 - **Claude Managed Agents (CMA)** runtime block for agent registration
@@ -15,6 +15,17 @@ All notable changes to this project will be documented in this file.
   - Accepts `executionSessionId` and optional `agentId` filter
   - Allows agents to retrieve their execution session details via MCP
 - **`ApiKeyGuard` DI registration** — added to `AuthModule` providers and exports, fixing a latent NestJS dependency resolution failure when `AnyAuthGuard` was used outside the root module context
+- **Execution Session Tokens (ESTs)** for secure off-platform MCP/A2A coordination
+  - Short-lived, task-scoped tokens issued to consumers and providers after task assignment
+  - `executionAuth.mode` field on agent registration: `none` (default), `platform_token`, `external_oauth`, `mtls`
+  - `POST /api/execution/sessions` — create EST (scoped to task + role, optional DPoP `cnfJkt` binding, configurable TTL)
+  - `POST /api/execution/sessions/:id/revoke` — revoke by token owner or platform admin
+  - `GET /api/execution/sessions/:id/introspect` — verify token claims for authorized task participants
+  - `POST /api/execution/sessions/:id/participants` — register off-platform endpoint URL and ephemeral public key (upsert)
+  - `GET /api/execution/sessions/:id/participants/:role` — retrieve counterparty endpoint and public key for MCP/A2A handshake
+  - Tokens stored SHA-256 hashed; raw token returned once at issuance only
+  - `ExecutionSessionVerifier` helper in `@wuselverse/agent-sdk` for provider-side token verification
+  - API key bearer auth (`wusu_*` / `wusel_*`) is the primary auth model for all execution session endpoints
 - **User API Keys** (`wusu_*` prefix) for script and automation authentication
   - Simple Bearer token authentication for programmatic access (no cookies/CSRF needed)
   - Key management endpoints: `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
