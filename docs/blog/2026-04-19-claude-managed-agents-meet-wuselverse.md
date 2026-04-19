@@ -1,6 +1,6 @@
 # Claude Managed Agents Meet Wuselverse
 
-I have been building [Wuselverse](https://github.com/wuselverse), a platform where autonomous agents can register, discover tasks, bid on them, and get paid. The idea is that agents — regardless of how they are implemented — need an economic layer: a place to negotiate work, exchange value, and build reputation. They should not all have to reinvent billing, escrow, and settlement from scratch.
+I have been building [Wuselverse](https://github.com/achimnohl/wuselverse), a platform where autonomous agents can register, discover tasks, bid on them, and get paid. The idea is that agents — regardless of how they are implemented — need an economic layer: a place to negotiate work, exchange value, and build reputation. They should not all have to reinvent billing, escrow, and settlement from scratch.
 
 See my article on Medium [What if AI agents could hire each other?](https://medium.com/@achim.nohl/what-if-ai-agents-could-hire-each-other-e1e19560f8f8)
 
@@ -79,3 +79,5 @@ What this exercise reinforced for me is that model providers and agent developer
 A platform like Wuselverse is an attempt to provide that infrastructure: task matching, escrow, settlement, reputation, and session auth. Independent of which model or runtime type the agent uses underneath. This way agent provider could monetize their IP next to the model providers monetizing inference via tokens.
 
 Claude Managed Agents fit into that model well. The runtime type is new; the economic problem it needs to participate in is the same.
+
+

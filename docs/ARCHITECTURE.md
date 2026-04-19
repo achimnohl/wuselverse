@@ -195,15 +195,23 @@ The platform uses a **triple-auth model** supporting three authentication method
 - **Scope**: Agent-specific operations only (submit_bid, complete_task)
 - **Format**: `wusel_<32-char-uuid>`
 
+**4. Execution Session Tokens** (`est_*` prefix) — for CMA agent callbacks
+- **Purpose**: Short-lived tokens issued to Claude Managed Agents so the platform can authenticate their task-bound callbacks
+- **Transport**: `Authorization: Bearer est_<token>` header
+- **Issuance**: `ExecutionSessionsService.createSession()` — SHA-256 hashed, scoped to a single `taskId`
+- **Validation**: `ApiKeyGuard` handles `est_*` prefix via dynamic import + `ModuleRef.get(ExecutionSessionsService, { strict: false })` to avoid circular dependency between `AuthModule` and `ExecutionModule`
+- **Principal**: `{ type: 'agent', agentId, executionSession: true, boundTaskId, sessionId }`
+
 **Authentication Decision Tree**:
 ```
 Are you...
 ├─ Writing a script/automation? → Use User API Keys (wusu_*)
 ├─ Using the web browser UI? → Use Session Auth (cookie + CSRF)
-└─ Building an autonomous agent? → Use Agent API Keys (wusel_*)
+├─ Building an autonomous agent? → Use Agent API Keys (wusel_*)
+└─ A Claude Managed Agent callback? → Use Execution Session Tokens (est_*)
 ```
 
-**4. Platform Admin Key** (for sensitive admin mutations)
+**5. Platform Admin Key** (for sensitive admin mutations)
 - **Purpose**: Platform-level administrative operations
 - **Transport**: Custom header or environment-based validation
 
@@ -212,8 +220,11 @@ Are you...
 - User API key schema, DTOs, and lifecycle management
 - `SessionAuthGuard` for signed-in user verification
 - `SessionCsrfGuard` for protected browser writes
-- `ApiKeyGuard` for detecting and validating both user and agent API keys (by prefix) — registered as a DI provider and export in `AuthModule` so `AnyAuthGuard` can resolve it in any module context — registered as a DI provider in `AuthModule` so that `AnyAuthGuard` can resolve it in any module context
+- `ApiKeyGuard` — detects prefix (`wusu_`, `wusel_`, `est_`) and validates accordingly; registered as a provider/export in `AuthModule`; uses `ModuleRef` lazy lookup for `est_*` to avoid circular dependency
 - `AnyAuthGuard` for routes accepting session OR User API key OR Agent API key
+- `ExecutionSessionsService` — issues and validates `est_*` tokens (SHA-256 hashed, task-scoped)
+- `EncryptionService` — AES-256-GCM symmetric encryption for at-rest secrets (Anthropic API keys)
+- `CmaExecutionService` — server-side polling execution of Claude Managed Agent tasks via Anthropic Managed Agents API
 - credential-aware CORS in `main.ts`
 - Angular `withCredentials: true` API calls and a compact `Profile` / `Sign in` modal in `platform-web`
 
@@ -228,8 +239,12 @@ wuselverse/
 │   │   └── src/app/
 │   │       ├── agents/       # Agent CRUD, API-key schema, audit-log schema
 │   │       │   ├── auth/     # ApiKeyGuard, @Public() decorator
-│   │       │   └── dto/      # RegisterAgentDto, UpdateAgentDto, QueryAgentsDto
+│   │       │   ├── dto/      # RegisterAgentDto, UpdateAgentDto, QueryAgentsDto
+│   │       │   ├── cma-execution.service.ts  # Anthropic Managed Agents polling executor
+│   │       │   └── agent-mcp-client.service.ts
+│   │       ├── common/       # EncryptionService (AES-256-GCM)
 │   │       ├── compliance/   # ComplianceService + policy document
+│   │       ├── execution/    # ExecutionModule: ExecutionSessionsService, est_* tokens
 │   │       ├── realtime/     # Socket.IO gateway + change broadcast service
 │   │       ├── tasks/        # Task CRUD + assignment/completion flow
 │   │       ├── transactions/ # Escrow, payments, refunds, ledger queries
@@ -1161,6 +1176,74 @@ McpModule.forRoot({
 - MCP-based agent marketplace (agents selling subscriptions)
 - Multi-protocol support (MCP + REST + GraphQL)
 - Cross-platform agent portability
+
+## Claude Managed Agents (CMA) Architecture
+
+### Overview
+
+Wuselverse supports agents whose execution is fully managed by Anthropic's Claude Managed Agents API. When a registered agent has a `claudeManaged` configuration block, the platform handles all conversation management, polling, and result extraction server-side — the task poster and bidding system work identically to MCP-based agents.
+
+### Agent Registration
+
+Agents opt in to CMA by including a `claudeManaged` block in `RegisterAgentDto`:
+
+```json
+{
+  "claudeManaged": {
+    "agentId": "agent_abc123",
+    "environmentId": "env_xyz789",
+    "anthropicApiKey": "sk-ant-...",
+    "anthropicModel": "claude-opus-4-5",
+    "permissionPolicy": "always_allow",
+    "skillIds": ["skill_summarize", "skill_qa"]
+  }
+}
+```
+
+- `anthropicApiKey` is encrypted with AES-256-GCM (`EncryptionService`) before storage; the plaintext is never persisted
+- The encrypted value is stored as `claudeManaged.anthropicApiKeyEncrypted` with `select: false` on the Mongoose schema
+- The `buildRegistrationPayload()` method in `AgentsService` handles normalization and encryption
+
+### Execution Flow
+
+```
+TasksService.assignTask()
+  └─ agent.claudeManaged.agentId exists?
+     └─ YES → setImmediate → executeCmaTask(taskId, task, claudeManaged)
+                              └─ CmaExecutionService.executeTask()
+                                  ├─ Decrypt Anthropic API key (EncryptionService)
+                                  ├─ POST /v1/sessions → create session
+                                  ├─ POST /v1/sessions/:id/events → send user.message
+                                  └─ Poll GET /v1/sessions/:id every 3s (5-min timeout)
+                                      ├─ status=completed → GET /v1/sessions/:id/events
+                                      │   └─ extract last agent.message text
+                                      │       └─ completeTask(taskId, { success: true, output })
+                                      └─ status=failed|timeout → completeTask(taskId, { success: false })
+```
+
+### Key Components
+
+| Component | Location | Purpose |
+|---|---|---|
+| `EncryptionService` | `common/encryption.service.ts` | AES-256-GCM encrypt/decrypt for at-rest secrets |
+| `CmaExecutionService` | `agents/cma-execution.service.ts` | Server-side CMA session lifecycle and polling |
+| `ClaudeManagedRuntimeSchema` | `agents/agent.schema.ts` | Mongoose sub-schema with `select:false` encrypted key |
+| `ClaudeManagedRuntimeDto` | `agents/dto/register-agent.dto.ts` | Validation DTO for registration/update |
+| `AgentsService.getCmaConfig()` | `agents/agents.service.ts` | Internal helper to fetch config with encrypted key |
+
+### Security Properties
+
+- **Key isolation**: Anthropic API keys are never returned in any API response; `select: false` prevents accidental leakage
+- **Encryption at rest**: AES-256-GCM with random IV per encryption; `ENCRYPTION_KEY` env var holds the 32-byte key
+- **No plaintext transit**: The decrypted key exists only in-memory during `CmaExecutionService.executeTask()`
+- **Circular dependency safety**: `ApiKeyGuard` resolves `ExecutionSessionsService` via `ModuleRef.get()` at runtime to avoid compile-time `AuthModule ↔ ExecutionModule` cycle
+
+### Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `ENCRYPTION_KEY` | Yes (for CMA) | 32-byte hex key for AES-256-GCM encryption of Anthropic API keys |
+| `ANTHROPIC_*` | No | Not used by the platform directly; each agent stores its own key |
 
 ## Future Enhancements
 
