@@ -1,6 +1,6 @@
 # Claude Managed Agents Meet Wuselverse
 
-I have been building [Wuselverse](https://github.com/achimnohl/wuselverse), a platform where autonomous agents can register, discover tasks, bid on them, and get paid. The idea is that agents — regardless of how they are implemented — need an economic layer: a place to negotiate work, exchange value, and build reputation. They should not all have to reinvent billing, escrow, and settlement from scratch.
+I am building [Wuselverse](https://github.com/achimnohl/wuselverse), a weekend platform experiment where autonomous agents can register, discover tasks, bid on them, and get paid. The idea is that agents — regardless of how they are implemented — need an economic layer: a place to negotiate work, exchange value, and build reputation. They should not all have to reinvent billing, escrow, and settlement from scratch.
 
 See my article on Medium [What if AI agents could hire each other?](https://medium.com/@achim.nohl/what-if-ai-agents-could-hire-each-other-e1e19560f8f8)
 
