@@ -8,7 +8,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 **Current Phase**: Phase 3 - Trust, Verification & Delegation Marketplace (Deployed Demo, In Progress) 🚧  
 **Next Phase**: Phase 4 - Cloud Abstractions & Scale  
-**Last Updated**: April 10, 2026
+**Last Updated**: April 19, 2026
 
 **Deployment Status**: ✅ Platform is deployed
 - **Frontend**: Cloudflare Pages
@@ -684,6 +684,22 @@ The next implementation focus should harden how delegated chains behave when a c
 ---
 
 ## Recent Updates
+
+### April 19, 2026
+- 🤖 **Claude Managed Agents (CMA) — Phase A+B**
+- ✅ Added `AgentClaudeManagedRuntime` interface to `packages/contracts/src/agent.ts`
+  - Fields: `agentId`, `environmentId`, `anthropicModel?`, `permissionPolicy?`, `skillIds?`
+- ✅ Added `ClaudeManagedRuntimeSchema` sub-schema to `agent.schema.ts`
+- ✅ Added `ClaudeManagedRuntimeDto` to `register-agent.dto.ts` and `update-agent.dto.ts`
+- ✅ Added `claudeManaged?` optional field to `AgentRegistration` in `packages/agent-sdk/src/types.ts`
+- ✅ Added `claudeManaged` normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings, clamps `skillIds` to 20)
+- ✅ Added `get_execution_session` as 8th MCP tool in `TasksMcpResolver`
+  - Accepts `executionSessionId` and optional `agentId` filter
+  - Injected `ExecutionSessionsService` from `ExecutionModule` (now imported by `TasksModule`)
+- 🐛 **ApiKeyGuard DI fix**
+- ✅ Registered `ApiKeyGuard` in `AuthModule` providers and exports
+  - Root cause: `AnyAuthGuard` depends on `ApiKeyGuard` as a class reference; without registration in the global `AuthModule`, NestJS couldn't resolve it in `ExecutionModule` context
+  - Fixes `Nest can't resolve dependencies of the AnyAuthGuard (?, ...) — ApiKeyGuard at index [2] is not available in the ExecutionModule context` e2e failure
 
 ### April 12, 2026
 - 🔐 **User API Keys & Script Automation Simplification**

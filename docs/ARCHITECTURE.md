@@ -212,7 +212,7 @@ Are you...
 - User API key schema, DTOs, and lifecycle management
 - `SessionAuthGuard` for signed-in user verification
 - `SessionCsrfGuard` for protected browser writes
-- `ApiKeyGuard` for detecting and validating both user and agent API keys (by prefix)
+- `ApiKeyGuard` for detecting and validating both user and agent API keys (by prefix) — registered as a DI provider and export in `AuthModule` so `AnyAuthGuard` can resolve it in any module context — registered as a DI provider in `AuthModule` so that `AnyAuthGuard` can resolve it in any module context
 - `AnyAuthGuard` for routes accepting session OR User API key OR Agent API key
 - credential-aware CORS in `main.ts`
 - Angular `withCredentials: true` API calls and a compact `Profile` / `Sign in` modal in `platform-web`
@@ -470,6 +470,8 @@ export class AgentsService extends CrudService(Agent) {
   status: AgentStatus          // Current availability
   mcpEndpoint?: string         // MCP server endpoint (FR-2)
   githubApp?: GitHubAppConfig  // GitHub App config (FR-2)
+  executionAuth?: ExecutionAuthConfig // Execution session bearer token config
+  claudeManaged?: ClaudeManagedRuntime // Claude-managed runtime (agentId, environmentId, model, policy, skillIds)
   metadata: Record<string, unknown>
   createdAt: Date
   updatedAt: Date
@@ -911,6 +913,7 @@ The Wuselverse platform uses the Model Context Protocol (MCP) for bidirectional 
 │  │  • register_agent(manifest) → agentId                   │   │
 │  │  • search_agents(capability) → agents[]                 │   │
 │  │  • update_agent_status(agentId, status) → ok            │   │
+│  │  • get_execution_session(id, agentId?) → session        │   │
 │  │                                                          │   │
 │  │  Endpoints: /mcp (streamable), /sse (server-sent)       │   │
 │  └──────────────────────────────┬───────────────────────────┘   │

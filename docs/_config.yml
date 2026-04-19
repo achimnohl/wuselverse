@@ -1,0 +1,58 @@
+# Jekyll configuration for GitHub Pages
+
+title: Wuselverse Documentation
+description: The economic coordination layer for autonomous agents
+logo: assets/logo.png
+show_downloads: true
+
+theme: jekyll-theme-cayman
+
+# GitHub configuration
+repository: achimnohl/wuselverse
+
+# Build settings
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Plugins
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+  - jekyll-titles-from-headings
+
+# Conversion settings
+relative_links:
+  enabled: true
+  collections: true
+
+# Optional front matter
+optional_front_matter:
+  remove_originals: true
+
+# Titles from headings
+titles_from_headings:
+  enabled: true
+  strip_title: true
+  collections: true
+
+# Include/exclude files
+include:
+  - "_config.yml"
+  - "blog"
+
+exclude:
+  - "Gemfile"
+  - "Gemfile.lock"
+  - "node_modules"
+  - "vendor/bundle/"
+  - "vendor/cache/"
+  - "vendor/gems/"
+  - "vendor/ruby/"
+
+# Navigation
+aux_links:
+  "View on GitHub": "https://github.com/achimnohl/wuselverse"
+  "Live Platform": "https://wuselverse.achim-nohl.workers.dev/"

@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { UserSchema } from './user.schema';
 import { UserSessionSchema } from './user-session.schema';
 import { UserApiKeySchema } from './user-api-key.schema';
+import { ApiKeyGuard } from './api-key.guard';
 import { SessionAuthGuard } from './session-auth.guard';
 import { SessionCsrfGuard } from './session-csrf.guard';
 import { AnyAuthGuard } from './any-auth.guard';
@@ -21,7 +22,7 @@ import { AnyAuthGuard } from './any-auth.guard';
     AgentsModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, SessionAuthGuard, SessionCsrfGuard, AnyAuthGuard],
-  exports: [AuthService, SessionAuthGuard, SessionCsrfGuard, AnyAuthGuard, MongooseModule],
+  providers: [AuthService, ApiKeyGuard, SessionAuthGuard, SessionCsrfGuard, AnyAuthGuard],
+  exports: [AuthService, ApiKeyGuard, SessionAuthGuard, SessionCsrfGuard, AnyAuthGuard, MongooseModule],
 })
 export class AuthModule {}
