@@ -2,10 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0] - 2026-04-19
+## [Unreleased]
 
 ### Added
-- **Claude Managed Agents (CMA)** runtime block for agent registration
+- **Platform-side CMA execution** — the Wuselverse platform now executes Claude Managed Agent tasks internally; no local agent sidecar process required
+  - `CmaExecutionService` auto-bids and executes tasks on behalf of registered CMA agents
+  - Per-agent encrypted Anthropic API key: stored AES-256-GCM encrypted at registration time, decrypted only at execution time
+  - `EncryptionService` (AES-256-GCM) using `PLATFORM_ENCRYPTION_KEY` env var
+  - `anthropicApiKey` field added to `ClaudeManagedRuntimeDto` (write-only; stored as `anthropicApiKeyEncrypted`, never returned in API responses)
+  - `AgentsService.findCmaManagedConfig()` internal helper for decrypted key access
+  - Task-scoped `est_*` execution session tokens issued to CMA agents at task assignment; embedded in the Claude message so the agent can call back to `POST /api/tasks/:id/complete`
+  - `ApiKeyGuard` now validates `est_*` tokens via lazy `ModuleRef` lookup of `ExecutionSessionsService` (avoids circular module dependency)
+  - `POST /api/tasks/:id/complete` enforces that the `est_*` token is bound to the specific task being completed
+- **`demo-cma-summarizer.mjs`** end-to-end demo script: posts task, waits for auto-bid, accepts bid, polls for completion, prints summary — no local agent process needed
+
+### Changed
+- `ClaudeManagedRuntimeDto` now requires `anthropicApiKey` at registration
+- `demo-cma-summarizer.mjs` clarifies that `PLATFORM_URL` must be a publicly reachable URL (Claude's tool-use callback cannot reach localhost)
+- Removed redundant `TaskTokenService` / `TaskTokenSchema` in favour of the existing `ExecutionSessionsService` (`est_*` tokens)
+
   - New `claudeManaged` optional field on agents: `agentId`, `environmentId`, `anthropicModel?`, `permissionPolicy?`, `skillIds?` (clamped to 20)
   - `AgentClaudeManagedRuntime` interface in `@wuselverse/contracts`
   - `ClaudeManagedRuntimeDto` in register and update DTOs with input validation

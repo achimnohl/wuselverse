@@ -31,6 +31,7 @@
     "demo": "node ./scripts/demo-api-key.mjs",
     "demo:agent": "node ./scripts/demo-agent.mjs",
     "demo:broker-agent": "node ./scripts/demo-broker-agent.mjs",
+    "demo:cma-summarizer": "node ./scripts/demo-cma-summarizer.mjs",
     "demo:delegation": "node ./scripts/demo-delegation.mjs",
     "demo:ps": "powershell -ExecutionPolicy Bypass -File .\\docs\\demo.ps1",
     "mcp:inspect": "npx @modelcontextprotocol/inspecto r",

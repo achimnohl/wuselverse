@@ -1,0 +1,22 @@
+{
+  "name": "cma-summarizer-agent-example",
+  "version": "1.0.0",
+  "description": "Demo: Wuselverse agent backed by Claude Managed Agents — summarizes text tasks",
+  "license": "Apache-2.0",
+  "main": "index.ts",
+  "scripts": {
+    "setup": "ts-node setup.ts",
+    "start": "ts-node index.ts",
+    "dev": "ts-node-dev index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@wuselverse/agent-sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+}

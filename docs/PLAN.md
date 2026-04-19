@@ -686,20 +686,40 @@ The next implementation focus should harden how delegated chains behave when a c
 ## Recent Updates
 
 ### April 19, 2026
-- 🤖 **Claude Managed Agents (CMA) — Phase A+B**
-- ✅ Added `AgentClaudeManagedRuntime` interface to `packages/contracts/src/agent.ts`
-  - Fields: `agentId`, `environmentId`, `anthropicModel?`, `permissionPolicy?`, `skillIds?`
-- ✅ Added `ClaudeManagedRuntimeSchema` sub-schema to `agent.schema.ts`
-- ✅ Added `ClaudeManagedRuntimeDto` to `register-agent.dto.ts` and `update-agent.dto.ts`
-- ✅ Added `claudeManaged?` optional field to `AgentRegistration` in `packages/agent-sdk/src/types.ts`
-- ✅ Added `claudeManaged` normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings, clamps `skillIds` to 20)
-- ✅ Added `get_execution_session` as 8th MCP tool in `TasksMcpResolver`
+- 🤖 **Claude Managed Agents (CMA) — Full Platform-Side Execution**
+- ✅ **Data model**
+  - Added `AgentClaudeManagedRuntime` interface to `packages/contracts/src/agent.ts` (`agentId`, `environmentId`, `anthropicModel?`, `permissionPolicy?`, `skillIds?`)
+  - Added `ClaudeManagedRuntimeSchema` sub-schema to `agent.schema.ts` with `anthropicApiKeyEncrypted` (select:false)
+  - Added `ClaudeManagedRuntimeDto` to `register-agent.dto.ts` and `update-agent.dto.ts`
+  - Added `claudeManaged?` optional field to `AgentRegistration` in `packages/agent-sdk/src/types.ts`
+  - Added `claudeManaged` normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings, clamps `skillIds` to 20)
+- ✅ **`EncryptionService`** — AES-256-GCM symmetric encryption service in `common/encryption.service.ts`
+  - Reads `ENCRYPTION_KEY` environment variable (32-byte hex)
+  - Provides `encrypt(plaintext)` and `decrypt(ciphertext)` methods
+  - Used to store Anthropic API keys at-rest in the agent document
+- ✅ **`CmaExecutionService`** — server-side CMA task execution via Anthropic Managed Agents API
+  - Located at `apps/platform-api/src/app/agents/cma-execution.service.ts`
+  - Signature: `executeTask(claudeManaged: CmaAgentConfig, taskDescription: string, taskId: string): Promise<CmaTaskResult>`
+  - Creates an Anthropic session, sends a `user.message` event, polls `GET /sessions/:id` every 3 s (5-min timeout), extracts last `agent.message` text
+  - Returns `{ success: true, output: { summary } }` on completion or `{ success: false, output: { error } }` on failure/timeout
+  - Uses `EncryptionService.decrypt()` to recover the Anthropic API key before each call
+  - No outbound callback URL — fully server-side polling
+- ✅ **`TasksService.executeCmaTask()`** — integrated CMA execution path
+  - Invoked automatically after task assignment when `agent.claudeManaged.agentId` is set
+  - Calls `CmaExecutionService.executeTask(claudeManaged, text, taskId)` and awaits result
+  - Calls `completeTask()` with the returned result — no `est_*` token needed for polling mode
+- ✅ **`get_execution_session`** — 8th MCP tool added to `TasksMcpResolver`
   - Accepts `executionSessionId` and optional `agentId` filter
-  - Injected `ExecutionSessionsService` from `ExecutionModule` (now imported by `TasksModule`)
+  - `TasksModule` imports `ExecutionModule` so `ExecutionSessionsService` is available
+- ✅ **`est_*` token support in `ApiKeyGuard`** — execution session tokens authenticate CMA agent callbacks
+  - Dynamic `import('../execution/execution-sessions.service')` + `moduleRef.get(ExecutionSessionsService, { strict: false })` breaks the `AuthModule ↔ ExecutionModule` circular dependency
+  - Sets principal `{ type: 'agent', agentId, executionSession: true, boundTaskId, sessionId }`
 - 🐛 **ApiKeyGuard DI fix**
-- ✅ Registered `ApiKeyGuard` in `AuthModule` providers and exports
-  - Root cause: `AnyAuthGuard` depends on `ApiKeyGuard` as a class reference; without registration in the global `AuthModule`, NestJS couldn't resolve it in `ExecutionModule` context
-  - Fixes `Nest can't resolve dependencies of the AnyAuthGuard (?, ...) — ApiKeyGuard at index [2] is not available in the ExecutionModule context` e2e failure
+  - Registered `ApiKeyGuard` in `AuthModule` providers and exports so `AnyAuthGuard` can resolve it in any module context (fixes `ExecutionModule context` injection error)
+- ✅ **`text-processor-agent` migrated to API key auth**
+  - Removed session/cookie/CSRF helpers; now reads `WUSELVERSE_API_KEY` and sends `Authorization: Bearer` header
+  - Matches the `delegating-text-broker-agent` pattern
+- ✅ **Blog post** created at `docs/blog/2026-04-19-claude-managed-agents-meet-wuselverse.md`
 
 ### April 12, 2026
 - 🔐 **User API Keys & Script Automation Simplification**

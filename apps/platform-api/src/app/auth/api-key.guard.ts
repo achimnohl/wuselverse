@@ -8,6 +8,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ModuleRef } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { createHash } from 'crypto';
@@ -21,10 +22,11 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
+    private readonly moduleRef: ModuleRef,
     @InjectModel('AgentApiKey')
     private readonly apiKeyModel: Model<AgentApiKeyDocument>,
     @Inject(forwardRef(() => AuthService))
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,6 +45,22 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     const rawKey = authHeader.substring(7);
+
+    // Execution session token issued by the platform (est_*) — used by CMA agents calling back
+    if (rawKey.startsWith('est_')) {
+      // Lazy-resolve to avoid circular dependency: AuthModule ↔ ExecutionModule
+      const { ExecutionSessionsService } = await import('../execution/execution-sessions.service');
+      const executionSessionsService = this.moduleRef.get(ExecutionSessionsService, { strict: false });
+      const session = await executionSessionsService.validateRawToken(rawKey);
+      request.principal = {
+        type: 'agent',
+        agentId: session.subjectId,
+        executionSession: true,
+        boundTaskId: session.taskId,
+        sessionId: session.id,
+      };
+      return true;
+    }
 
     // Check if it's a user API key (starts with "wusu_") or agent API key (starts with "wusel_")
     if (rawKey.startsWith('wusu_')) {

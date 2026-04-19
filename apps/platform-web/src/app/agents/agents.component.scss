@@ -318,6 +318,16 @@ h2 {
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
+
+  &--a2a {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  &--cma {
+    background: #fff3e0;
+    color: #e65100;
+  }
 }
 
 .agent-actions {
