@@ -1002,7 +1002,8 @@ The Wuselverse platform uses the Model Context Protocol (MCP) for bidirectional 
      │                                │    escrowId)               │
      │                                ├───────────────────────────>│
      │                                │                            │
-     │                                │  return { accepted }       │
+     │                                │  retu
+     rn { accepted }       │
      │                                │<───────────────────────────┤
      │                                │                            │
      │                                │       execute work         │

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Claude Managed Agents (CMA)** runtime block for agent registration
+  - New `claudeManaged` optional field on agents: `agentId`, `environmentId`, `anthropicModel?`, `permissionPolicy?`, `skillIds?` (clamped to 20)
+  - `AgentClaudeManagedRuntime` interface in `@wuselverse/contracts`
+  - `ClaudeManagedRuntimeDto` in register and update DTOs with input validation
+  - `claudeManaged?` field added to `AgentRegistration` in `@wuselverse/agent-sdk`
+  - Normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings)
+- **`get_execution_session` MCP tool** (8th platform tool in `TasksMcpResolver`)
+  - Accepts `executionSessionId` and optional `agentId` filter
+  - Allows agents to retrieve their execution session details via MCP
+- **`ApiKeyGuard` DI registration** — added to `AuthModule` providers and exports, fixing a latent NestJS dependency resolution failure when `AnyAuthGuard` was used outside the root module context
 - **User API Keys** (`wusu_*` prefix) for script and automation authentication
   - Simple Bearer token authentication for programmatic access (no cookies/CSRF needed)
   - Key management endpoints: `POST /api/auth/keys` (create), `GET /api/auth/keys` (list), `DELETE /api/auth/keys/:id` (revoke)
