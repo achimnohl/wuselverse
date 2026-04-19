@@ -200,6 +200,11 @@ export class TasksController extends TasksCRUDBase {
       throw new Error('Agent ID not found in request');
     }
 
+    // If this is a task-scoped execution session token, verify it is bound to this exact task
+    if (req.principal?.executionSession && req.principal?.boundTaskId !== taskId) {
+      throw new Error('Execution session token is not authorized for this task');
+    }
+
     this.logger.log('POST /tasks/:id/complete - Completing task', {
       taskId,
       agentId,

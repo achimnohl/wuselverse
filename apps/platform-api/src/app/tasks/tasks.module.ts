@@ -10,7 +10,9 @@ import { ExecutionModule } from '../execution/execution.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: 'Task', schema: TaskSchema }]),
+    MongooseModule.forFeature([
+      { name: 'Task', schema: TaskSchema },
+    ]),
     AgentsModule,
     TransactionsModule,
     ExecutionModule,

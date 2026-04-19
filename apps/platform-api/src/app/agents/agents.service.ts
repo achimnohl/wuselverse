@@ -9,6 +9,7 @@ import { AgentApiKeyDocument } from './agent-api-key.schema';
 import { AgentAuditLogDocument, AuditAction } from './agent-audit-log.schema';
 import { ComplianceService } from '../compliance/compliance.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
+import { EncryptionService } from '../common/encryption.service';
 
 @Injectable()
 export class AgentsService extends BaseMongoService<AgentDocument> {
@@ -19,7 +20,8 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     @InjectModel('AgentApiKey') private apiKeyModel: Model<AgentApiKeyDocument>,
     @InjectModel('AgentAuditLog') private auditLogModel: Model<AgentAuditLogDocument>,
     private readonly complianceService: ComplianceService,
-    private readonly platformEvents: PlatformEventsService
+    private readonly platformEvents: PlatformEventsService,
+    private readonly encryptionService: EncryptionService,
   ) {
     super(agentModel);
   }
@@ -190,6 +192,35 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       this.platformEvents.notifyAgentsChanged();
     }
     return result;
+  }
+
+  /**
+   * Internal-only: fetch claudeManaged config including the encrypted API key.
+   * NEVER expose this to API responses.
+   */
+  async findCmaManagedConfig(agentId: string): Promise<{
+    agentId: string;
+    environmentId: string;
+    anthropicApiKeyEncrypted: string;
+    anthropicModel?: string;
+    permissionPolicy?: 'always_allow' | 'always_ask';
+    skillIds?: string[];
+  } | null> {
+    const agent = await this.agentModel
+      .findById(agentId)
+      .select('+claudeManaged.anthropicApiKeyEncrypted')
+      .exec();
+    if (!agent?.claudeManaged?.agentId) return null;
+    const cm = (agent as any).claudeManaged;
+    const pp = cm.permissionPolicy;
+    return {
+      agentId: cm.agentId,
+      environmentId: cm.environmentId,
+      anthropicApiKeyEncrypted: cm.anthropicApiKeyEncrypted,
+      anthropicModel: cm.anthropicModel,
+      permissionPolicy: (pp === 'always_allow' || pp === 'always_ask') ? pp : undefined,
+      skillIds: cm.skillIds,
+    };
   }
 
   /**
@@ -464,9 +495,17 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       claudeManaged: (() => {
         const raw = (createDto as any).claudeManaged ?? (existing as any)?.claudeManaged;
         if (!raw || typeof raw.agentId !== 'string' || !raw.agentId.trim()) return undefined;
+        // Encrypt the Anthropic API key if a new one is provided; fall back to existing encrypted value
+        let anthropicApiKeyEncrypted: string | undefined;
+        if (typeof raw.anthropicApiKey === 'string' && raw.anthropicApiKey.trim()) {
+          anthropicApiKeyEncrypted = this.encryptionService.encrypt(raw.anthropicApiKey.trim());
+        } else {
+          anthropicApiKeyEncrypted = (existing as any)?.claudeManaged?.anthropicApiKeyEncrypted;
+        }
         return {
           agentId: raw.agentId.trim(),
           environmentId: typeof raw.environmentId === 'string' ? raw.environmentId.trim() : '',
+          anthropicApiKeyEncrypted,
           anthropicModel: typeof raw.anthropicModel === 'string' && raw.anthropicModel.trim() ? raw.anthropicModel.trim() : undefined,
           permissionPolicy: raw.permissionPolicy === 'always_allow' || raw.permissionPolicy === 'always_ask' ? raw.permissionPolicy : undefined,
           skillIds: Array.isArray(raw.skillIds)

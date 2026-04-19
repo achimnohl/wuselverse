@@ -5,6 +5,8 @@ import { BaseMongoService } from '@wuselverse/crud-framework';
 import { TaskDocument } from './task.schema';
 import { AgentsService } from '../agents/agents.service';
 import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
+import { CmaExecutionService, CmaAgentConfig } from '../agents/cma-execution.service';
+import { ExecutionSessionsService } from '../execution/execution-sessions.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
@@ -17,6 +19,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     @InjectModel('Task') private taskModel: Model<TaskDocument>,
     private agentsService: AgentsService,
     private agentMcpClient: AgentMcpClientService,
+    private cmaExecutionService: CmaExecutionService,
+    private executionSessionsService: ExecutionSessionsService,
     private transactionsService: TransactionsService,
     private readonly platformEvents: PlatformEventsService
   ) {
@@ -443,7 +447,25 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       const agentResponse = await this.agentsService.findById(bid.agentId);
       const agent = agentResponse.success ? agentResponse.data : null;
 
-      if (agent?.mcpEndpoint && updateResult.success && updateResult.data) {
+      if (agent?.claudeManaged && updateResult.success && updateResult.data) {
+        this.logger.log('Triggering CMA execution for assigned task', {
+          agentId: bid.agentId,
+          taskId,
+        });
+        // Fetch the full CMA config including the encrypted API key (not returned by findById)
+        const cmaManagedConfig = await this.agentsService.findCmaManagedConfig(bid.agentId);
+        if (!cmaManagedConfig?.anthropicApiKeyEncrypted) {
+          this.logger.error(`CMA agent ${bid.agentId} has no encrypted API key — cannot start session`);
+          await this.completeTask(taskId, bid.agentId, {
+            success: false,
+            output: { error: 'Agent Anthropic API key not configured' },
+          }).catch(() => null);
+        } else {
+          this.executeCmaTask(taskId, updateResult.data, cmaManagedConfig as CmaAgentConfig).catch((error) => {
+            this.logger.error(`CMA execution failed for task ${taskId}`, error);
+          });
+        }
+      } else if (agent?.mcpEndpoint && updateResult.success && updateResult.data) {
         this.logger.debug('Notifying agent via MCP', { 
           agentId: bid.agentId, 
           mcpEndpoint: agent.mcpEndpoint 
@@ -1156,6 +1178,38 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     }
   }
 
+  private async executeCmaTask(taskId: string, task: any, claudeManaged: CmaAgentConfig): Promise<void> {
+    const text = task.description ?? task.title ?? 'No content provided.';
+    try {
+      const platformUrl = process.env.PLATFORM_URL ?? 'http://localhost:3000';
+
+      // Issue a task-scoped execution session token (est_*) bound to this task/agent
+      const sessionResult = await this.executionSessionsService.createSession(
+        { type: 'agent', id: task.assignedAgent },
+        { taskId, role: 'provider', scopes: ['task:complete'], ttlSeconds: 600 },
+      );
+      const platformToken = sessionResult.data.token;
+
+      await this.cmaExecutionService.executeTask(claudeManaged, text, {
+        taskId,
+        platformUrl,
+        platformToken,
+      });
+
+      this.logger.log(`CMA session started for task ${taskId} — awaiting agent callback`);
+    } catch (error) {
+      this.logger.error(`CMA task ${taskId} failed to start session`, error);
+      try {
+        await this.completeTask(taskId, task.assignedAgent, {
+          success: false,
+          output: { error: (error as Error).message ?? 'CMA execution failed' },
+        });
+      } catch (failError) {
+        this.logger.error(`Failed to mark CMA task ${taskId} as failed`, failError);
+      }
+    }
+  }
+
   private async requestBidsFromMatchingAgents(task: any): Promise<void> {
     const requestedCapabilities = task.requirements?.capabilities || task.requirements?.skills || [];
 
@@ -1171,9 +1225,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    // Get ALL agents with MCP endpoints
+    // Get agents with MCP endpoints OR claudeManaged config
     const allAgentsResponse = await this.agentsService.findAll({ 
-      mcpEndpoint: { $exists: true, $ne: null }
+      $or: [
+        { mcpEndpoint: { $exists: true, $ne: null } },
+        { 'claudeManaged.agentId': { $exists: true, $ne: null } },
+      ]
     });
     const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
 
@@ -1208,29 +1265,42 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       });
 
       try {
-        const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
-          taskId: task._id.toString(),
-          title: task.title,
-          description: task.description,
-          requirements: {
-            skills: requestedCapabilities,
-            budget: task.budget
-              ? {
-                  min: 0,
-                  max: task.budget.amount,
-                  currency: task.budget.currency || 'USD',
-                }
-              : undefined,
-          },
-        });
-
-        if (decision.interested) {
+        if (agent.claudeManaged?.agentId) {
+          // CMA agent: auto-bid on its behalf — no MCP call needed
+          this.logger.debug('Auto-bidding for CMA agent', { agentId, agentName: agent.name });
+          const bidAmount = Number(agent.pricing?.amount ?? task.budget?.amount ?? 1);
           await this.submitBid(task._id.toString(), {
             agentId,
-            amount: decision.proposedAmount ?? 0,
-            proposal: decision.proposal || 'Auto-submitted bid via MCP',
-            estimatedDuration: decision.estimatedDuration,
+            amount: bidAmount,
+            proposal: agent.offerDescription
+              ? `${agent.name}: ${agent.offerDescription.slice(0, 120)}`
+              : `${agent.name} will handle this task via Claude Managed Agents.`,
           });
+        } else {
+          const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
+            taskId: task._id.toString(),
+            title: task.title,
+            description: task.description,
+            requirements: {
+              skills: requestedCapabilities,
+              budget: task.budget
+                ? {
+                    min: 0,
+                    max: task.budget.amount,
+                    currency: task.budget.currency || 'USD',
+                  }
+                : undefined,
+            },
+          });
+
+          if (decision.interested) {
+            await this.submitBid(task._id.toString(), {
+              agentId,
+              amount: decision.proposedAmount ?? 0,
+              proposal: decision.proposal || 'Auto-submitted bid via MCP',
+              estimatedDuration: decision.estimatedDuration,
+            });
+          }
         }
       } catch (error) {
         this.logger.error(`Failed to request bid from agent ${agentId}`, error);

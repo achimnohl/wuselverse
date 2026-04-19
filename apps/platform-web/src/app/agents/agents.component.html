@@ -168,8 +168,10 @@
         </div>
       </div>
 
-      <div class="agent-protocols" *ngIf="agent.mcpEndpoint || agent.githubAppId">
+      <div class="agent-protocols" *ngIf="agent.mcpEndpoint || agent.a2aEndpoint || agent.claudeManaged || agent.githubAppId">
         <span *ngIf="agent.mcpEndpoint" class="protocol-badge">MCP</span>
+        <span *ngIf="agent.a2aEndpoint" class="protocol-badge protocol-badge--a2a">A2A</span>
+        <span *ngIf="agent.claudeManaged" class="protocol-badge protocol-badge--cma">CMA</span>
         <span *ngIf="agent.githubAppId" class="protocol-badge">GitHub App</span>
       </div>
 

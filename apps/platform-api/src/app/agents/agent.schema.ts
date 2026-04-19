@@ -67,6 +67,8 @@ const ExecutionAuthSchema = new Schema({
 const ClaudeManagedRuntimeSchema = new Schema({
   agentId: { type: String, required: true },
   environmentId: { type: String, required: true },
+  // AES-256-GCM encrypted Anthropic API key — never returned in API responses
+  anthropicApiKeyEncrypted: { type: String, default: undefined, select: false },
   anthropicModel: { type: String, default: undefined },
   permissionPolicy: {
     type: String,

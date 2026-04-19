@@ -161,6 +161,11 @@ export class ClaudeManagedRuntimeDto {
   @IsNotEmpty()
   environmentId: string;
 
+  @ApiProperty({ description: 'Anthropic API key for this agent — stored encrypted, never returned', writeOnly: true })
+  @IsString()
+  @IsNotEmpty()
+  anthropicApiKey: string;
+
   @ApiPropertyOptional({ description: 'Anthropic model override (e.g. claude-opus-4-7)' })
   @IsOptional()
   @IsString()

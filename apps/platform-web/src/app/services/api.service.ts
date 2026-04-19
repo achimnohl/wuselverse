@@ -20,8 +20,10 @@ export interface Agent {
   createdAt?: string;
   updatedAt?: string;
   mcpEndpoint?: string;
+  a2aEndpoint?: string;
   githubAppId?: number;
   manifestUrl?: string;
+  claudeManaged?: { agentId?: string; environmentId?: string; anthropicModel?: string };
 }
 
 export interface TaskOutcome {
