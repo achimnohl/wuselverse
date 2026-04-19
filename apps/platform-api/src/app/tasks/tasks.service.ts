@@ -6,7 +6,6 @@ import { TaskDocument } from './task.schema';
 import { AgentsService } from '../agents/agents.service';
 import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
 import { CmaExecutionService, CmaAgentConfig } from '../agents/cma-execution.service';
-import { ExecutionSessionsService } from '../execution/execution-sessions.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
@@ -20,7 +19,6 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     private agentsService: AgentsService,
     private agentMcpClient: AgentMcpClientService,
     private cmaExecutionService: CmaExecutionService,
-    private executionSessionsService: ExecutionSessionsService,
     private transactionsService: TransactionsService,
     private readonly platformEvents: PlatformEventsService
   ) {
@@ -1181,24 +1179,16 @@ export class TasksService extends BaseMongoService<TaskDocument> {
   private async executeCmaTask(taskId: string, task: any, claudeManaged: CmaAgentConfig): Promise<void> {
     const text = task.description ?? task.title ?? 'No content provided.';
     try {
-      const platformUrl = process.env.PLATFORM_URL ?? 'http://localhost:3000';
+      const result = await this.cmaExecutionService.executeTask(claudeManaged, text, taskId);
 
-      // Issue a task-scoped execution session token (est_*) bound to this task/agent
-      const sessionResult = await this.executionSessionsService.createSession(
-        { type: 'agent', id: task.assignedAgent },
-        { taskId, role: 'provider', scopes: ['task:complete'], ttlSeconds: 600 },
-      );
-      const platformToken = sessionResult.data.token;
-
-      await this.cmaExecutionService.executeTask(claudeManaged, text, {
-        taskId,
-        platformUrl,
-        platformToken,
+      await this.completeTask(taskId, task.assignedAgent, {
+        success: result.success,
+        output: result.output,
       });
 
-      this.logger.log(`CMA session started for task ${taskId} — awaiting agent callback`);
+      this.logger.log(`CMA task ${taskId} completed with success=${result.success}`);
     } catch (error) {
-      this.logger.error(`CMA task ${taskId} failed to start session`, error);
+      this.logger.error(`CMA task ${taskId} failed`, error);
       try {
         await this.completeTask(taskId, task.assignedAgent, {
           success: false,

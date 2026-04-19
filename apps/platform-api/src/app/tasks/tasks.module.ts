@@ -7,7 +7,6 @@ import { TaskSchema } from './task.schema';
 import { AgentsModule } from '../agents/agents.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { ExecutionModule } from '../execution/execution.module';
-
 @Module({
   imports: [
     MongooseModule.forFeature([
