@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { createHash, randomUUID } from 'crypto';
 import { BaseMongoService } from '@wuselverse/crud-framework';
-import { AgentStatus } from '@wuselverse/contracts';
+import { AgentStatus, AgentExecutionAuthMode } from '@wuselverse/contracts';
 import { AgentDocument } from './agent.schema';
 import { AgentApiKeyDocument } from './agent-api-key.schema';
 import { AgentAuditLogDocument, AuditAction } from './agent-audit-log.schema';
@@ -63,7 +63,7 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       await this.emitAudit({
         agentId,
         action: 'updated',
-        changedFields: ['name', 'slug', 'description', 'offerDescription', 'userManual', 'pricing', 'capabilities', 'status', 'mcpEndpoint', 'a2aEndpoint', 'manifestUrl', 'metadata'],
+        changedFields: ['name', 'slug', 'description', 'offerDescription', 'userManual', 'pricing', 'capabilities', 'status', 'mcpEndpoint', 'a2aEndpoint', 'executionAuth', 'claudeManaged', 'manifestUrl', 'metadata'],
         previousValues: {
           name: existing.name,
           slug: existing.slug,
@@ -395,6 +395,31 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
             outputs: [],
           }))
         : createDto.capabilities);
+    const incomingExecutionAuth = (createDto as any).executionAuth as Record<string, unknown> | undefined;
+    const existingExecutionAuth = (existing as any)?.executionAuth as Record<string, unknown> | undefined;
+    const rawExecutionAuth = incomingExecutionAuth ?? existingExecutionAuth;
+    const modeCandidate = String(rawExecutionAuth?.mode || 'none');
+    const normalizedExecutionAuthMode: AgentExecutionAuthMode =
+      modeCandidate === 'platform_token' || modeCandidate === 'external_oauth' || modeCandidate === 'mtls'
+        ? modeCandidate
+        : 'none';
+
+    const normalizedExecutionAuth = {
+      required: Boolean(rawExecutionAuth?.required),
+      mode: normalizedExecutionAuthMode,
+      requiredScopes: Array.isArray(rawExecutionAuth?.requiredScopes)
+        ? rawExecutionAuth.requiredScopes.filter((value: unknown) => typeof value === 'string')
+        : undefined,
+      tokenTtlSeconds:
+        typeof rawExecutionAuth?.tokenTtlSeconds === 'number'
+          ? Math.max(60, Math.min(3600, rawExecutionAuth.tokenTtlSeconds))
+          : undefined,
+      dpopRequired: Boolean(rawExecutionAuth?.dpopRequired),
+      discoveryUrl:
+        typeof rawExecutionAuth?.discoveryUrl === 'string' && rawExecutionAuth.discoveryUrl.trim().length > 0
+          ? rawExecutionAuth.discoveryUrl
+          : undefined,
+    };
 
     return {
       ...createDto,
@@ -435,6 +460,20 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
       mcpEndpoint: createDto.mcpEndpoint ?? existing?.mcpEndpoint,
       githubAppId: createDto.githubAppId ?? existing?.githubAppId,
       a2aEndpoint: createDto.a2aEndpoint ?? existing?.a2aEndpoint,
+      executionAuth: normalizedExecutionAuth,
+      claudeManaged: (() => {
+        const raw = (createDto as any).claudeManaged ?? (existing as any)?.claudeManaged;
+        if (!raw || typeof raw.agentId !== 'string' || !raw.agentId.trim()) return undefined;
+        return {
+          agentId: raw.agentId.trim(),
+          environmentId: typeof raw.environmentId === 'string' ? raw.environmentId.trim() : '',
+          anthropicModel: typeof raw.anthropicModel === 'string' && raw.anthropicModel.trim() ? raw.anthropicModel.trim() : undefined,
+          permissionPolicy: raw.permissionPolicy === 'always_allow' || raw.permissionPolicy === 'always_ask' ? raw.permissionPolicy : undefined,
+          skillIds: Array.isArray(raw.skillIds)
+            ? raw.skillIds.filter((s: unknown) => typeof s === 'string').slice(0, 20)
+            : undefined,
+        };
+      })(),
       manifestUrl: createDto.manifestUrl ?? existing?.manifestUrl,
       status: AgentStatus.PENDING,
     };

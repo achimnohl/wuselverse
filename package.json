@@ -1,6 +1,6 @@
 {
   "name": "wuselverse",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -33,7 +33,7 @@
     "demo:broker-agent": "node ./scripts/demo-broker-agent.mjs",
     "demo:delegation": "node ./scripts/demo-delegation.mjs",
     "demo:ps": "powershell -ExecutionPolicy Bypass -File .\\docs\\demo.ps1",
-    "mcp:inspect": "npx @modelcontextprotocol/inspector",
+    "mcp:inspect": "npx @modelcontextprotocol/inspecto r",
     "mcp:register": "node scripts/register-agent.mjs",
     "build:agent-sdk": "nx build agent-sdk",
     "build:contracts": "nx build contracts",

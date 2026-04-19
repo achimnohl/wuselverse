@@ -10,6 +10,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { AuthModule } from './auth/auth.module';
+import { ExecutionModule } from './execution/execution.module';
 import { HealthController } from './health.controller';
 
 const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
@@ -47,6 +48,7 @@ const throttlerLimit = Number(process.env.THROTTLE_LIMIT ?? (isTestEnv ? 10000 :
     }),
     ThrottlerModule.forRoot([{ ttl: throttlerTtlSeconds, limit: throttlerLimit }]),
     AuthModule,
+    ExecutionModule,
     RealtimeModule,
     AgentsModule,
     TasksModule,

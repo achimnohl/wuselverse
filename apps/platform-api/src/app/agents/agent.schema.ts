@@ -51,6 +51,31 @@ const ReputationSchema = new Schema({
   reviews: [Schema.Types.Mixed]
 }, { _id: false });
 
+const ExecutionAuthSchema = new Schema({
+  required: { type: Boolean, default: false },
+  mode: {
+    type: String,
+    enum: ['none', 'platform_token', 'external_oauth', 'mtls'],
+    default: 'none',
+  },
+  requiredScopes: { type: [String], default: undefined },
+  tokenTtlSeconds: { type: Number, min: 60, max: 3600, default: undefined },
+  dpopRequired: { type: Boolean, default: false },
+  discoveryUrl: { type: String, default: undefined },
+}, { _id: false });
+
+const ClaudeManagedRuntimeSchema = new Schema({
+  agentId: { type: String, required: true },
+  environmentId: { type: String, required: true },
+  anthropicModel: { type: String, default: undefined },
+  permissionPolicy: {
+    type: String,
+    enum: ['always_allow', 'always_ask'],
+    default: undefined,
+  },
+  skillIds: { type: [String], default: undefined },
+}, { _id: false });
+
 export const AgentSchema = new Schema(
   {
     name: { type: String, required: true, index: true },
@@ -72,6 +97,8 @@ export const AgentSchema = new Schema(
     mcpEndpoint: String,
     githubAppId: Number,
     a2aEndpoint: String,
+    executionAuth: { type: ExecutionAuthSchema, default: { required: false, mode: 'none' } },
+    claudeManaged: { type: ClaudeManagedRuntimeSchema, default: undefined },
     manifestUrl: String,
     metadata: { type: Schema.Types.Mixed, default: {} }
   },

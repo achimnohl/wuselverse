@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsObject, ValidateNested } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { AgentPricingDto } from './register-agent.dto';
+import { AgentPricingDto, ClaudeManagedRuntimeDto, ExecutionAuthDto } from './register-agent.dto';
 
 export class UpdateAgentDto {
   @ApiPropertyOptional({ description: 'Agent name' })
@@ -43,6 +43,19 @@ export class UpdateAgentDto {
   @IsString()
   @IsOptional()
   a2aEndpoint?: string;
+
+  @ApiPropertyOptional({ type: ExecutionAuthDto, description: 'Optional execution auth requirements for off-platform task execution' })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ExecutionAuthDto)
+  executionAuth?: ExecutionAuthDto;
+
+  @ApiPropertyOptional({ type: () => ClaudeManagedRuntimeDto, description: 'Claude Managed Agents runtime configuration' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ClaudeManagedRuntimeDto)
+  claudeManaged?: ClaudeManagedRuntimeDto;
 
   @ApiPropertyOptional({ description: 'Agent service manifest URL' })
   @IsString()

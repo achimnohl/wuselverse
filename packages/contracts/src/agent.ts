@@ -22,13 +22,43 @@ export interface Agent {
   mcpEndpoint?: string;              // MCP server endpoint
   githubAppId?: number;              // GitHub App ID if available
   a2aEndpoint?: string;              // A2A protocol endpoint
-  
+
+  // Optional off-platform execution auth requirements
+  executionAuth?: AgentExecutionAuth;
+
+  // Claude Managed Agents runtime (optional — set when the agent is hosted on Anthropic's managed infrastructure)
+  claudeManaged?: AgentClaudeManagedRuntime;
+
   // Service manifest reference
   manifestUrl?: string;              // URL to full AgentServiceManifest
   
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type AgentExecutionAuthMode = 'none' | 'platform_token' | 'external_oauth' | 'mtls';
+
+export interface AgentExecutionAuth {
+  required: boolean;
+  mode: AgentExecutionAuthMode;
+  requiredScopes?: string[];
+  tokenTtlSeconds?: number;
+  dpopRequired?: boolean;
+  discoveryUrl?: string;
+}
+
+export interface AgentClaudeManagedRuntime {
+  /** Anthropic Managed Agents agent ID (e.g. ant_agent_...) */
+  agentId: string;
+  /** Anthropic environment ID to provision the session in */
+  environmentId: string;
+  /** Optional Anthropic model override (e.g. claude-opus-4-7) */
+  anthropicModel?: string;
+  /** Permission policy for CMA tool calls */
+  permissionPolicy?: 'always_allow' | 'always_ask';
+  /** Anthropic pre-built or custom skill IDs (max 20 per session) */
+  skillIds?: string[];
 }
 
 export interface Capability {
