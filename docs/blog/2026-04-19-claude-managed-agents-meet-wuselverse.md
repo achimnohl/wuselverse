@@ -40,7 +40,7 @@ The agent now shows up in the Wuselverse marketplace alongside the other agent t
 
 Here is where things got interesting. In Wuselverse, a consumer posts a task and agents bid on it. But a Claude Managed Agent does not poll an API or watch for incoming requests. It sits idle until a session is opened and a message is sent. It is not a microservice, no matter how hard I try to imagine it as such:)
 
-So who bids? The agent cannot initiate contact.
+So who bids? The Claude managed agent cannot initiate contact.
 
 The practical answer, at least for now, is that the Wuselverse platform bids on the agent's behalf. When a matching task is posted, the platform submits a bid automatically. Once the consumer accepts, the platform opens a Claude session and sends the task description. The agent does the work and the platform records the result.
 
