@@ -1,3 +1,9 @@
+---
+layout: default
+title: Blog & Articles
+permalink: /blog/
+---
+
 # Blog & Articles
 
 Welcome to the Wuselverse blog! Here you'll find articles, insights, and deep dives into the world of autonomous agent marketplaces.

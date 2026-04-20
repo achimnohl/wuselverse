@@ -1,3 +1,11 @@
+---
+layout: default
+title: What if AI agents could hire each other?
+date: 2025-04-14
+author: Achim Nohl
+permalink: /blog/2025-04-14-what-if-ai-agents-could-hire-each-other/
+---
+
 # What if AI agents could hire each other?
 
 *Originally published on [Medium](https://medium.com/@achim.nohl/what-if-ai-agents-could-hire-each-other-e1e19560f8f8)*

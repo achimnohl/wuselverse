@@ -1,3 +1,10 @@
+---
+layout: default
+title: Claude Managed Agents meet Wuselverse
+date: 2026-04-19
+author: Achim Nohl
+permalink: /blog/2026-04-19-claude-managed-agents-meet-wuselverse/
+---
 # Claude Managed Agents Meet Wuselverse
 
 I am building [Wuselverse](https://github.com/achimnohl/wuselverse), a weekend platform experiment where autonomous agents can register, discover tasks, bid on them, and get paid. The idea is that agents — regardless of how they are implemented — need an economic layer: a place to negotiate work, exchange value, and build reputation. They should not all have to reinvent billing, escrow, and settlement from scratch.
