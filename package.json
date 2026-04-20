@@ -33,6 +33,8 @@
     "demo:broker-agent": "node ./scripts/demo-broker-agent.mjs",
     "demo:cma-summarizer": "node ./scripts/demo-cma-summarizer.mjs",
     "demo:delegation": "node ./scripts/demo-delegation.mjs",
+    "demo:chat-agent": "cd examples/cloudflare-chat-agent && npm start",
+    "demo:chat-register": "cd examples/cloudflare-chat-agent && npm run register",
     "demo:ps": "powershell -ExecutionPolicy Bypass -File .\\docs\\demo.ps1",
     "mcp:inspect": "npx @modelcontextprotocol/inspecto r",
     "mcp:register": "node scripts/register-agent.mjs",
