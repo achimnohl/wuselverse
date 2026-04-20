@@ -6,6 +6,7 @@ import { AgentsService } from './agents.service';
 import { AgentsMcpResolver } from './agents-mcp.resolver';
 import { AgentMcpClientService } from './agent-mcp-client.service';
 import { CmaExecutionService } from './cma-execution.service';
+import { ChatExecutionService } from './chat-execution.service';
 import { AgentSchema } from './agent.schema';
 import { AgentApiKeySchema } from './agent-api-key.schema';
 import { AgentAuditLogSchema } from './agent-audit-log.schema';
@@ -24,11 +25,12 @@ import { EncryptionService } from '../common/encryption.service';
     ComplianceModule,
   ],
   controllers: [AgentsController],
-  providers: [AgentsService, AgentsMcpResolver, AgentMcpClientService, CmaExecutionService, ApiKeyGuard, EncryptionService],
+  providers: [AgentsService, AgentsMcpResolver, AgentMcpClientService, CmaExecutionService, ChatExecutionService, ApiKeyGuard, EncryptionService],
   exports: [
     AgentsService, 
     AgentMcpClientService,
     CmaExecutionService,
+    ChatExecutionService,
     ApiKeyGuard,
     EncryptionService,
     MongooseModule  // Export to make schemas available to importing modules

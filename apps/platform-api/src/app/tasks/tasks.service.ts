@@ -6,6 +6,7 @@ import { TaskDocument } from './task.schema';
 import { AgentsService } from '../agents/agents.service';
 import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
 import { CmaExecutionService, CmaAgentConfig } from '../agents/cma-execution.service';
+import { ChatExecutionService } from '../agents/chat-execution.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
@@ -19,6 +20,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     private agentsService: AgentsService,
     private agentMcpClient: AgentMcpClientService,
     private cmaExecutionService: CmaExecutionService,
+    private chatExecutionService: ChatExecutionService,
     private transactionsService: TransactionsService,
     private readonly platformEvents: PlatformEventsService
   ) {
@@ -463,6 +465,15 @@ export class TasksService extends BaseMongoService<TaskDocument> {
             this.logger.error(`CMA execution failed for task ${taskId}`, error);
           });
         }
+      } else if (agent?.chatEndpoint && updateResult.success && updateResult.data) {
+        this.logger.log('Triggering chat endpoint execution for assigned task', {
+          agentId: bid.agentId,
+          taskId,
+          url: agent.chatEndpoint.url,
+        });
+        this.executeChatEndpointTask(taskId, updateResult.data, agent.chatEndpoint).catch((error) => {
+          this.logger.error(`Chat endpoint execution failed for task ${taskId}`, error);
+        });
       } else if (agent?.mcpEndpoint && updateResult.success && updateResult.data) {
         this.logger.debug('Notifying agent via MCP', { 
           agentId: bid.agentId, 
@@ -1200,6 +1211,30 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     }
   }
 
+  private async executeChatEndpointTask(taskId: string, task: any, chatEndpoint: any): Promise<void> {
+    const text = task.description ?? task.title ?? 'No content provided.';
+    try {
+      const result = await this.chatExecutionService.executeTask(chatEndpoint, text, taskId);
+
+      await this.completeTask(taskId, task.assignedAgent, {
+        success: result.success,
+        output: result.output,
+      });
+
+      this.logger.log(`Chat endpoint task ${taskId} completed with success=${result.success}`);
+    } catch (error) {
+      this.logger.error(`Chat endpoint task ${taskId} failed`, error);
+      try {
+        await this.completeTask(taskId, task.assignedAgent, {
+          success: false,
+          output: { error: (error as Error).message ?? 'Chat endpoint execution failed' },
+        });
+      } catch (failError) {
+        this.logger.error(`Failed to mark chat endpoint task ${taskId} as failed`, failError);
+      }
+    }
+  }
+
   private async requestBidsFromMatchingAgents(task: any): Promise<void> {
     const requestedCapabilities = task.requirements?.capabilities || task.requirements?.skills || [];
 
@@ -1215,11 +1250,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    // Get agents with MCP endpoints OR claudeManaged config
+    // Get agents with MCP endpoints, claudeManaged config, or chatEndpoint config
     const allAgentsResponse = await this.agentsService.findAll({ 
       $or: [
         { mcpEndpoint: { $exists: true, $ne: null } },
         { 'claudeManaged.agentId': { $exists: true, $ne: null } },
+        { 'chatEndpoint.url': { $exists: true, $ne: null } },
       ]
     });
     const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
@@ -1255,18 +1291,21 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       });
 
       try {
-        if (agent.claudeManaged?.agentId) {
-          // CMA agent: auto-bid on its behalf — no MCP call needed
-          this.logger.debug('Auto-bidding for CMA agent', { agentId, agentName: agent.name });
-          const bidAmount = Number(agent.pricing?.amount ?? task.budget?.amount ?? 1);
+        // Check if agent has auto-bidding enabled (defaults to true for CMA agents)
+        const hasAutoBidding = agent.autoBidding?.enabled ?? (agent.claudeManaged?.agentId ? true : false);
+        
+        if (hasAutoBidding) {
+          // Auto-bid on behalf of the agent — no MCP call needed
+          this.logger.debug('Auto-bidding for agent', { agentId, agentName: agent.name });
+          const bidAmount = Number(agent.autoBidding?.bidPricing?.amount ?? agent.pricing?.amount ?? task.budget?.amount ?? 1);
           await this.submitBid(task._id.toString(), {
             agentId,
             amount: bidAmount,
             proposal: agent.offerDescription
               ? `${agent.name}: ${agent.offerDescription.slice(0, 120)}`
-              : `${agent.name} will handle this task via Claude Managed Agents.`,
+              : `${agent.name} will handle this task.`,
           });
-        } else {
+        } else if (agent.mcpEndpoint) {
           const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
             taskId: task._id.toString(),
             title: task.title,
