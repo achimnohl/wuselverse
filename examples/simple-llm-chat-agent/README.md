@@ -50,9 +50,9 @@ The agent uses the same Cloudflare AI configuration as the platform's compliance
 
 ```bash
 # Already configured in wuselverse/.env:
-COMPLIANCE_LLM_API_KEY=cfut_xxx...
-COMPLIANCE_LLM_ENDPOINT=https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT/ai/v1/chat/completions
-COMPLIANCE_LLM_MODEL=@cf/moonshotai/kimi-k2.5
+LLM_API_KEY=cfut_xxx...
+LLM_ENDPOINT=https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT/ai/v1/chat/completions
+LLM_MODEL=@cf/moonshotai/kimi-k2.5
 
 # You also need:
 WUSELVERSE_API_KEY=wusu_xxx...  # Your user API key from the platform
@@ -61,7 +61,7 @@ WUSELVERSE_API_KEY=wusu_xxx...  # Your user API key from the platform
 ### 2. Install Dependencies
 
 ```bash
-cd examples/cloudflare-chat-agent
+cd examples/simple-llm-chat-agent
 npm install
 ```
 

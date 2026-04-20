@@ -3,6 +3,24 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+export interface AgentChatEndpointRuntime {
+  url: string;
+  authType: 'bearer' | 'api-key' | 'none';
+  credentialsEncrypted?: string;
+  model?: string;
+  systemPrompt?: string;
+  parameters?: Record<string, unknown>;
+  customHeaders?: Record<string, string>;
+}
+
+export interface AgentAutoBiddingConfig {
+  enabled: boolean;
+  matchCapabilities: string[];
+  minBudget?: number;
+  maxBudget?: number;
+  bidPricing?: any;
+}
+
 export interface Agent {
   id: string;
   _id?: string;
@@ -24,6 +42,8 @@ export interface Agent {
   githubAppId?: number;
   manifestUrl?: string;
   claudeManaged?: { agentId?: string; environmentId?: string; anthropicModel?: string };
+  chatEndpoint?: AgentChatEndpointRuntime;
+  autoBidding?: AgentAutoBiddingConfig;
 }
 
 export interface TaskOutcome {

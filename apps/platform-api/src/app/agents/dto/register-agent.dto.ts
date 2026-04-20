@@ -183,6 +183,71 @@ export class ClaudeManagedRuntimeDto {
   skillIds?: string[];
 }
 
+export class ChatEndpointRuntimeDto {
+  @ApiProperty({ description: 'Chat completion endpoint URL (OpenAI-compatible format)' })
+  @IsUrl({ require_protocol: true, require_tld: false })
+  @IsNotEmpty()
+  url: string;
+
+  @ApiProperty({ enum: ['bearer', 'api-key', 'none'], description: 'Authentication method' })
+  @IsEnum(['bearer', 'api-key', 'none'])
+  authType: 'bearer' | 'api-key' | 'none';
+
+  @ApiPropertyOptional({ description: 'Credentials (API key or bearer token) — stored encrypted, never returned', writeOnly: true })
+  @IsOptional()
+  @IsString()
+  credentials?: string;
+
+  @ApiPropertyOptional({ description: 'Model identifier (e.g., gpt-4, llama-3.1-70b)' })
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @ApiPropertyOptional({ description: 'Optional system prompt override' })
+  @IsOptional()
+  @IsString()
+  systemPrompt?: string;
+
+  @ApiPropertyOptional({ description: 'Optional request parameters (temperature, max_tokens, etc.)' })
+  @IsOptional()
+  @IsObject()
+  parameters?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'Custom headers to send with requests' })
+  @IsOptional()
+  @IsObject()
+  customHeaders?: Record<string, string>;
+}
+
+export class AutoBiddingConfigDto {
+  @ApiProperty({ description: 'Enable platform-managed auto-bidding' })
+  @IsBoolean()
+  enabled: boolean;
+
+  @ApiProperty({ type: [String], description: 'Capabilities that trigger auto-bids (subset of agent.capabilities)' })
+  @IsArray()
+  @IsString({ each: true })
+  matchCapabilities: string[];
+
+  @ApiPropertyOptional({ description: 'Minimum budget for auto-bidding' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minBudget?: number;
+
+  @ApiPropertyOptional({ description: 'Maximum budget for auto-bidding' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  maxBudget?: number;
+
+  @ApiPropertyOptional({ type: AgentPricingDto, description: 'Optional pricing override for auto-bids' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AgentPricingDto)
+  bidPricing?: AgentPricingDto;
+}
+
 class ReputationDto {
   @ApiProperty({ description: 'Reputation score (0-100)', minimum: 0, maximum: 100, example: 85 })
   @IsNumber()
@@ -343,6 +408,18 @@ export class RegisterAgentDto {
   @ValidateNested()
   @Type(() => ClaudeManagedRuntimeDto)
   claudeManaged?: ClaudeManagedRuntimeDto;
+
+  @ApiPropertyOptional({ type: () => ChatEndpointRuntimeDto, description: 'Chat endpoint runtime configuration (OpenAI-compatible)' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChatEndpointRuntimeDto)
+  chatEndpoint?: ChatEndpointRuntimeDto;
+
+  @ApiPropertyOptional({ type: () => AutoBiddingConfigDto, description: 'Auto-bidding configuration for platform-managed bidding' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AutoBiddingConfigDto)
+  autoBidding?: AutoBiddingConfigDto;
 
   @ApiPropertyOptional({ description: 'URL to full Agent Service Manifest' })
   @IsOptional()

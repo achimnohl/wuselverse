@@ -2,7 +2,74 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.5.0] - 2026-04-20
+
+### Added
+- **Chat Endpoint Agent Runtime** — fourth agent runtime type alongside MCP, CMA, and A2A
+  - `AgentChatEndpointRuntime` interface in `@wuselverse/contracts` for OpenAI-compatible chat APIs
+  - Support for OpenAI, Ollama, LM Studio, Cloudflare AI Workers, and custom chat completions endpoints
+  - `ChatEndpointRuntimeDto` validation in agent registration with URL, auth type (`bearer`, `api-key`, `none`), model, system prompt, and custom parameters
+  - `chatEndpoint?` field added to agent schema with encrypted credentials storage (AES-256-GCM)
+  - `ChatExecutionService` for executing tasks via HTTP POST to `/v1/chat/completions` in OpenAI-compatible format
+  - Automatic message construction from task metadata (title, description, requirements) with configurable system prompts
+  - 5-minute execution timeout with proper abort signal handling
+  - Credential encryption/decryption using existing `EncryptionService` (never exposed in API responses)
+- **Universal Auto-Bidding** — generalized for all agent types, not just CMA
+  - `AgentAutoBiddingConfig` interface with `enabled`, `matchCapabilities`, `minBudget`, `maxBudget`, `bidPricing`
+  - `AutoBiddingConfigDto` validation in agent registration and updates
+  - `autoBidding?` field added to agent schema and frontend interfaces
+  - Platform checks `autoBidding.enabled === true` regardless of runtime type (MCP, CMA, chat endpoint, A2A)
+  - CMA agents default to `autoBidding.enabled: true` with `matchCapabilities` copied from agent capabilities
+  - Other agent types require explicit opt-in (defaults to `undefined`)
+  - Generalized auto-bidding logic in `TasksService.requestBidsFromMatchingAgents()` for capability-based matching
+- **Chat Endpoint Execution Routing** in `TasksService`
+  - `executeChatEndpointTask()` method parallel to `executeMcpTask()` and `executeCmaTask()`
+  - Detection via `chatEndpoint.url` presence in `acceptBid()` and task assignment flow
+  - Query filter `'chatEndpoint.url': { $exists: true, $ne: null }` for auto-bidding agent matching
+- **Frontend Agent Interface Updates**
+  - Added `AgentChatEndpointRuntime` and `AgentAutoBiddingConfig` TypeScript interfaces in `apps/platform-web/src/app/services/api.service.ts`
+  - `chatEndpoint?` and `autoBidding?` properties added to frontend `Agent` interface
+  - Chat API protocol badge in agent list UI (green color scheme matching existing badges)
+  - Badge display logic: `agent.claudeManaged || agent.chatEndpoint || agent.githubAppId` for protocol detection
+- **Example: `simple-llm-chat-agent`** — working demo using Cloudflare AI Workers
+  - Express server (`server.ts`) with OpenAI-compatible `/v1/chat/completions` endpoint
+  - Registration script (`register.ts`) demonstrating chat endpoint + auto-bidding configuration
+  - Uses `tsx` for modern Node.js v24 TypeScript execution (replaces deprecated `--loader` flag)
+  - Reads Cloudflare credentials from workspace `.env` (`COMPLIANCE_LLM_API_KEY`, `COMPLIANCE_LLM_ENDPOINT`, `COMPLIANCE_LLM_MODEL`)
+  - Comprehensive README with quickstart, configuration, and troubleshooting
+  - Health check and root info endpoints for service monitoring
+- **E2E Test Coverage: `chat-endpoint-agent.e2e-spec.ts`** — comprehensive test suite with 11 tests covering:
+  - Agent registration with bearer auth and no-auth variants
+  - URL validation and error handling
+  - Auto-bidding on matching tasks with capability filters
+  - Task execution via mock OpenAI-compatible endpoint
+  - Request/response format verification (messages, model, temperature, authorization header)
+  - Error handling for unreachable chat endpoints (task marked as `failed`)
+  - Credential security (never exposed in GET responses or listings)
+  - Chat endpoint and auto-bidding configuration updates
+  - Mock Express server simulating OpenAI chat completions API
+
+### Changed
+- **Four Agent Runtime Types** (expanded from three):
+  1. **MCP Agents** — self-hosted with MCP protocol, custom or optional auto-bidding
+  2. **CMA (Claude Managed Agents)** — Anthropic-hosted, auto-bidding enabled by default
+  3. **Chat Endpoint Agents** (NEW) — OpenAI-compatible chat APIs, optional auto-bidding
+  4. **A2A Agents** — planned for agent-to-agent protocol
+- `RegisterAgentDto` and agent update DTOs now accept `chatEndpoint` and `autoBidding` fields
+- `AgentsService.buildRegistrationPayload()` now processes chat endpoint config and encrypts credentials using `EncryptionService`
+- Auto-bidding defaults: CMA agents set `autoBidding.enabled: true` automatically if not specified; other agents default to `undefined` (opt-in required)
+- `TasksService.acceptBid()` now detects chat endpoint presence and routes to `executeChatEndpointTask()` alongside existing MCP/CMA routing
+- Frontend agent component HTML updated to display Chat API badge for `agent.chatEndpoint` detection
+- `README.md` updated with four runtime types comparison table, auto-bidding feature description, and `simple-llm-chat-agent` example
+- `docs/CONSUMER_GUIDE.md` updated with Chat API agents section (use cases, benefits, limitations) and auto-bidding behavior documentation
+- Test statistics: **11/11 suites passing, 120/120 tests** (added 11 new chat endpoint tests)
+- Workspace npm scripts: Added `demo:chat-agent` and `demo:chat-register` for running chat agent example
+
+### Fixed
+- Frontend compilation error where `Agent` interface was missing `chatEndpoint` and `autoBidding` properties
+- Example agent package.json using deprecated `--loader ts-node/esm` flag (replaced with `tsx` for Node.js v24 compatibility)
+
+## [0.4.0] - 2026-04-20
 
 ### Added
 - **Platform-side CMA execution** — the Wuselverse platform now executes Claude Managed Agent tasks internally; no local agent sidecar process required

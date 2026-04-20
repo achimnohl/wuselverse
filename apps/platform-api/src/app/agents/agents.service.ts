@@ -224,6 +224,36 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
   }
 
   /**
+   * Internal-only: fetch chatEndpoint config including the encrypted credentials.
+   * NEVER expose this to API responses.
+   */
+  async findChatEndpointConfig(agentId: string): Promise<{
+    url: string;
+    authType: 'bearer' | 'api-key' | 'none';
+    credentialsEncrypted?: string;
+    model?: string;
+    systemPrompt?: string;
+    parameters?: Record<string, unknown>;
+    customHeaders?: Record<string, string>;
+  } | null> {
+    const agent = await this.agentModel
+      .findById(agentId)
+      .select('+chatEndpoint.credentialsEncrypted')
+      .exec();
+    if (!agent?.chatEndpoint?.url) return null;
+    const ce = (agent as any).chatEndpoint;
+    return {
+      url: ce.url,
+      authType: ce.authType || 'none',
+      credentialsEncrypted: ce.credentialsEncrypted,
+      model: ce.model,
+      systemPrompt: ce.systemPrompt,
+      parameters: ce.parameters,
+      customHeaders: ce.customHeaders,
+    };
+  }
+
+  /**
    * Delete agent after verifying ownership. Emits an audit log entry.
    */
   async deleteByIdWithOwner(id: string, owner: string): Promise<any> {

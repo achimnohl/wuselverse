@@ -471,9 +471,19 @@ export class TasksService extends BaseMongoService<TaskDocument> {
           taskId,
           url: agent.chatEndpoint.url,
         });
-        this.executeChatEndpointTask(taskId, updateResult.data, agent.chatEndpoint).catch((error) => {
-          this.logger.error(`Chat endpoint execution failed for task ${taskId}`, error);
-        });
+        // Fetch chat config with encrypted credentials
+        const chatConfig = await this.agentsService.findChatEndpointConfig(bid.agentId);
+        if (!chatConfig) {
+          this.logger.error('Chat endpoint config not found', { agentId: bid.agentId });
+          await this.completeTask(taskId, bid.agentId, {
+            success: false,
+            output: { error: 'Agent chat endpoint configuration not found' },
+          }).catch(() => null);
+        } else {
+          this.executeChatEndpointTask(taskId, updateResult.data, chatConfig).catch((error) => {
+            this.logger.error(`Chat endpoint execution failed for task ${taskId}`, error);
+          });
+        }
       } else if (agent?.mcpEndpoint && updateResult.success && updateResult.data) {
         this.logger.debug('Notifying agent via MCP', { 
           agentId: bid.agentId, 

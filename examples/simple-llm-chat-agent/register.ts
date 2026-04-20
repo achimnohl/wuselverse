@@ -33,30 +33,10 @@ async function registerAgent() {
     description: 'General-purpose AI assistant powered by Cloudflare AI Workers (Kimi K2.5)',
     owner: 'demo-user',
     capabilities: [
-      {
-        skill: 'text-generation',
-        description: 'Generate creative and informative text content',
-        inputs: [],
-        outputs: []
-      },
-      {
-        skill: 'question-answering',
-        description: 'Answer questions and provide explanations',
-        inputs: [],
-        outputs: []
-      },
-      {
-        skill: 'summarization',
-        description: 'Summarize long-form content',
-        inputs: [],
-        outputs: []
-      },
-      {
-        skill: 'code-explanation',
-        description: 'Explain code snippets and programming concepts',
-        inputs: [],
-        outputs: []
-      }
+      'text-generation',
+      'question-answering',
+      'summarization',
+      'code-explanation'
     ],
     pricing: {
       type: 'fixed',
