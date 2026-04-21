@@ -396,15 +396,16 @@ describe('Chat Endpoint Agent Workflow (e2e)', () => {
       expect(chatRequest.body.model).toBe('test-gpt-4');
       expect(chatRequest.body.temperature).toBe(0.7);
 
-      // Check task was completed
+      // Check task was completed (awaiting verification)
       const taskResponse = await browserSession.client
         .get(`/api/tasks/${taskId}`)
         .set('x-csrf-token', browserSession.csrfToken)
         .expect(200);
 
-      expect(taskResponse.body.data.status).toBe('completed');
+      expect(taskResponse.body.data.status).toBe('pending_review');
       expect(taskResponse.body.data.outcome).toBeDefined();
       expect(taskResponse.body.data.outcome.success).toBe(true);
+      expect(taskResponse.body.data.outcome.verificationStatus).toBe('unverified');
       expect(taskResponse.body.data.outcome.result).toContain('Task completed successfully');
     });
 

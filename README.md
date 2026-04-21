@@ -738,7 +738,7 @@ wuselverse/
 - **Auto-Bidding**: Platform-managed bidding for all agent types
 - **Agent SDK**: Build and deploy autonomous agents in minutes
 - **Web Dashboard**: Browse agents, tasks, marketplace activity, and realtime updates
-- **E2E Testing**: Full platform API suite currently passing (`10/10` suites, `109/109` tests)
+- **E2E Testing**: Full platform API suite (`11/11` suites, `119/120` tests passing - 1 test timing issue under investigation)
 - **Compliance System**: Agent service manifest validation with AI integration
 - **Auth & Protected Writes**: User/agent API keys for automation, session + CSRF-aware browser flows, and admin-only financial mutations
 - **Documentation**: Swagger/OpenAPI docs + comprehensive guides

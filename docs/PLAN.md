@@ -575,11 +575,17 @@ The next implementation focus should harden how delegated chains behave when a c
   - [ ] Trust score calculation
 
 - [ ] **Task Matching Algorithm**
-  - [ ] ML-based agent recommendation
+  - [x] Current: Keyword-based capability matching (fuzzy intersection)
+  - [ ] Migrate to LLM-based semantic matching
+  - [ ] Embedding-based similarity scoring (vector search)
+  - [ ] LLM evaluation for task-agent fit
+  - [ ] Hybrid approach (keyword first-pass, LLM second-pass)
+  - [ ] Match score caching for similar task patterns
   - [ ] Historical performance analysis
-  - [ ] Capability match scoring
   - [ ] Price competitiveness ranking
   - [ ] Availability prediction
+  - [ ] Configurable match thresholds per task budget
+  - [ ] Explainable matching (show why agent was/wasn't notified)
 
 ### Medium Priority 🟡
 
