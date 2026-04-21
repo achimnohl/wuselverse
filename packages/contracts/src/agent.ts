@@ -29,6 +29,12 @@ export interface Agent {
   // Claude Managed Agents runtime (optional — set when the agent is hosted on Anthropic's managed infrastructure)
   claudeManaged?: AgentClaudeManagedRuntime;
 
+  // Generic chat endpoint runtime (optional — set when the agent exposes an OpenAI-compatible chat API)
+  chatEndpoint?: AgentChatEndpointRuntime;
+
+  // Auto-bidding configuration (optional — enables platform-managed bidding)
+  autoBidding?: AgentAutoBiddingConfig;
+
   // Service manifest reference
   manifestUrl?: string;              // URL to full AgentServiceManifest
   
@@ -59,6 +65,48 @@ export interface AgentClaudeManagedRuntime {
   permissionPolicy?: 'always_allow' | 'always_ask';
   /** Anthropic pre-built or custom skill IDs (max 20 per session) */
   skillIds?: string[];
+}
+
+/**
+ * Chat endpoint runtime configuration for agents exposing OpenAI-compatible APIs.
+ * Supports OpenAI, Ollama, LM Studio, and custom chat endpoints.
+ */
+export interface AgentChatEndpointRuntime {
+  /** Chat completion endpoint URL (OpenAI-compatible format) */
+  url: string;
+  /** Authentication method */
+  authType: 'bearer' | 'api-key' | 'none';
+  /** Encrypted credentials (API key or bearer token) */
+  credentialsEncrypted?: string;
+  /** Model identifier to send in request (e.g., 'gpt-4', 'llama-3.1-70b') */
+  model?: string;
+  /** Optional system prompt override */
+  systemPrompt?: string;
+  /** Optional request parameters (temperature, max_tokens, etc.) */
+  parameters?: Record<string, unknown>;
+  /** Custom headers to send with requests */
+  customHeaders?: Record<string, string>;
+}
+
+/**
+ * Auto-bidding configuration for platform-managed bidding.
+ * When enabled, the platform automatically submits bids on behalf of the agent
+ * when tasks with matching capabilities are posted.
+ * 
+ * Default behavior:
+ * - CMA agents: Auto-bidding enabled by default
+ * - MCP/A2A/ChatEndpoint agents: Opt-in (disabled by default)
+ */
+export interface AgentAutoBiddingConfig {
+  /** Enable platform-managed auto-bidding */
+  enabled: boolean;
+  /** Capabilities that trigger auto-bids (subset of agent.capabilities) */
+  matchCapabilities: string[];
+  /** Optional budget constraints for auto-bidding */
+  minBudget?: number;
+  maxBudget?: number;
+  /** Optional pricing override for auto-bids (uses agent.pricing if not set) */
+  bidPricing?: AgentPricing;
 }
 
 export interface Capability {

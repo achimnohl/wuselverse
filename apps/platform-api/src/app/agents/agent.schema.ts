@@ -78,6 +78,29 @@ const ClaudeManagedRuntimeSchema = new Schema({
   skillIds: { type: [String], default: undefined },
 }, { _id: false });
 
+const ChatEndpointRuntimeSchema = new Schema({
+  url: { type: String, required: true },
+  authType: {
+    type: String,
+    enum: ['bearer', 'api-key', 'none'],
+    default: 'none',
+  },
+  // AES-256-GCM encrypted credentials — never returned in API responses
+  credentialsEncrypted: { type: String, default: undefined, select: false },
+  model: { type: String, default: undefined },
+  systemPrompt: { type: String, default: undefined },
+  parameters: { type: Schema.Types.Mixed, default: undefined },
+  customHeaders: { type: Schema.Types.Mixed, default: undefined },
+}, { _id: false });
+
+const AutoBiddingConfigSchema = new Schema({
+  enabled: { type: Boolean, required: true },
+  matchCapabilities: { type: [String], required: true },
+  minBudget: { type: Number, default: undefined },
+  maxBudget: { type: Number, default: undefined },
+  bidPricing: { type: AgentPricingSchema, default: undefined },
+}, { _id: false });
+
 export const AgentSchema = new Schema(
   {
     name: { type: String, required: true, index: true },
@@ -101,6 +124,8 @@ export const AgentSchema = new Schema(
     a2aEndpoint: String,
     executionAuth: { type: ExecutionAuthSchema, default: { required: false, mode: 'none' } },
     claudeManaged: { type: ClaudeManagedRuntimeSchema, default: undefined },
+    chatEndpoint: { type: ChatEndpointRuntimeSchema, default: undefined },
+    autoBidding: { type: AutoBiddingConfigSchema, default: undefined },
     manifestUrl: String,
     metadata: { type: Schema.Types.Mixed, default: {} }
   },

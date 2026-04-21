@@ -224,6 +224,36 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
   }
 
   /**
+   * Internal-only: fetch chatEndpoint config including the encrypted credentials.
+   * NEVER expose this to API responses.
+   */
+  async findChatEndpointConfig(agentId: string): Promise<{
+    url: string;
+    authType: 'bearer' | 'api-key' | 'none';
+    credentialsEncrypted?: string;
+    model?: string;
+    systemPrompt?: string;
+    parameters?: Record<string, unknown>;
+    customHeaders?: Record<string, string>;
+  } | null> {
+    const agent = await this.agentModel
+      .findById(agentId)
+      .select('+chatEndpoint.credentialsEncrypted')
+      .exec();
+    if (!agent?.chatEndpoint?.url) return null;
+    const ce = (agent as any).chatEndpoint;
+    return {
+      url: ce.url,
+      authType: ce.authType || 'none',
+      credentialsEncrypted: ce.credentialsEncrypted,
+      model: ce.model,
+      systemPrompt: ce.systemPrompt,
+      parameters: ce.parameters,
+      customHeaders: ce.customHeaders,
+    };
+  }
+
+  /**
    * Delete agent after verifying ownership. Emits an audit log entry.
    */
   async deleteByIdWithOwner(id: string, owner: string): Promise<any> {
@@ -512,6 +542,58 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
             ? raw.skillIds.filter((s: unknown) => typeof s === 'string').slice(0, 20)
             : undefined,
         };
+      })(),
+      chatEndpoint: (() => {
+        const raw = (createDto as any).chatEndpoint ?? (existing as any)?.chatEndpoint;
+        if (!raw || typeof raw.url !== 'string' || !raw.url.trim()) return undefined;
+        // Encrypt credentials if provided
+        let credentialsEncrypted: string | undefined;
+        if (typeof raw.credentials === 'string' && raw.credentials.trim()) {
+          credentialsEncrypted = this.encryptionService.encrypt(raw.credentials.trim());
+        } else {
+          credentialsEncrypted = (existing as any)?.chatEndpoint?.credentialsEncrypted;
+        }
+        return {
+          url: raw.url.trim(),
+          authType: raw.authType === 'bearer' || raw.authType === 'api-key' ? raw.authType : 'none',
+          credentialsEncrypted,
+          model: typeof raw.model === 'string' && raw.model.trim() ? raw.model.trim() : undefined,
+          systemPrompt: typeof raw.systemPrompt === 'string' && raw.systemPrompt.trim() ? raw.systemPrompt.trim() : undefined,
+          parameters: raw.parameters && typeof raw.parameters === 'object' ? raw.parameters : undefined,
+          customHeaders: raw.customHeaders && typeof raw.customHeaders === 'object' ? raw.customHeaders : undefined,
+        };
+      })(),
+      autoBidding: (() => {
+        const raw = (createDto as any).autoBidding ?? (existing as any)?.autoBidding;
+        const hasClaude = !!(createDto as any).claudeManaged?.agentId || !!(existing as any)?.claudeManaged?.agentId;
+        
+        // If autoBidding is explicitly provided, use it
+        if (raw !== undefined && raw !== null) {
+          return {
+            enabled: Boolean(raw.enabled),
+            matchCapabilities: Array.isArray(raw.matchCapabilities)
+              ? raw.matchCapabilities.filter((s: unknown) => typeof s === 'string')
+              : [],
+            minBudget: typeof raw.minBudget === 'number' ? raw.minBudget : undefined,
+            maxBudget: typeof raw.maxBudget === 'number' ? raw.maxBudget : undefined,
+            bidPricing: raw.bidPricing && typeof raw.bidPricing === 'object' ? raw.bidPricing : undefined,
+          };
+        }
+        
+        // Default for CMA agents: enable auto-bidding with agent's capabilities
+        if (hasClaude) {
+          const capabilities = providedCapabilities || existing?.capabilities || [];
+          const matchCapabilities = Array.isArray(capabilities) 
+            ? capabilities.map((c: any) => typeof c === 'string' ? c : c.skill).filter((s: unknown) => typeof s === 'string')
+            : [];
+          return {
+            enabled: true,
+            matchCapabilities,
+          };
+        }
+        
+        // No auto-bidding for other agent types by default
+        return undefined;
       })(),
       manifestUrl: createDto.manifestUrl ?? existing?.manifestUrl,
       status: AgentStatus.PENDING,

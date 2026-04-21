@@ -45,6 +45,7 @@ jobs:
         env:
           MONGODB_URI: mongodb://localhost:27017/wuselverse-test
           PLATFORM_API_KEY: platform_test_key_12345
+          PLATFORM_ENCRYPTION_KEY: test_encryption_key_32_chars_min
           PORT: 3099
       
       - name: Upload test results

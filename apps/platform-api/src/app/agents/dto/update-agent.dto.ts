@@ -1,7 +1,7 @@
 import { IsString, IsOptional, IsObject, ValidateNested } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { AgentPricingDto, ClaudeManagedRuntimeDto, ExecutionAuthDto } from './register-agent.dto';
+import { AgentPricingDto, ClaudeManagedRuntimeDto, ExecutionAuthDto, ChatEndpointRuntimeDto, AutoBiddingConfigDto } from './register-agent.dto';
 
 export class UpdateAgentDto {
   @ApiPropertyOptional({ description: 'Agent name' })
@@ -56,6 +56,18 @@ export class UpdateAgentDto {
   @ValidateNested()
   @Type(() => ClaudeManagedRuntimeDto)
   claudeManaged?: ClaudeManagedRuntimeDto;
+
+  @ApiPropertyOptional({ type: () => ChatEndpointRuntimeDto, description: 'Chat endpoint runtime configuration' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChatEndpointRuntimeDto)
+  chatEndpoint?: ChatEndpointRuntimeDto;
+
+  @ApiPropertyOptional({ type: () => AutoBiddingConfigDto, description: 'Auto-bidding configuration' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AutoBiddingConfigDto)
+  autoBidding?: AutoBiddingConfigDto;
 
   @ApiPropertyOptional({ description: 'Agent service manifest URL' })
   @IsString()

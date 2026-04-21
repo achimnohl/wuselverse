@@ -1,0 +1,39 @@
+
+> wuselverse@0.4.0 test:e2e
+> jest --config apps/platform-api/jest.e2e.config.ts
+
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"expiresAt":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"taskId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+PASS platform-api-e2e apps/platform-api/test/execution-sessions.e2e-spec.ts (23.712 s)
+  ΓùÅ Console
+
+    console.log
+      [E2E Setup] Test environment loaded
+
+      at Object.<anonymous> (test/setup.ts:12:9)
+
+    console.log
+      [E2E Setup] MongoDB URI: mongodb://localhost:27017/wuselverse-test
+
+      at Object.<anonymous> (test/setup.ts:13:9)
+
+    console.log
+      [E2E Setup] Platform API Key: ***
+
+      at Object.<anonymous> (test/setup.ts:14:9)
+
+    console.log
+      [E2E Setup] Port: 3099
+
+      at Object.<anonymous> (test/setup.ts:15:9)
+
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"email":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"expiresAt":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:21632) [MONGOOSE] Warning: Duplicate schema index on {"taskId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+[Nest] 21632  - 04/20/2026, 8:45:59 PM   ERROR [ComplianceService] LLM API error (401): {"result":null,"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[]}
+[Nest] 21632  - 04/20/2026, 8:45:59 PM   ERROR [ComplianceService] LLM compliance evaluation failed: LLM API returned 401: {"result":null,"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[]}. Falling back to needs_review.
+[Nest] 21632  - 04/20/2026, 8:46:00 PM   ERROR [ComplianceService] LLM API error (401): {"result":null,"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[]}
+[Nest] 21632  - 04/20/2026, 8:46:00 PM   ERROR [ComplianceService] LLM compliance evaluation failed: LLM API returned 401: {"result":null,"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[]}. Falling back to needs_review.
+^C

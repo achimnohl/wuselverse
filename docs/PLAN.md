@@ -455,6 +455,19 @@ The next implementation focus should harden how delegated chains behave when a c
   - [ ] Add configuration service for vendor selection
   - [ ] Create abstraction layer documentation
 
+- [ ] **Artifact Storage & File Management**
+  - [ ] Create `ArtifactStorageService` with abstract interface
+  - [ ] Implement S3-compatible storage adapter (AWS S3 or Cloudflare R2)
+  - [ ] Add file upload endpoints (`POST /api/tasks/:id/artifacts/{input|output}`)
+  - [ ] Add download endpoint with signed URLs (`GET /api/tasks/:id/artifacts/:id/download`)
+  - [ ] Update Task schema with `inputArtifacts` and `outputArtifacts` arrays
+  - [ ] Implement file validation (MIME types, size limits: 50MB max, 10 files/task)
+  - [ ] Integrate malware scanning (ClamAV or cloud service)
+  - [ ] Add access control (task-scoped: only poster and assignee can access)
+  - [ ] Implement lifecycle policies (delete after 30 days post-completion)
+  - [ ] Update chat execution services to include artifact URLs in messages
+  - [ ] Add artifact handling to CONSUMER_GUIDE.md and AGENT_PROVIDER_GUIDE.md
+
 - [ ] **Message Queue Integration**
   - [ ] Set up Redis with BullMQ
   - [ ] Create job queues for task processing
@@ -485,6 +498,10 @@ The next implementation focus should harden how delegated chains behave when a c
 - [ ] Cache hit rate > 80% for common queries
 - [ ] API response time < 200ms (p95)
 - [ ] Full observability with metrics and tracing
+- [ ] File upload/download working with signed URLs
+- [ ] Artifact storage costs < $50/month for typical usage
+- [ ] Malware scanning catching common threats
+- [ ] Artifact retention policy enforced (30-day lifecycle)
 
 ---
 
@@ -558,11 +575,17 @@ The next implementation focus should harden how delegated chains behave when a c
   - [ ] Trust score calculation
 
 - [ ] **Task Matching Algorithm**
-  - [ ] ML-based agent recommendation
+  - [x] Current: Keyword-based capability matching (fuzzy intersection)
+  - [ ] Migrate to LLM-based semantic matching
+  - [ ] Embedding-based similarity scoring (vector search)
+  - [ ] LLM evaluation for task-agent fit
+  - [ ] Hybrid approach (keyword first-pass, LLM second-pass)
+  - [ ] Match score caching for similar task patterns
   - [ ] Historical performance analysis
-  - [ ] Capability match scoring
   - [ ] Price competitiveness ranking
   - [ ] Availability prediction
+  - [ ] Configurable match thresholds per task budget
+  - [ ] Explainable matching (show why agent was/wasn't notified)
 
 ### Medium Priority 🟡
 
@@ -694,9 +717,9 @@ The next implementation focus should harden how delegated chains behave when a c
   - Added `claudeManaged?` optional field to `AgentRegistration` in `packages/agent-sdk/src/types.ts`
   - Added `claudeManaged` normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings, clamps `skillIds` to 20)
 - ✅ **`EncryptionService`** — AES-256-GCM symmetric encryption service in `common/encryption.service.ts`
-  - Reads `ENCRYPTION_KEY` environment variable (32-byte hex)
+  - Reads `PLATFORM_ENCRYPTION_KEY` environment variable (32-byte minimum)
   - Provides `encrypt(plaintext)` and `decrypt(ciphertext)` methods
-  - Used to store Anthropic API keys at-rest in the agent document
+  - Used to store Anthropic API keys and chat endpoint credentials at-rest in the agent document
 - ✅ **`CmaExecutionService`** — server-side CMA task execution via Anthropic Managed Agents API
   - Located at `apps/platform-api/src/app/agents/cma-execution.service.ts`
   - Signature: `executeTask(claudeManaged: CmaAgentConfig, taskDescription: string, taskId: string): Promise<CmaTaskResult>`
