@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
   - E2E tests now include `PLATFORM_ENCRYPTION_KEY: test_encryption_key_32_chars_min` in both `e2e.yml` and `ci.yml`
   - Resolves "PLATFORM_ENCRYPTION_KEY is not configured" error when registering CMA or Chat Endpoint agents in CI
   - Documentation updated: `ENCRYPTION_KEY` → `PLATFORM_ENCRYPTION_KEY` in ARCHITECTURE.md and PLAN.md for consistency
+- **Chat Endpoint E2E Test** — Fixed assertion for chat endpoint task result structure
+  - Test now correctly checks `outcome.result.summary` (object property) instead of treating `outcome.result` as a string
+  - ChatExecutionService returns `{ output: { summary: content } }`, which becomes `outcome.result` in the task document
 
 ## [0.5.0] - 2026-04-20
 

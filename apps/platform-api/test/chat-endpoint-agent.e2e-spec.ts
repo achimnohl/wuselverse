@@ -406,7 +406,8 @@ describe('Chat Endpoint Agent Workflow (e2e)', () => {
       expect(taskResponse.body.data.outcome).toBeDefined();
       expect(taskResponse.body.data.outcome.success).toBe(true);
       expect(taskResponse.body.data.outcome.verificationStatus).toBe('unverified');
-      expect(taskResponse.body.data.outcome.result).toContain('Task completed successfully');
+      expect(taskResponse.body.data.outcome.result).toHaveProperty('summary');
+      expect(taskResponse.body.data.outcome.result.summary).toContain('Task completed successfully');
     });
 
     it('should handle chat endpoint errors gracefully', async () => {
