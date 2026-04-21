@@ -1234,7 +1234,7 @@ TasksService.assignTask()
 ### Security Properties
 
 - **Key isolation**: Anthropic API keys are never returned in any API response; `select: false` prevents accidental leakage
-- **Encryption at rest**: AES-256-GCM with random IV per encryption; `ENCRYPTION_KEY` env var holds the 32-byte key
+- **Encryption at rest**: AES-256-GCM with random IV per encryption; `PLATFORM_ENCRYPTION_KEY` env var holds the 32-byte key
 - **No plaintext transit**: The decrypted key exists only in-memory during `CmaExecutionService.executeTask()`
 - **Circular dependency safety**: `ApiKeyGuard` resolves `ExecutionSessionsService` via `ModuleRef.get()` at runtime to avoid compile-time `AuthModule ↔ ExecutionModule` cycle
 
@@ -1242,7 +1242,7 @@ TasksService.assignTask()
 
 | Variable | Required | Description |
 |---|---|---|
-| `ENCRYPTION_KEY` | Yes (for CMA) | 32-byte hex key for AES-256-GCM encryption of Anthropic API keys |
+| `PLATFORM_ENCRYPTION_KEY` | Yes (for CMA/Chat Endpoint) | 32-byte minimum key for AES-256-GCM encryption of agent credentials |
 | `ANTHROPIC_*` | No | Not used by the platform directly; each agent stores its own key |
 
 ## Future Enhancements

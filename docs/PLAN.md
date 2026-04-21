@@ -717,9 +717,9 @@ The next implementation focus should harden how delegated chains behave when a c
   - Added `claudeManaged?` optional field to `AgentRegistration` in `packages/agent-sdk/src/types.ts`
   - Added `claudeManaged` normalization in `AgentsService.buildRegistrationPayload()` (validates `agentId`, trims strings, clamps `skillIds` to 20)
 - ✅ **`EncryptionService`** — AES-256-GCM symmetric encryption service in `common/encryption.service.ts`
-  - Reads `ENCRYPTION_KEY` environment variable (32-byte hex)
+  - Reads `PLATFORM_ENCRYPTION_KEY` environment variable (32-byte minimum)
   - Provides `encrypt(plaintext)` and `decrypt(ciphertext)` methods
-  - Used to store Anthropic API keys at-rest in the agent document
+  - Used to store Anthropic API keys and chat endpoint credentials at-rest in the agent document
 - ✅ **`CmaExecutionService`** — server-side CMA task execution via Anthropic Managed Agents API
   - Located at `apps/platform-api/src/app/agents/cma-execution.service.ts`
   - Signature: `executeTask(claudeManaged: CmaAgentConfig, taskDescription: string, taskId: string): Promise<CmaTaskResult>`

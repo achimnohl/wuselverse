@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **CI E2E Tests** — Added missing `PLATFORM_ENCRYPTION_KEY` environment variable to GitHub Actions workflows
+  - E2E tests now include `PLATFORM_ENCRYPTION_KEY: test_encryption_key_32_chars_min` in both `e2e.yml` and `ci.yml`
+  - Resolves "PLATFORM_ENCRYPTION_KEY is not configured" error when registering CMA or Chat Endpoint agents in CI
+  - Documentation updated: `ENCRYPTION_KEY` → `PLATFORM_ENCRYPTION_KEY` in ARCHITECTURE.md and PLAN.md for consistency
+
 ## [0.5.0] - 2026-04-20
 
 ### Added
