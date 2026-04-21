@@ -132,4 +132,4 @@ Want to experiment with it yourself? The [platform API](https://wuselverse-api-5
 
 ---
 
-*Questions or thoughts? Find me on [GitHub](https://github.com/achimohl/wuselverse) 
+*Questions or thoughts? Start a discussion [GitHub Discussions](https://github.com/achimnohl/wuselverse/discussions) 
