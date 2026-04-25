@@ -174,6 +174,107 @@ export interface CreatedUserApiKey extends UserApiKey {
   key?: string; // Backward compatibility for older responses
 }
 
+export interface BillingAccount {
+  id: string;
+  name: string;
+  type: 'individual' | 'organization';
+  ownerId: string;
+  balance: number;
+  settings: {
+    settlementSchedule: 'monthly' | 'weekly' | 'immediate';
+    currency: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyStatement {
+  period: string;
+  transactions: {
+    id: string;
+    type: string;
+    from: string;
+    to: string;
+    amount: number;
+    taskId: string;
+    settlementStatus: string;
+    createdAt: string;
+  }[];
+  summary: {
+    totalEarnings: number;
+    totalSpending: number;
+    pendingCount: number;
+    nettedCount: number;
+  };
+  balance: {
+    totalEarnings: number;
+    totalSpending: number;
+    nettedInternal: number;
+    nettedBilateral: number;
+    netAmount: number;
+    transactionCount: number;
+    currentSettled: number;
+    currentPending: number;
+    currentTotal: number;
+  };
+}
+
+export interface BalanceHistory {
+  accountId: string;
+  snapshots: {
+    accountId: string;
+    period: string;
+    balance: number;
+    pending: number;
+    settled: number;
+    timestamp: string;
+  }[];
+  currentBalance: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+}
+
+export interface Invoice {
+  id: string;
+  accountId: string;
+  period: string;
+  lineItems: {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+    type: string;
+  }[];
+  totalEarned: number;
+  totalSpent: number;
+  nettedInternal: number;
+  nettedBilateral: number;
+  netAmount: number;
+  currency: string;
+  status: string;
+  generatedAt: string;
+  dueDate: string;
+  createdAt: string;
+}
+
+export interface UsageReport {
+  accountId: string;
+  period: string;
+  tasksPosted: number;
+  tasksCompleted: number;
+  totalEarnings: number;
+  totalSpending: number;
+  netAmount: number;
+  nettingEfficiency: number;
+  balanceTrend: 'increasing' | 'decreasing' | 'stable';
+  transactionCount: number;
+  summary: {
+    totalEarnings: number;
+    totalSpending: number;
+    pendingCount: number;
+    nettedCount: number;
+  };
+}
+
 export interface AgentRegistrationResult {
   agent: Agent;
   apiKey?: string;
@@ -423,5 +524,42 @@ export class ApiService {
     return this.http.get<AuditLog[]>(`${this.baseUrl}/agents/${agentId}/audit`, this.withSession({
       headers: { 'Authorization': `Bearer ${apiKey}` }
     }));
+  }
+
+  // Billing & Settlement
+  getMyBillingAccount(): Observable<BillingAccount> {
+    return this.http.get<APIResponse<BillingAccount>>(`${this.baseUrl}/billing-accounts/me`, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  getMyStatement(period?: string): Observable<MonthlyStatement> {
+    const url = period 
+      ? `${this.baseUrl}/settlement/my-statement?period=${period}`
+      : `${this.baseUrl}/settlement/my-statement`;
+    return this.http.get<APIResponse<MonthlyStatement>>(url, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  getMyBalanceHistory(months: number = 6): Observable<BalanceHistory> {
+    return this.http.get<APIResponse<BalanceHistory>>(
+      `${this.baseUrl}/settlement/my-history?months=${months}`, 
+      this.withSession()
+    ).pipe(map(response => response.data));
+  }
+
+  getMyInvoice(period?: string): Observable<Invoice> {
+    const url = period 
+      ? `${this.baseUrl}/settlement/my-invoice?period=${period}`
+      : `${this.baseUrl}/settlement/my-invoice`;
+    return this.http.get<APIResponse<Invoice>>(url, this.withSession())
+      .pipe(map(response => response.data));
+  }
+
+  getMyUsageReport(period?: string): Observable<UsageReport> {
+    const url = period 
+      ? `${this.baseUrl}/settlement/my-usage?period=${period}`
+      : `${this.baseUrl}/settlement/my-usage`;
+    return this.http.get<APIResponse<UsageReport>>(url, this.withSession())
+      .pipe(map(response => response.data));
   }
 }

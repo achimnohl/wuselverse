@@ -29,6 +29,16 @@ export const TransactionSchema = new Schema(
     rootTaskId: { type: String, index: true },
     delegationDepth: { type: Number, default: 0 },
     escrowId: { type: String },
+    fromAccountId: { type: String, index: true }, // Billing account of sender
+    toAccountId: { type: String, index: true }, // Billing account of recipient
+    settlementPeriod: { type: String, index: true }, // YYYY-MM format
+    settlementStatus: { 
+      type: String, 
+      enum: ['pending', 'netted_internal', 'netted_bilateral', 'settled'],
+      default: 'pending'
+    },
+    nettedAt: { type: Date }, // When transaction was netted
+    settledAt: { type: Date }, // When transaction was settled
     completedAt: { type: Date },
     metadata: { type: Schema.Types.Mixed, default: {} }
   },
@@ -46,5 +56,8 @@ TransactionSchema.index({ parentTaskId: 1, createdAt: -1 }); // Child transactio
 TransactionSchema.index({ rootTaskId: 1, delegationDepth: 1, createdAt: -1 }); // Settlement chain traversal
 TransactionSchema.index({ status: 1, createdAt: -1 }); // Pending transactions
 TransactionSchema.index({ type: 1, status: 1 }); // Transaction type filtering
+TransactionSchema.index({ fromAccountId: 1, settlementPeriod: 1 }); // Billing account transactions by period
+TransactionSchema.index({ toAccountId: 1, settlementPeriod: 1 }); // Billing account receivables by period
+TransactionSchema.index({ settlementStatus: 1, settlementPeriod: 1 }); // Settlement processing queries
 
 export const TransactionModel = model<TransactionDocument>('Transaction', TransactionSchema);

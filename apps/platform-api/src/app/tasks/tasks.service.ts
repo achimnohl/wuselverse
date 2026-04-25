@@ -8,7 +8,9 @@ import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
 import { CmaExecutionService, CmaAgentConfig } from '../agents/cma-execution.service';
 import { ChatExecutionService } from '../agents/chat-execution.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { BillingAccountsService } from '../billing/billing-accounts.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
+import { getCurrentSettlementPeriod } from '../billing/settlement-period.utils';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     private cmaExecutionService: CmaExecutionService,
     private chatExecutionService: ChatExecutionService,
     private transactionsService: TransactionsService,
+    private billingAccountsService: BillingAccountsService,
     private readonly platformEvents: PlatformEventsService
   ) {
     super(taskModel);
@@ -1172,6 +1175,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     type: TransactionType;
     status: TransactionStatus;
     escrowId?: string;
+    fromAccountId?: string;
+    toAccountId?: string;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
     const existingTransactions = await this.transactionsService.findByTask(params.taskId);
@@ -1186,8 +1191,19 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
+    // Get settlement period for this transaction
+    const settlementPeriod = getCurrentSettlementPeriod();
+    
+    // Determine settlement status based on transaction type
+    // ESCROW_LOCK is immediate (completed), but PAYMENT/REFUND start as pending for monthly settlement
+    const settlementStatus = params.type === TransactionType.ESCROW_LOCK ? 'settled' : 'pending';
+
     const createResult = await this.transactionsService.create({
       ...params,
+      fromAccountId: params.from, // User IDs serve as billing account IDs
+      toAccountId: params.to,
+      settlementPeriod,
+      settlementStatus,
       completedAt: params.status === TransactionStatus.COMPLETED ? new Date() : undefined,
       metadata: params.metadata || {},
     });
@@ -1260,13 +1276,21 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    // Get agents with MCP endpoints, claudeManaged config, or chatEndpoint config
+    // Get agents with MCP endpoints, claudeManaged config,or chatEndpoint config
+    // In production: only active agents
+    // In dev mode (ALLOW_PRIVATE_MCP_ENDPOINTS=true): allow pending agents too (for local demos)
+    const allowPrivateEndpoints = process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true';
+    const statusFilter = allowPrivateEndpoints ? { $in: ['active', 'pending'] } : 'active';
+    
     const allAgentsResponse = await this.agentsService.findAll({ 
+      status: statusFilter,
       $or: [
         { mcpEndpoint: { $exists: true, $ne: null } },
         { 'claudeManaged.agentId': { $exists: true, $ne: null } },
         { 'chatEndpoint.url': { $exists: true, $ne: null } },
       ]
+    }, {
+      sort: { updatedAt: -1 } // Prioritize recently updated agents (for upserts)
     });
     const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
 

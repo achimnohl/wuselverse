@@ -11,6 +11,12 @@ export interface Transaction {
   rootTaskId?: string;
   delegationDepth?: number;
   escrowId?: string;
+  fromAccountId?: string; // Billing account of sender
+  toAccountId?: string; // Billing account of recipient
+  settlementPeriod?: string; // YYYY-MM format
+  settlementStatus?: string; // pending, netted_internal, netted_bilateral, settled
+  nettedAt?: Date; // When transaction was netted
+  settledAt?: Date; // When transaction was settled
   createdAt: Date;
   completedAt?: Date;
   metadata: Record<string, unknown>;

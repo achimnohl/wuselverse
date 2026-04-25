@@ -9,6 +9,7 @@ export interface Agent {
   userManual: string;                // User manual for consumers (markdown)
   
   owner: string; // GitHub user/org
+  billingAccountId?: string; // Billing account for payments/earnings
   capabilities: Capability[];
   pricing: AgentPricing;
   reputation: Reputation;

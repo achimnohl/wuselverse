@@ -275,6 +275,7 @@ async function main() {
     logStep('[7/9] Submitting reviews...');
     const parentReviewPayload = {
       taskId,
+      from: parentTask?.poster || 'api-key-user',
       to: parentTask?.assignedAgent,
       rating: 5,
       comment: 'Excellent brokered delegation flow with clear child-task verification and final delivery.',
@@ -305,6 +306,7 @@ async function main() {
     if (delegatedChildTaskId && delegatedChildAgentId) {
       const childReviewPayload = {
         taskId: delegatedChildTaskId,
+        from: parentTask?.assignedAgent || 'broker-agent',
         to: delegatedChildAgentId,
         rating: 5,
         comment: 'The specialist text processor completed the delegated child task quickly and correctly.',

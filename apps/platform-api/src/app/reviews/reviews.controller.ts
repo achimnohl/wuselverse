@@ -6,6 +6,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { AuthService } from '../auth/auth.service';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
+import { AnyAuthGuard } from '../auth/any-auth.guard';
 
 const ReviewsCRUDBase = createCRUDController({
   resourceName: 'reviews',
@@ -27,20 +28,28 @@ export class ReviewsController extends ReviewsCRUDBase {
   }
 
   @Post()
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Create a review', description: 'Creates a review. When review session auth is enabled, the reviewer identity is bound to the signed-in user.' })
   @ApiBody({ type: CreateReviewDto })
   async create(@Body() dto: CreateReviewDto, @Request() req: any) {
     const requireUserSession = (process.env.REQUIRE_USER_SESSION_FOR_REVIEW_POSTING ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
+    const apiKeyUser = req?.principal?.type === 'user'
+      ? {
+          id: req.principal.userId as string | undefined,
+          email: req.principal.email as string | undefined,
+          displayName: req.principal.displayName as string | undefined,
+        }
+      : null;
+    const authenticatedUser = sessionUser || apiKeyUser;
 
-    if (requireUserSession && !sessionUser) {
+    if (requireUserSession && !authenticatedUser) {
       throw new UnauthorizedException('A signed-in user session is required to create reviews.');
     }
 
     const payload = {
       ...dto,
-      from: sessionUser?.id || dto.from,
+      from: authenticatedUser?.id || dto.from,
     };
 
     return this.reviewsService.create(payload as any);

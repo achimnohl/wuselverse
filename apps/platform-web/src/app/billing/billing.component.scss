@@ -1,0 +1,664 @@
+.billing-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.billing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 2rem;
+    margin: 0;
+    color: #333;
+  }
+}
+
+.period-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 500;
+    color: #666;
+  }
+
+  .period-select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    background: white;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #4CAF50;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+    }
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 2rem;
+
+  .tab {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s;
+    margin-bottom: -2px;
+
+    &:hover {
+      color: #4CAF50;
+      background: #f5f5f5;
+    }
+
+    &.active {
+      color: #4CAF50;
+      border-bottom-color: #4CAF50;
+    }
+  }
+}
+
+.tab-content {
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// Overview Tab
+.account-info, .balance-summary {
+  margin-bottom: 2rem;
+
+  h2, h3 {
+    color: #333;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    margin-top: 2rem;
+  }
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.info-card {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+
+  .info-label {
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #333;
+    text-transform: capitalize;
+  }
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.balance-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+  &.total {
+    border-color: #2196F3;
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    color: white;
+
+    .balance-label, .balance-amount {
+      color: white;
+    }
+  }
+
+  .balance-label {
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .balance-amount {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+
+    &.positive {
+      color: #4CAF50;
+    }
+
+    &.negative {
+      color: #f44336;
+    }
+  }
+
+  .balance-detail {
+    font-size: 0.75rem;
+    color: #999;
+  }
+}
+
+.balance-positive {
+  color: #4CAF50 !important;
+}
+
+.balance-negative {
+  color: #f44336 !important;
+}
+
+.balance-zero {
+  color: #666 !important;
+}
+
+// Statement Tab
+.statement-summary {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 2rem;
+
+  .summary-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+
+    span {
+      color: #666;
+    }
+
+    strong {
+      color: #333;
+    }
+  }
+}
+
+.transactions-table {
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+    thead {
+      background: #f5f5f5;
+
+      th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid #e0e0e0;
+      }
+    }
+
+    tbody {
+      tr {
+        border-bottom: 1px solid #f0f0f0;
+
+        &:hover {
+          background: #fafafa;
+        }
+
+        td {
+          padding: 0.875rem 1rem;
+          color: #666;
+        }
+      }
+    }
+  }
+
+  .party-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .amount-cell {
+    text-align: right;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Monaco', monospace;
+  }
+
+  .task-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    color: #999;
+  }
+
+  .no-data {
+    padding: 3rem;
+    text-align: center;
+    color: #999;
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.badge-pending {
+    background: #FFF3E0;
+    color: #F57C00;
+  }
+
+  &.badge-netted {
+    background: #E3F2FD;
+    color: #1976D2;
+  }
+
+  &.badge-settled {
+    background: #E8F5E9;
+    color: #388E3C;
+  }
+
+  &.badge-default {
+    background: #F5F5F5;
+    color: #666;
+  }
+}
+
+// History Tab
+.trend-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+
+  .trend-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .trend-icon {
+      font-size: 2rem;
+    }
+
+    .trend-label {
+      font-weight: 600;
+      font-size: 1.125rem;
+
+      &.trend-up {
+        color: #4CAF50;
+      }
+
+      &.trend-down {
+        color: #f44336;
+      }
+
+      &.trend-stable {
+        color: #666;
+      }
+    }
+  }
+
+  .current-balance {
+    font-size: 1.125rem;
+    color: #666;
+
+    strong {
+      color: #333;
+      font-size: 1.5rem;
+    }
+  }
+}
+
+.history-chart {
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+
+  .chart-container {
+    min-height: 300px;
+  }
+
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 250px;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 1rem 0;
+  }
+
+  .chart-bar-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .chart-bar {
+    width: 60px;
+    background: linear-gradient(180deg, #4CAF50 0%, #388E3C 100%);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    min-height: 20px;
+    transition: all 0.3s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    .bar-label {
+      position: absolute;
+      top: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #333;
+      white-space: nowrap;
+    }
+  }
+
+  .chart-period {
+    font-size: 0.75rem;
+    color: #666;
+    transform: rotate(-45deg);
+    margin-top: 1rem;
+  }
+}
+
+.history-table {
+  margin-top: 2rem;
+}
+
+// Invoice Tab
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.download-btn {
+  padding: 0.75rem 1.5rem;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #388E3C;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.invoice-info {
+  margin-bottom: 2rem;
+
+  .invoice-meta {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+
+    div {
+      strong {
+        color: #333;
+        margin-right: 0.5rem;
+      }
+
+      color: #666;
+    }
+  }
+}
+
+.invoice-items {
+  h3 {
+    margin-bottom: 1rem;
+  }
+
+  table {
+    tfoot {
+      background: #f8f9fa;
+
+      tr {
+        border-top: 2px solid #e0e0e0;
+
+        &.total-row {
+          background: #e8f5e9;
+          font-size: 1.125rem;
+        }
+
+        td {
+          padding: 0.875rem 1rem;
+          font-weight: 600;
+        }
+      }
+    }
+  }
+}
+
+// Usage Tab
+.usage-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  text-align: center;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #4CAF50;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.25rem;
+
+    &.trend-up {
+      color: #4CAF50;
+    }
+
+    &.trend-down {
+      color: #f44336;
+    }
+
+    &.trend-stable {
+      color: #666;
+    }
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.usage-summary {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 4px;
+
+    span {
+      color: #666;
+    }
+
+    strong {
+      color: #333;
+      font-size: 1.125rem;
+    }
+  }
+}
+
+// Loading Spinner
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  p {
+    margin-top: 1rem;
+    color: #666;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .billing-container {
+    padding: 1rem;
+  }
+
+  .billing-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .balance-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .transactions-table {
+    font-size: 0.875rem;
+
+    table {
+      thead th, tbody td {
+        padding: 0.5rem;
+      }
+    }
+  }
+
+  .stat-card {
+    .stat-icon {
+      font-size: 2rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+    }
+  }
+}

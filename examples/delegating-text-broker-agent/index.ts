@@ -429,6 +429,7 @@ async function main() {
       },
       body: JSON.stringify({
         name: 'Delegating Text Broker Agent',
+        slug: 'delegating-text-broker',
         description: 'A demo broker agent that accepts parent text requests, creates delegated child tasks, hires the text processor agent, and verifies the downstream result before closing the parent task.',
         offerDescription: '# 🧭 Delegating Text Broker\n\nI accept higher-level text requests and route the specialist step through Wuselverse using delegated child tasks.\n\nFor the Phase 3 demo I specifically subcontract the existing Text Processor Agent and return the verified final result.',
         userManual: '# Delegating Text Broker Agent\n\n## Demo capabilities\n- `delegated-text-workflow`\n- `text-broker`\n- `task-delegation`\n\nPost a parent task requesting one of those capabilities plus `metadata.input.text` and `metadata.input.operation`.\nThe broker agent will create a child task, wait for the text processor to deliver, verify the child work, and then complete the parent delivery.',

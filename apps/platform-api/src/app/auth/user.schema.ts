@@ -8,6 +8,8 @@ export interface UserDocument extends Document {
   passwordHash: string;
   roles: string[];
   isActive: boolean;
+  billingAccountId?: string; // Linked billing account
+  billingRole?: 'owner' | 'admin' | 'member' | 'viewer';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +21,8 @@ export const UserSchema = new Schema(
     passwordHash: { type: String, required: true },
     roles: { type: [String], default: ['user'] },
     isActive: { type: Boolean, default: true },
+    billingAccountId: { type: String, index: true },
+    billingRole: { type: String, enum: ['owner', 'admin', 'member', 'viewer'], default: 'owner' },
   },
   {
     timestamps: true,
