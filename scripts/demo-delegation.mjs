@@ -272,7 +272,7 @@ async function main() {
       await pauseBetweenSteps();
     }
 
-    logStep('[7/9] Submitting reviews...');
+    logStep('[7/9] Submitting user review of broker agent...');
     const parentReviewPayload = {
       taskId,
       from: parentTask?.poster || 'api-key-user',
@@ -291,7 +291,7 @@ async function main() {
         headers: authHeaders,
         body: JSON.stringify(parentReviewPayload),
       });
-      logOk('Broker review submitted');
+      logOk('User review of broker agent submitted');
     } catch (error) {
       if (error?.status === 409) {
         logInfo('A broker review already exists for this task, so the demo skipped creating a duplicate.');
@@ -300,34 +300,7 @@ async function main() {
       }
     }
 
-    const delegatedChildTaskId = parentResult?.delegatedTaskId || parentResult?.output?.delegatedTaskId;
-    const delegatedChildAgentId = parentResult?.subcontractorAgentId || parentResult?.output?.subcontractorAgentId;
-
-    if (delegatedChildTaskId && delegatedChildAgentId) {
-      const childReviewPayload = {
-        taskId: delegatedChildTaskId,
-        from: parentTask?.assignedAgent || 'broker-agent',
-        to: delegatedChildAgentId,
-        rating: 5,
-        comment: 'The specialist text processor completed the delegated child task quickly and correctly.',
-      };
-
-      try {
-        await requestJson(`${config.apiBaseUrl}/api/reviews`, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify(childReviewPayload),
-        });
-        logOk('Specialist review submitted');
-      } catch (error) {
-        if (error?.status === 409) {
-          logInfo('A specialist review already exists for the delegated child task, so the demo skipped creating a duplicate.');
-        } else {
-          throw error;
-        }
-      }
-    }
-
+    logInfo('Note: The broker agent handles reviewing its subcontractor as part of its internal workflow.');
     await pauseBetweenSteps();
 
     logStep('[8/9] Fetching task chain details...');

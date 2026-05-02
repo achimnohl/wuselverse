@@ -10,6 +10,7 @@ import { AgentAuditLogDocument, AuditAction } from './agent-audit-log.schema';
 import { ComplianceService } from '../compliance/compliance.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
 import { EncryptionService } from '../common/encryption.service';
+import { CmaExecutionService } from './cma-execution.service';
 
 @Injectable()
 export class AgentsService extends BaseMongoService<AgentDocument> {
@@ -22,6 +23,7 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
     private readonly complianceService: ComplianceService,
     private readonly platformEvents: PlatformEventsService,
     private readonly encryptionService: EncryptionService,
+    private readonly cmaExecutionService: CmaExecutionService,
   ) {
     super(agentModel);
   }
@@ -58,6 +60,11 @@ export class AgentsService extends BaseMongoService<AgentDocument> {
 
       if (!updated) {
         throw new NotFoundException(`Agent ${agentId} not found during upsert`);
+      }
+
+      // Clear CMA failure cache on re-registration (allows retry after fixing credentials/config)
+      if (updated.claudeManaged?.agentId) {
+        this.cmaExecutionService.clearAgentFailureCache(agentId);
       }
 
       const rawKey = await this.issueApiKey(agentId, updated.owner, true);

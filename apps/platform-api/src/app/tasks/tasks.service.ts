@@ -1226,6 +1226,11 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       this.logger.log(`CMA task ${taskId} completed with success=${result.success}`);
     } catch (error) {
       this.logger.error(`CMA task ${taskId} failed`, error);
+      
+      // Mark agent as unhealthy if this is a permanent failure (agent not found, auth error, etc.)
+      const statusCode = (error as any)?.statusCode;
+      this.cmaExecutionService.markAgentUnhealthy(task.assignedAgent, error as Error, statusCode);
+      
       try {
         await this.completeTask(taskId, task.assignedAgent, {
           success: false,
@@ -1310,6 +1315,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     });
 
     // Send bid requests to filtered agents
+    // Staleness check: only for auto-bidding agents (default: 24 hours)
+    const stalenessHours = parseInt(process.env.AGENT_STALENESS_HOURS || '24', 10);
+    const stalenessThreshold = stalenessHours > 0 
+      ? new Date(Date.now() - stalenessHours * 60 * 60 * 1000)
+      : null;
+
     for (const agent of relevantAgents) {
       const agentId = agent._id?.toString?.() || agent.id;
 
@@ -1327,8 +1338,30 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       try {
         // Check if agent has auto-bidding enabled (defaults to true for CMA agents)
         const hasAutoBidding = agent.autoBidding?.enabled ?? (agent.claudeManaged?.agentId ? true : false);
+        const isCmaAgent = !!agent.claudeManaged?.agentId;
         
         if (hasAutoBidding) {
+          // Check staleness for auto-bidding agents only
+          if (stalenessThreshold && agent.updatedAt < stalenessThreshold) {
+            this.logger.debug('Skipping stale auto-bidding agent', {
+              agentId,
+              agentName: agent.name,
+              lastUpdated: agent.updatedAt,
+              stalenessHours
+            });
+            continue;
+          }
+
+          // Check CMA agent health (skip if marked unhealthy after previous permanent failures)
+          if (isCmaAgent && this.cmaExecutionService.isAgentUnhealthy(agentId)) {
+            this.logger.debug('Skipping unhealthy CMA agent', {
+              agentId,
+              agentName: agent.name,
+              reason: 'Agent marked unhealthy due to previous Anthropic API failures'
+            });
+            continue;
+          }
+
           // Auto-bid on behalf of the agent — no MCP call needed
           this.logger.debug('Auto-bidding for agent', { agentId, agentName: agent.name });
           const bidAmount = Number(agent.autoBidding?.bidPricing?.amount ?? agent.pricing?.amount ?? task.budget?.amount ?? 1);
@@ -1340,6 +1373,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
               : `${agent.name} will handle this task.`,
           });
         } else if (agent.mcpEndpoint) {
+          // MCP agents: endpoint check happens via request (will fail if unreachable)
           const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
             taskId: task._id.toString(),
             title: task.title,

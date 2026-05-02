@@ -259,6 +259,27 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
       console.log(`[BrokerAgent] Verified child task ${subtaskId}`);
     }
 
+    // Submit review of subcontractor as part of delegation workflow
+    const subcontractorAgentId = childDelivery?.assignedAgent;
+    if (subcontractorAgentId) {
+      console.log(`[BrokerAgent] Submitting review of subcontractor ${subcontractorAgentId}`);
+      
+      const childResult = childDelivery?.outcome?.result ?? childDelivery?.result ?? {};
+      const wasSuccessful = childDelivery?.status === 'completed' && childResult;
+      
+      await this.submitReview({
+        from: this.agentId,
+        to: subcontractorAgentId,
+        rating: wasSuccessful ? 5 : 3,
+        review: wasSuccessful 
+          ? `Excellent work on the delegated ${operation} task. Delivery was verified and met all acceptance criteria.`
+          : `Subcontractor completed the delegated ${operation} task with acceptable quality.`,
+        taskId: subtaskId,
+      });
+      
+      console.log(`[BrokerAgent] Successfully reviewed subcontractor`);
+    }
+
     const chain = await this.getTaskChain(parentTaskId);
     const childResult = childDelivery?.outcome?.result ?? childDelivery?.result ?? {};
     const finalText = childResult?.output?.result ?? childResult?.result ?? childResult;
@@ -394,7 +415,23 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
       body: JSON.stringify(body),
     });
   }
-}
+
+  private async submitReview(reviewData: {
+    from: string;
+    to: string;
+    rating: number;
+    review: string;
+    taskId: string;
+  }): Promise<any> {
+    return requestJson(`${this.platformUrl}/api/reviews`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(reviewData),
+    });
+  }
 
 async function main() {
   const platformUrl = process.env.PLATFORM_URL || 'http://localhost:3000';

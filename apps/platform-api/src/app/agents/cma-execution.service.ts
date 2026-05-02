@@ -24,9 +24,25 @@ export interface CmaTaskResult {
   output: Record<string, unknown>;
 }
 
+interface CmaFailureRecord {
+  /** When the agent was marked as unhealthy */
+  timestamp: Date;
+  /** Error message from Anthropic API */
+  error: string;
+  /** HTTP status code (if applicable) */
+  statusCode?: number;
+}
+
 @Injectable()
 export class CmaExecutionService {
   private readonly logger = new Logger(CmaExecutionService.name);
+  
+  /**
+   * In-memory cache of CMA agents that have failed with permanent errors.
+   * Key: MongoDB agent ID, Value: failure record.
+   * Time-to-live (TTL) controlled by CMA_FAILURE_CACHE_HOURS env var.
+   */
+  private readonly failureCache = new Map<string, CmaFailureRecord>();
 
   constructor(private readonly encryptionService: EncryptionService) {}
 
@@ -43,13 +59,96 @@ export class CmaExecutionService {
     });
     const json: any = await res.json();
     if (!res.ok) {
-      throw new Error(`Anthropic ${method} ${path} -> ${res.status}: ${JSON.stringify(json)}`);
+      const error = new Error(`Anthropic ${method} ${path} -> ${res.status}: ${JSON.stringify(json)}`);
+      (error as any).statusCode = res.status;
+      throw error;
     }
     return json;
   }
 
   private sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  /**
+   * Check if a CMA agent is marked as unhealthy due to previous permanent failures.
+   * Returns true if the agent should be excluded from auto-bidding.
+   */
+  isAgentUnhealthy(mongoAgentId: string): boolean {
+    const record = this.failureCache.get(mongoAgentId);
+    if (!record) return false;
+
+    // Check TTL - default 24 hours
+    const cacheTtlHours = parseInt(process.env.CMA_FAILURE_CACHE_HOURS || '24', 10);
+    if (cacheTtlHours <= 0) {
+      // TTL disabled - never expire cache entries
+      return true;
+    }
+
+    const expiresAt = new Date(record.timestamp.getTime() + cacheTtlHours * 60 * 60 * 1000);
+    if (new Date() > expiresAt) {
+      // Expired - remove from cache and allow retry
+      this.failureCache.delete(mongoAgentId);
+      this.logger.debug('CMA failure cache entry expired', { 
+        mongoAgentId, 
+        cachedError: record.error 
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Mark a CMA agent as unhealthy after a permanent failure.
+   * Only caches specific error types that indicate the agent is permanently unavailable.
+   */
+  markAgentUnhealthy(mongoAgentId: string, error: Error, statusCode?: number): void {
+    const errorMsg = error.message.toLowerCase();
+    
+    // Only cache permanent failures (not transient network errors or rate limits)
+    const isPermanentError = 
+      errorMsg.includes('agent not found') ||
+      errorMsg.includes('invalid agent') ||
+      errorMsg.includes('agent_id') ||
+      errorMsg.includes('authentication') ||
+      errorMsg.includes('invalid api key') ||
+      errorMsg.includes('api key') ||
+      errorMsg.includes('unauthorized') ||
+      statusCode === 401 || // Unauthorized
+      statusCode === 403 || // Forbidden
+      statusCode === 404;   // Not Found
+
+    if (!isPermanentError) {
+      this.logger.debug('CMA error is transient, not caching', { 
+        mongoAgentId, 
+        error: error.message, 
+        statusCode 
+      });
+      return;
+    }
+
+    this.failureCache.set(mongoAgentId, {
+      timestamp: new Date(),
+      error: error.message,
+      statusCode,
+    });
+
+    this.logger.warn('CMA agent marked as unhealthy', {
+      mongoAgentId,
+      error: error.message,
+      statusCode,
+      cacheTtlHours: process.env.CMA_FAILURE_CACHE_HOURS || '24',
+    });
+  }
+
+  /**
+   * Clear the failure cache for a specific agent (used after re-registration or manual intervention).
+   */
+  clearAgentFailureCache(mongoAgentId: string): void {
+    if (this.failureCache.delete(mongoAgentId)) {
+      this.logger.log('Cleared CMA failure cache for agent', { mongoAgentId });
+    }
   }
 
   /**

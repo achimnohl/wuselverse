@@ -47,9 +47,26 @@ export class ReviewsController extends ReviewsCRUDBase {
       throw new UnauthorizedException('A signed-in user session is required to create reviews.');
     }
 
+    // Determine reviewer ID:
+    // 1. If authenticated as an agent, use the provided 'from' (agent-to-agent delegation review)
+    // 2. If authenticated as a user, use the user ID (consumer review)
+    // Note: For delegation scenarios where a user's agent submits a review, the 'from' field
+    // can specify the agent ID, which will be validated in the review service
+    const isAgentAuth = req?.principal?.type === 'agent';
+    let reviewerId: string;
+
+    if (isAgentAuth) {
+      // Agent-authenticated: respect the provided 'from' or use agent's own ID
+      reviewerId = dto.from || req.principal.agentId;
+    } else {
+      // User-authenticated: allow specifying an agent ID in 'from' for delegation,
+      // otherwise default to user ID
+      reviewerId = dto.from || authenticatedUser?.id || 'unknown';
+    }
+
     const payload = {
       ...dto,
-      from: authenticatedUser?.id || dto.from,
+      from: reviewerId,
     };
 
     return this.reviewsService.create(payload as any);

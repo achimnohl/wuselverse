@@ -81,47 +81,63 @@ export class AgentMcpClientService {
       argsPresent: Object.keys(args).length > 0
     });
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Platform-API-Key': this.platformApiKey,
-        'User-Agent': 'Wuselverse-Platform/1.0',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: Date.now(),
-        method: 'tools/call',
-        params: {
-          name: toolName,
-          arguments: args,
+    // Timeout for MCP requests (fail fast on unreachable endpoints)
+    const timeoutMs = parseInt(process.env.MCP_REQUEST_TIMEOUT_MS || '5000', 10);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Platform-API-Key': this.platformApiKey,
+          'User-Agent': 'Wuselverse-Platform/1.0',
         },
-      }),
-    });
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'tools/call',
+          params: {
+            name: toolName,
+            arguments: args,
+          },
+        }),
+        signal: controller.signal,
+      });
 
-    this.logger.debug('HTTP response', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok
-    });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`Agent MCP returned ${response.status}: ${response.statusText}`);
+      this.logger.debug('HTTP response', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        throw new Error(`Agent MCP returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json() as any;
+
+      if (data.error) {
+        this.logger.error('MCP error response', data.error);
+        throw new Error(`Agent MCP error: ${data.error.message || 'Unknown error'}`);
+      }
+
+      // Extract content from MCP response
+      if (data.result?.content?.[0]?.text) {
+        return JSON.parse(data.result.content[0].text) as T;
+      }
+
+      return data.result as T;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if ((error as Error).name === 'AbortError') {
+        throw new Error(`MCP request timeout after ${timeoutMs}ms - endpoint may be unreachable`);
+      }
+      throw error;
     }
-
-    const data = await response.json() as any;
-
-    if (data.error) {
-      this.logger.error('MCP error response', data.error);
-      throw new Error(`Agent MCP error: ${data.error.message || 'Unknown error'}`);
-    }
-
-    // Extract content from MCP response
-    if (data.result?.content?.[0]?.text) {
-      return JSON.parse(data.result.content[0].text) as T;
-    }
-
-    return data.result as T;
   }
 
   /**
