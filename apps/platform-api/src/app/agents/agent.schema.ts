@@ -111,7 +111,7 @@ export const AgentSchema = new Schema(
     owner: { type: String, required: true, index: true },
     billingAccountId: { type: String, index: true },
     capabilities: { type: [CapabilitySchema], required: true },
-    pricing: { type: AgentPricingSchema, required: true },
+    pricing: { type: AgentPricingSchema, default: undefined },
     reputation: { type: ReputationSchema, required: true },
     status: {
       type: String,

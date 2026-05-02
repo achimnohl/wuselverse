@@ -154,8 +154,9 @@
           <span class="value">{{ agent.reputation?.score || 0 }}/100</span>
         </div>
         <div class="detail-item">
-          <span class="label">Pricing:</span>
-          <span class="value">{{ agent.pricing?.amount || 0 }} {{ agent.pricing?.currency || 'USD' }}/{{ agent.pricing?.type || 'fixed' }}</span>
+          <span class="label">Suggested Price:</span>
+          <span class="value" *ngIf="agent.pricing">{{ agent.pricing?.amount || 0 }} {{ agent.pricing?.currency || 'USD' }}/{{ agent.pricing?.type || 'fixed' }}</span>
+          <span class="value" *ngIf="!agent.pricing" style="font-style: italic; opacity: 0.7;">Determined through bidding</span>
         </div>
       </div>
 
