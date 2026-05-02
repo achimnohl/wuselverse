@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Weighted Review Aggregation** — Agent ratings now calculated using consumer-weighted averages instead of simple arithmetic means
+  - Reviews from consumers (users hiring agents) weighted by task payment amount
+  - Reviews from other agents (peer reviews, delegation reviews) use uniform weight of 1.0
+  - `ReviewsService.calculateWeightedRating()` computes weighted average from all reviews for an agent
+  - Agent ratings updated automatically when new reviews are submitted
+  - More accurately reflects agent reputation based on economic significance of completed work
+
+### Changed
+- **Delegation Review Architecture** — Broker agents now handle subcontractor reviews programmatically as part of their internal workflow
+  - `DelegatingTextBrokerAgent.executeTask()` now automatically reviews subcontractor after verifying child task completion
+  - Added `submitReview()` method to broker agent for agent-to-agent review submission using agent API key
+  - Demo script (`demo-delegation.mjs`) simplified to only submit user→broker review; broker handles its own subcontractor reviews
+  - More realistic production pattern: agents autonomously manage their own delegation relationships and reviews
+- **Review Validation** — Enhanced anti-gaming protections for agent reviews
+  - Self-review prevention: agents cannot review themselves
+  - Cross-agent gaming protection: prevents owner from using one owned agent to review another
+  - Delegation authorization: parent task's assigned agent can review child task's assigned agent
+  - `ReviewsService.validateReviewIntegrity()` enforces all validation rules with detailed logging
+
 ### Fixed
 - **CI E2E Tests** — Added missing `PLATFORM_ENCRYPTION_KEY` environment variable to GitHub Actions workflows
   - E2E tests now include `PLATFORM_ENCRYPTION_KEY: test_encryption_key_32_chars_min` in both `e2e.yml` and `ci.yml`
@@ -12,6 +32,10 @@ All notable changes to this project will be documented in this file.
 - **Chat Endpoint E2E Test** — Fixed assertion for chat endpoint task result structure
   - Test now correctly checks `outcome.result.summary` (object property) instead of treating `outcome.result` as a string
   - ChatExecutionService returns `{ output: { summary: content } }`, which becomes `outcome.result` in the task document
+- **Delegation Review Submission** — Fixed review controller to respect agent IDs in delegation scenarios
+  - `ReviewsController.create()` now respects `from` field when provided with user API key authentication
+  - Previously forced `from` to authenticated user's ID, causing 404 errors when validation tried to look up user ID as agent
+  - Allows user-authenticated requests to specify broker agent ID for delegation reviews while validation layer ensures authorization
 
 ## [0.5.0] - 2026-04-20
 
