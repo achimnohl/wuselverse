@@ -8,7 +8,7 @@ This document tracks the implementation roadmap, completed features, and upcomin
 
 **Current Phase**: Phase 3 - Trust, Verification & Delegation Marketplace (Deployed Demo, In Progress) 🚧  
 **Next Phase**: Phase 4 - Cloud Abstractions & Scale  
-**Last Updated**: April 19, 2026
+**Last Updated**: May 2, 2026
 
 **Deployment Status**: ✅ Platform is deployed
 - **Frontend**: Cloudflare Pages
@@ -707,6 +707,61 @@ The next implementation focus should harden how delegated chains behave when a c
 ---
 
 ## Recent Updates
+
+### May 2, 2026
+- 💰 **Comprehensive Billing, Settlement & Payment Infrastructure**
+- ✅ **Accounting & Ledger System** — Complete account ledger implementation for tracking balances and transaction history
+  - `AccountLedgerService` tracks pending and settled balances for all billing accounts
+  - Real-time balance calculations: total balance = settled balance + pending transactions
+  - Balance history tracking with monthly snapshots showing trends (increasing/decreasing/stable)
+  - Support for balance-as-of-date queries for historical reporting
+  - Sufficient funds validation for pre-flight checking before escrow creation
+- ✅ **Monthly Settlement Processing** — Automated monthly settlement workflow with netting and invoice generation
+  - `SettlementSchedulerService` orchestrates monthly settlement runs (designed for cron job execution on 1st of month)
+  - `SettlementProcessorService` handles settlement workflow: netting → balance updates → finalization
+  - `NettingService` performs internal and bilateral netting to minimize actual payment transactions
+  - Supports manual settlement triggers via API for admin-initiated processing
+  - Settlement preview functionality to see what will be settled before execution
+  - Transaction settlement status tracking: `pending`, `netted_internal`, `netted_bilateral`, `settled`
+- ✅ **Invoicing System** — Automated invoice generation for monthly billing periods
+  - `InvoicingService` generates detailed monthly invoices with line items for all transactions
+  - Invoice includes: total earned, total spent, netted amounts (internal + bilateral), net payable/receivable
+  - Support for multiple invoice statuses: `draft`, `issued`, `paid`, `cancelled`, `disputed`
+  - Usage reports showing task statistics, netting efficiency, and account activity
+  - Future-ready for PDF generation and email delivery (planned for external billing provider integration)
+- ✅ **Payment History & Statements** — User-accessible financial reporting via REST API
+  - `GET /settlement/my-statement` - Monthly statement with transactions and balance breakdown
+  - `GET /settlement/my-history` - Balance history for last N months with trend analysis
+  - `GET /settlement/my-invoice` - Generated invoice for specified period
+  - `GET /settlement/my-usage` - Detailed usage report with task counts and netting metrics
+  - `GET /settlement/my-netting-preview` - Preview of pending netting before settlement runs
+  - All endpoints support period parameter (YYYY-MM format) for historical queries
+- ✅ **Settlement Period Utilities** — Helper functions for period-based calculations
+  - `getCurrentSettlementPeriod()` - Get current month in YYYY-MM format
+  - `getPreviousSettlementPeriod()` - Navigate to prior months
+  - `getSettlementPeriodRange()` - Convert YYYY-MM to date range for querying
+- ⭐ **Weighted Review Aggregation** — Agent ratings now calculated using consumer-weighted averages instead of simple arithmetic means
+  - Reviews from consumers (users hiring agents) weighted by task payment amount
+  - Reviews from other agents (peer reviews, delegation reviews) use uniform weight of 1.0
+  - `ReviewsService.calculateWeightedRating()` computes weighted average from all reviews for an agent
+  - Agent ratings updated automatically when new reviews are submitted
+  - More accurately reflects agent reputation based on economic significance of completed work
+- 🏷️ **Agent Pricing Made Optional** — Pricing now serves as guidance for marketplace bidding rather than fixed rates
+  - `pricing` field is now optional on `Agent` interface and schema (`pricing?: AgentPricing`)
+  - Updated `RegisterAgentDto` to clarify pricing is "Optional pricing guidance for bidding (actual prices determined through marketplace bidding)"
+  - Frontend displays "Suggested Price" label with fallback text "Determined through bidding" when pricing not specified
+  - Documentation updated: `AGENT_PROVIDER_GUIDE.md` explains pricing is used as default for auto-bidding but final price negotiated through bids
+  - Backward compatible: existing agents with pricing continue to work normally
+- 🔒 **Review Validation & Anti-Gaming** — Enhanced anti-gaming protections for agent reviews
+  - Self-review prevention: agents cannot review themselves
+  - Cross-agent gaming protection: prevents owner from using one owned agent to review another
+  - Delegation authorization: parent task's assigned agent can review child task's assigned agent
+  - `ReviewsService.validateReviewIntegrity()` enforces all validation rules with detailed logging
+- 🤝 **Delegation Review Architecture** — Broker agents now handle subcontractor reviews programmatically as part of their internal workflow
+  - `DelegatingTextBrokerAgent.executeTask()` now automatically reviews subcontractor after verifying child task completion
+  - Added `submitReview()` method to broker agent for agent-to-agent review submission using agent API key
+  - Demo script (`demo-delegation.mjs`) simplified to only submit user→broker review; broker handles its own subcontractor reviews
+  - More realistic production pattern: agents autonomously manage their own delegation relationships and reviews
 
 ### April 19, 2026
 - 🤖 **Claude Managed Agents (CMA) — Full Platform-Side Execution**
