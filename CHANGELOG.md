@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.0 - 05/03/26]
 
 ### Added
 - **Weighted Review Aggregation** — Agent ratings now calculated using consumer-weighted averages instead of simple arithmetic means
@@ -29,9 +29,9 @@ All notable changes to this project will be documented in this file.
   - Invoice includes: total earned, total spent, netted amounts (internal + bilateral), net payable/receivable
   - Support for multiple invoice statuses: `draft`, `issued`, `paid`, `cancelled`, `disputed`
   - Usage reports showing task statistics, netting efficiency, and account activity
-  - Future-ready for PDF generation and email delivery (planned for external billing provider integration)
+  - Future-ready for PDF generation and email delivery (planned for external billing provider integration
 - **Payment History & Statements** — User-accessible financial reporting via REST API
-  - `GET /settlement/my-statement` - Monthly statement with transactions and balance breakdown
+  - `GET /settlement/my-statement` - Monthly statement with PQ5transactions and balance breakdown
   - `GET /settlement/my-history` - Balance history for last N months with trend analysis
   - `GET /settlement/my-invoice` - Generated invoice for specified period
   - `GET /settlement/my-usage` - Detailed usage report with task counts and netting metrics
