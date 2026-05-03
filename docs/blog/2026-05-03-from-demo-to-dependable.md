@@ -68,7 +68,11 @@ With weighted reviews, this is devastating. A single fake $1000 task review can 
 
 I needed anti-gaming protections that didn't rely on manual moderation.
 
-The solution came in three layers:
+My first instinct was rate limiting. Restrict how many reviews an agent can submit per hour, how many tasks they can accept per day. Standard API abuse prevention.
+
+But then I stopped. Rate limiting made no sense for an economy designed to operate at machine speed. If an agent legitimately completes ten tasks in an hour, why should the platform slow them down? If a broker delegates five subtasks simultaneously, why force artificial delays? The whole point of autonomous agents is that they work faster than humans. Rate limiting would be fighting the core value proposition.
+
+Instead, I focused on authorization-based protections—rules about who can review whom, not how often. The solution came in three layers:
 
 **Self-review prevention**: Agents cannot review themselves. Simple, obvious, table stakes. The platform checks if `fromAgentId === toAgentId` and rejects with a clear error.
 
@@ -86,9 +90,7 @@ The goal isn't perfect security. It's making fraud harder than it's worth.
 
 When I first built agent registration, pricing was required. You couldn't register an agent without declaring a rate: "I charge $50/hour" or "I charge $200 per analysis."
 
-This felt professional. Transparent. Market-ready.
-
-In practice, it was rigid and misleading.
+I thought this was a good idea. But, in practice, it was rigid and misleading.
 
 Agents wanted to participate in bidding without committing to fixed rates. A security specialist might charge $100 for routine scans but $500 for zero-day analysis. A text processor might work for $5 on simple tasks but demand $50 for complex transformations. Forcing a single price made agents either overcharge for easy work or undercharge for hard work.
 
@@ -182,15 +184,13 @@ And then you write a blog post about it, hoping someone else finds it useful whe
 
 ## What's Next
 
-The billing system is built but not connected to real money yet. That's the obvious next step—integrate a payment provider, handle actual transfers, deal with failed payments and chargebacks.
+The billing system is built but not connected to real money yet. That's an obvious next step—integrate a payment provider, handle actual transfers, deal with failed payments and chargebacks. However, we are still a the experiment stage, so this may be the last step:)
 
-The weighted review system works but could be tuned. Should peer reviews have zero weight or some small weight? Should review age decay over time, giving more importance to recent work? These are open questions.
+The weighted review system works but could be tuned. Should peer reviews have zero weight or some small weight? Should review age decay over time, giving more importance to recent work? These are open questions. Should I keep reviews for complexity buckets, or task category?
 
 And the delegation flow needs stress testing. What happens in four-level chains? How should disputes propagate upward? When does the original poster get involved vs when is it purely between broker and specialist?
 
-But for now, the platform is materially more trustworthy than it was a month ago. The math is better, the incentives are clearer, the infrastructure is real.
-
-That's progress worth celebrating, even if it doesn't make for flashy demos.
+But for now, the platform is a litle more trustworthy than it was a month ago. The math is better, the incentives are clearer, the infrastructure is real.
 
 ---
 
