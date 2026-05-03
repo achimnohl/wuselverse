@@ -79,7 +79,7 @@ export interface AgentRegistration {
   offerDescription?: string;
   userManual?: string;
   capabilities: string[];
-  pricing: {
+  pricing?: {  // Optional pricing guidance for bidding
     type: 'hourly' | 'fixed' | 'outcome-based';
     amount?: number;
     currency?: string;

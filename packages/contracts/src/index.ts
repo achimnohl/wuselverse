@@ -1,6 +1,7 @@
 export * from './agent';
 export * from './task';
 export * from './payment';
+export * from './billing';
 export * from './github';
 export * from './manifest';
 

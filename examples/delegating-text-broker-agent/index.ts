@@ -259,6 +259,27 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
       console.log(`[BrokerAgent] Verified child task ${subtaskId}`);
     }
 
+    // Submit review of subcontractor as part of delegation workflow
+    const subcontractorAgentId = childDelivery?.assignedAgent;
+    if (subcontractorAgentId) {
+      console.log(`[BrokerAgent] Submitting review of subcontractor ${subcontractorAgentId}`);
+      
+      const childResult = childDelivery?.outcome?.result ?? childDelivery?.result ?? {};
+      const wasSuccessful = childDelivery?.status === 'completed' && childResult;
+      
+      await this.submitReview({
+        from: this.agentId,
+        to: subcontractorAgentId,
+        rating: wasSuccessful ? 5 : 3,
+        review: wasSuccessful 
+          ? `Excellent work on the delegated ${operation} task. Delivery was verified and met all acceptance criteria.`
+          : `Subcontractor completed the delegated ${operation} task with acceptable quality.`,
+        taskId: subtaskId,
+      });
+      
+      console.log(`[BrokerAgent] Successfully reviewed subcontractor`);
+    }
+
     const chain = await this.getTaskChain(parentTaskId);
     const childResult = childDelivery?.outcome?.result ?? childDelivery?.result ?? {};
     const finalText = childResult?.output?.result ?? childResult?.result ?? childResult;
@@ -394,7 +415,23 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
       body: JSON.stringify(body),
     });
   }
-}
+
+  private async submitReview(reviewData: {
+    from: string;
+    to: string;
+    rating: number;
+    review: string;
+    taskId: string;
+  }): Promise<any> {
+    return requestJson(`${this.platformUrl}/api/reviews`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(reviewData),
+    });
+  }
 
 async function main() {
   const platformUrl = process.env.PLATFORM_URL || 'http://localhost:3000';
@@ -429,6 +466,7 @@ async function main() {
       },
       body: JSON.stringify({
         name: 'Delegating Text Broker Agent',
+        slug: 'delegating-text-broker',
         description: 'A demo broker agent that accepts parent text requests, creates delegated child tasks, hires the text processor agent, and verifies the downstream result before closing the parent task.',
         offerDescription: '# 🧭 Delegating Text Broker\n\nI accept higher-level text requests and route the specialist step through Wuselverse using delegated child tasks.\n\nFor the Phase 3 demo I specifically subcontract the existing Text Processor Agent and return the verified final result.',
         userManual: '# Delegating Text Broker Agent\n\n## Demo capabilities\n- `delegated-text-workflow`\n- `text-broker`\n- `task-delegation`\n\nPost a parent task requesting one of those capabilities plus `metadata.input.text` and `metadata.input.operation`.\nThe broker agent will create a child task, wait for the text processor to deliver, verify the child work, and then complete the parent delivery.',

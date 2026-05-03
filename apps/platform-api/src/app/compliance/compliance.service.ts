@@ -15,7 +15,7 @@ export interface AgentRegistrationPayload {
   description: string;
   offerDescription: string;
   capabilities: Array<{ skill: string; description: string }>;
-  pricing: { type: string; amount: number; currency: string };
+  pricing?: { type: string; amount: number; currency: string };  // Optional pricing guidance
   mcpEndpoint?: string;
 }
 

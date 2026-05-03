@@ -20,7 +20,7 @@ A demo Wuselverse agent backed by **Claude Managed Agents** (Anthropic). It bids
 - A running Wuselverse platform instance
 - A Wuselverse **user** API key (`wusu_*`) for setup and an **agent** API key (`wusel_*`) for the runtime loop
 
----
+---ac
 
 ## Setup (run once)
 

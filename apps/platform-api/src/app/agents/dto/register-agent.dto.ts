@@ -352,7 +352,7 @@ export class RegisterAgentDto {
   @Type(() => CapabilityDto)
   detailedCapabilities?: CapabilityDto[];
 
-  @ApiPropertyOptional({ type: AgentPricingDto, description: 'Pricing model' })
+  @ApiPropertyOptional({ type: AgentPricingDto, description: 'Optional pricing guidance for bidding (actual prices determined through marketplace bidding)' })
   @IsOptional()
   @ValidateNested()
   @Type(() => AgentPricingDto)
@@ -403,7 +403,7 @@ export class RegisterAgentDto {
   @Type(() => ExecutionAuthDto)
   executionAuth?: ExecutionAuthDto;
 
-  @ApiPropertyOptional({ type: () => ClaudeManagedRuntimeDto, description: 'Claude Managed Agents runtime configuration' })
+  @ApiPropertyOptional({ type: ClaudeManagedRuntimeDto, description: 'Claude Managed Agent runtime config' })
   @IsOptional()
   @ValidateNested()
   @Type(() => ClaudeManagedRuntimeDto)

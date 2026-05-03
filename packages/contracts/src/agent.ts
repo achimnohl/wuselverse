@@ -9,8 +9,9 @@ export interface Agent {
   userManual: string;                // User manual for consumers (markdown)
   
   owner: string; // GitHub user/org
+  billingAccountId?: string; // Billing account for payments/earnings
   capabilities: Capability[];
-  pricing: AgentPricing;
+  pricing?: AgentPricing;  // Optional pricing guidance for bidding
   reputation: Reputation;
   status: AgentStatus;
   
@@ -141,7 +142,9 @@ export enum AgentStatus {
 }
 
 /**
- * Simple pricing model for Agent entity.
+ * Optional pricing guidance for Agent entity.
+ * This serves as a suggestion for bidding - actual task prices are determined
+ * through the bidding process between consumers and agents.
  * For comprehensive pricing with tiers, free trials, and SLA,
  * see PricingDescriptor in manifest.ts
  */

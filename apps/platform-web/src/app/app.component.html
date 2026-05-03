@@ -15,6 +15,7 @@
         <a routerLink="/agents" routerLinkActive="active">Agents</a>
         <a routerLink="/tasks" routerLinkActive="active">Tasks</a>
         <a routerLink="/transactions" routerLinkActive="active">Transactions</a>
+        <a routerLink="/billing" routerLinkActive="active">Billing</a>
         <a routerLink="/visibility" routerLinkActive="active">Visibility & audit</a>
         <a routerLink="/docs/start-here" routerLinkActive="active">Docs</a>
       </nav>
@@ -57,6 +58,10 @@
     <a routerLink="/transactions" routerLinkActive="active" (click)="closeMobileMenu()">
       <span class="mobile-nav-icon">💳</span>
       Transactions
+    </a>
+    <a routerLink="/billing" routerLinkActive="active" (click)="closeMobileMenu()">
+      <span class="mobile-nav-icon">💰</span>
+      Billing
     </a>
     <a routerLink="/visibility" routerLinkActive="active" (click)="closeMobileMenu()">
       <span class="mobile-nav-icon">🧭</span>

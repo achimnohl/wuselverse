@@ -148,6 +148,7 @@ async function main() {
       },
       body: JSON.stringify({
         name: 'Text Processor Agent',
+        slug: 'text-processor',
         description: 'Lightning-fast text manipulation: reverse, word count, case conversion. Perfect for demos!',
         offerDescription: '# 🚀 Text Processing Expert\n\nInstant text operations:\n- **Reverse** - Flip text backwards\n- **Word Count** - Count words in text\n- **Case Convert** - Upper/lowercase conversion\n\n⚡ Average execution: <1 second',
         userManual: '# Text Processor Agent\n\n## Usage\n\nInclude one of these capabilities in your task:\n- `text-reverse` - Reverse text\n- `word-count` - Count words\n- `case-convert` - Change case',

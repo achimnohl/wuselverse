@@ -8,7 +8,9 @@ import { AgentMcpClientService } from '../agents/agent-mcp-client.service';
 import { CmaExecutionService, CmaAgentConfig } from '../agents/cma-execution.service';
 import { ChatExecutionService } from '../agents/chat-execution.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { BillingAccountsService } from '../billing/billing-accounts.service';
 import { PlatformEventsService } from '../realtime/platform-events.service';
+import { getCurrentSettlementPeriod } from '../billing/settlement-period.utils';
 import { TaskStatus, BidStatus, TransactionStatus, TransactionType, type Bid } from '@wuselverse/contracts';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     private cmaExecutionService: CmaExecutionService,
     private chatExecutionService: ChatExecutionService,
     private transactionsService: TransactionsService,
+    private billingAccountsService: BillingAccountsService,
     private readonly platformEvents: PlatformEventsService
   ) {
     super(taskModel);
@@ -1172,6 +1175,8 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     type: TransactionType;
     status: TransactionStatus;
     escrowId?: string;
+    fromAccountId?: string;
+    toAccountId?: string;
     metadata?: Record<string, unknown>;
   }): Promise<void> {
     const existingTransactions = await this.transactionsService.findByTask(params.taskId);
@@ -1186,8 +1191,19 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
+    // Get settlement period for this transaction
+    const settlementPeriod = getCurrentSettlementPeriod();
+    
+    // Determine settlement status based on transaction type
+    // ESCROW_LOCK is immediate (completed), but PAYMENT/REFUND start as pending for monthly settlement
+    const settlementStatus = params.type === TransactionType.ESCROW_LOCK ? 'settled' : 'pending';
+
     const createResult = await this.transactionsService.create({
       ...params,
+      fromAccountId: params.from, // User IDs serve as billing account IDs
+      toAccountId: params.to,
+      settlementPeriod,
+      settlementStatus,
       completedAt: params.status === TransactionStatus.COMPLETED ? new Date() : undefined,
       metadata: params.metadata || {},
     });
@@ -1210,6 +1226,11 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       this.logger.log(`CMA task ${taskId} completed with success=${result.success}`);
     } catch (error) {
       this.logger.error(`CMA task ${taskId} failed`, error);
+      
+      // Mark agent as unhealthy if this is a permanent failure (agent not found, auth error, etc.)
+      const statusCode = (error as any)?.statusCode;
+      this.cmaExecutionService.markAgentUnhealthy(task.assignedAgent, error as Error, statusCode);
+      
       try {
         await this.completeTask(taskId, task.assignedAgent, {
           success: false,
@@ -1260,13 +1281,21 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       return;
     }
 
-    // Get agents with MCP endpoints, claudeManaged config, or chatEndpoint config
+    // Get agents with MCP endpoints, claudeManaged config,or chatEndpoint config
+    // In production: only active agents
+    // In dev mode (ALLOW_PRIVATE_MCP_ENDPOINTS=true): allow pending agents too (for local demos)
+    const allowPrivateEndpoints = process.env.ALLOW_PRIVATE_MCP_ENDPOINTS === 'true';
+    const statusFilter = allowPrivateEndpoints ? { $in: ['active', 'pending'] } : 'active';
+    
     const allAgentsResponse = await this.agentsService.findAll({ 
+      status: statusFilter,
       $or: [
         { mcpEndpoint: { $exists: true, $ne: null } },
         { 'claudeManaged.agentId': { $exists: true, $ne: null } },
         { 'chatEndpoint.url': { $exists: true, $ne: null } },
       ]
+    }, {
+      sort: { updatedAt: -1 } // Prioritize recently updated agents (for upserts)
     });
     const allAgents = allAgentsResponse.success ? allAgentsResponse.data?.data || [] : [];
 
@@ -1286,6 +1315,12 @@ export class TasksService extends BaseMongoService<TaskDocument> {
     });
 
     // Send bid requests to filtered agents
+    // Staleness check: only for auto-bidding agents (default: 24 hours)
+    const stalenessHours = parseInt(process.env.AGENT_STALENESS_HOURS || '24', 10);
+    const stalenessThreshold = stalenessHours > 0 
+      ? new Date(Date.now() - stalenessHours * 60 * 60 * 1000)
+      : null;
+
     for (const agent of relevantAgents) {
       const agentId = agent._id?.toString?.() || agent.id;
 
@@ -1303,8 +1338,30 @@ export class TasksService extends BaseMongoService<TaskDocument> {
       try {
         // Check if agent has auto-bidding enabled (defaults to true for CMA agents)
         const hasAutoBidding = agent.autoBidding?.enabled ?? (agent.claudeManaged?.agentId ? true : false);
+        const isCmaAgent = !!agent.claudeManaged?.agentId;
         
         if (hasAutoBidding) {
+          // Check staleness for auto-bidding agents only
+          if (stalenessThreshold && agent.updatedAt < stalenessThreshold) {
+            this.logger.debug('Skipping stale auto-bidding agent', {
+              agentId,
+              agentName: agent.name,
+              lastUpdated: agent.updatedAt,
+              stalenessHours
+            });
+            continue;
+          }
+
+          // Check CMA agent health (skip if marked unhealthy after previous permanent failures)
+          if (isCmaAgent && this.cmaExecutionService.isAgentUnhealthy(agentId)) {
+            this.logger.debug('Skipping unhealthy CMA agent', {
+              agentId,
+              agentName: agent.name,
+              reason: 'Agent marked unhealthy due to previous Anthropic API failures'
+            });
+            continue;
+          }
+
           // Auto-bid on behalf of the agent — no MCP call needed
           this.logger.debug('Auto-bidding for agent', { agentId, agentName: agent.name });
           const bidAmount = Number(agent.autoBidding?.bidPricing?.amount ?? agent.pricing?.amount ?? task.budget?.amount ?? 1);
@@ -1316,6 +1373,7 @@ export class TasksService extends BaseMongoService<TaskDocument> {
               : `${agent.name} will handle this task.`,
           });
         } else if (agent.mcpEndpoint) {
+          // MCP agents: endpoint check happens via request (will fail if unreachable)
           const decision = await this.agentMcpClient.requestBid(agentId, agent.mcpEndpoint, {
             taskId: task._id.toString(),
             title: task.title,

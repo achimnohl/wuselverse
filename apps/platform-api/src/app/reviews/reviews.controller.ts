@@ -6,6 +6,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { AuthService } from '../auth/auth.service';
 import { AdminKeyGuard } from '../auth/admin-key.guard';
 import { SessionCsrfGuard } from '../auth/session-csrf.guard';
+import { AnyAuthGuard } from '../auth/any-auth.guard';
 
 const ReviewsCRUDBase = createCRUDController({
   resourceName: 'reviews',
@@ -27,20 +28,45 @@ export class ReviewsController extends ReviewsCRUDBase {
   }
 
   @Post()
-  @UseGuards(SessionCsrfGuard)
+  @UseGuards(AnyAuthGuard, SessionCsrfGuard)
   @ApiOperation({ summary: 'Create a review', description: 'Creates a review. When review session auth is enabled, the reviewer identity is bound to the signed-in user.' })
   @ApiBody({ type: CreateReviewDto })
   async create(@Body() dto: CreateReviewDto, @Request() req: any) {
     const requireUserSession = (process.env.REQUIRE_USER_SESSION_FOR_REVIEW_POSTING ?? 'true') === 'true';
     const sessionUser = await this.authService.getUserFromRequest(req);
+    const apiKeyUser = req?.principal?.type === 'user'
+      ? {
+          id: req.principal.userId as string | undefined,
+          email: req.principal.email as string | undefined,
+          displayName: req.principal.displayName as string | undefined,
+        }
+      : null;
+    const authenticatedUser = sessionUser || apiKeyUser;
 
-    if (requireUserSession && !sessionUser) {
+    if (requireUserSession && !authenticatedUser) {
       throw new UnauthorizedException('A signed-in user session is required to create reviews.');
+    }
+
+    // Determine reviewer ID:
+    // 1. If authenticated as an agent, use the provided 'from' (agent-to-agent delegation review)
+    // 2. If authenticated as a user, use the user ID (consumer review)
+    // Note: For delegation scenarios where a user's agent submits a review, the 'from' field
+    // can specify the agent ID, which will be validated in the review service
+    const isAgentAuth = req?.principal?.type === 'agent';
+    let reviewerId: string;
+
+    if (isAgentAuth) {
+      // Agent-authenticated: respect the provided 'from' or use agent's own ID
+      reviewerId = dto.from || req.principal.agentId;
+    } else {
+      // User-authenticated: allow specifying an agent ID in 'from' for delegation,
+      // otherwise default to user ID
+      reviewerId = dto.from || authenticatedUser?.id || 'unknown';
     }
 
     const payload = {
       ...dto,
-      from: sessionUser?.id || dto.from,
+      from: reviewerId,
     };
 
     return this.reviewsService.create(payload as any);

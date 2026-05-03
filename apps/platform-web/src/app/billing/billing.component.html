@@ -1,0 +1,382 @@
+<div class="billing-container">
+  <div class="billing-header">
+    <h1>💳 Billing & Settlement</h1>
+    <div class="period-selector">
+      <label for="period-select">Period:</label>
+      <select 
+        id="period-select" 
+        [value]="selectedPeriod" 
+        (change)="onPeriodChange($event)"
+        class="period-select">
+        <option *ngFor="let period of availablePeriods" [value]="period">
+          {{ formatPeriod(period) }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button 
+      class="tab" 
+      [class.active]="selectedTab === 'overview'"
+      (click)="selectTab('overview')">
+      Overview
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="selectedTab === 'statement'"
+      (click)="selectTab('statement')">
+      Statement
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="selectedTab === 'history'"
+      (click)="selectTab('history')">
+      History
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="selectedTab === 'invoice'"
+      (click)="selectTab('invoice')">
+      Invoice
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="selectedTab === 'usage'"
+      (click)="selectTab('usage')">
+      Usage Report
+    </button>
+  </div>
+
+  <div class="tab-content" *ngIf="!loading">
+    <!-- Overview Tab -->
+    <div *ngIf="selectedTab === 'overview'" class="overview-tab">
+      <div class="account-info" *ngIf="account">
+        <h2>Account Information</h2>
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-label">Account Name</div>
+            <div class="info-value">{{ account.name }}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Account Type</div>
+            <div class="info-value">{{ account.type }}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Settlement Schedule</div>
+            <div class="info-value">{{ account.settings.settlementSchedule }}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Currency</div>
+            <div class="info-value">{{ account.settings.currency }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="balance-summary" *ngIf="statement">
+        <h2>Current Balance</h2>
+        <div class="balance-cards">
+          <div class="balance-card total">
+            <div class="balance-label">Total Balance</div>
+            <div class="balance-amount" [ngClass]="getBalanceClass(statement.balance.currentTotal)">
+              {{ formatCurrency(statement.balance.currentTotal) }}
+            </div>
+          </div>
+          <div class="balance-card settled">
+            <div class="balance-label">Settled</div>
+            <div class="balance-amount">{{ formatCurrency(statement.balance.currentSettled) }}</div>
+          </div>
+          <div class="balance-card pending">
+            <div class="balance-label">Pending</div>
+            <div class="balance-amount">{{ formatCurrency(statement.balance.currentPending) }}</div>
+          </div>
+        </div>
+
+        <h3>This Period ({{ formatPeriod(selectedPeriod) }})</h3>
+        <div class="balance-cards">
+          <div class="balance-card earnings">
+            <div class="balance-label">Earnings</div>
+            <div class="balance-amount positive">{{ formatCurrency(statement.balance.totalEarnings) }}</div>
+            <div class="balance-detail">{{ statement.summary.totalEarnings }} credits</div>
+          </div>
+          <div class="balance-card spending">
+            <div class="balance-label">Spending</div>
+            <div class="balance-amount negative">{{ formatCurrency(statement.balance.totalSpending) }}</div>
+            <div class="balance-detail">{{ statement.summary.totalSpending }} debits</div>
+          </div>
+          <div class="balance-card netting">
+            <div class="balance-label">Netting Savings</div>
+            <div class="balance-amount">
+              {{ formatCurrency(statement.balance.nettedInternal + statement.balance.nettedBilateral) }}
+            </div>
+            <div class="balance-detail">
+              {{ statement.summary.nettedCount }} netted
+            </div>
+          </div>
+          <div class="balance-card net">
+            <div class="balance-label">Net Amount</div>
+            <div class="balance-amount" [ngClass]="getBalanceClass(statement.balance.netAmount)">
+              {{ formatCurrency(statement.balance.netAmount) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statement Tab -->
+    <div *ngIf="selectedTab === 'statement'" class="statement-tab">
+      <div *ngIf="statement">
+        <h2>Monthly Statement - {{ formatPeriod(statement.period) }}</h2>
+        
+        <div class="statement-summary">
+          <div class="summary-row">
+            <span>Total Transactions:</span>
+            <strong>{{ statement.transactions.length }}</strong>
+          </div>
+          <div class="summary-row">
+            <span>Pending:</span>
+            <strong>{{ statement.summary.pendingCount }}</strong>
+          </div>
+          <div class="summary-row">
+            <span>Netted:</span>
+            <strong>{{ statement.summary.nettedCount }}</strong>
+          </div>
+        </div>
+
+        <div class="transactions-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Task</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let tx of statement.transactions">
+                <td>{{ formatDate(tx.createdAt) }}</td>
+                <td>{{ tx.type }}</td>
+                <td class="party-cell">{{ tx.from }}</td>
+                <td class="party-cell">{{ tx.to }}</td>
+                <td class="amount-cell">{{ formatCurrency(tx.amount) }}</td>
+                <td>
+                  <span class="status-badge" [ngClass]="getStatusBadgeClass(tx.settlementStatus)">
+                    {{ tx.settlementStatus }}
+                  </span>
+                </td>
+                <td class="task-cell">{{ tx.taskId.slice(0, 8) }}...</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div *ngIf="statement.transactions.length === 0" class="no-data">
+            No transactions for this period
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div *ngIf="selectedTab === 'history'" class="history-tab">
+      <div *ngIf="history">
+        <h2>Balance History (Last 6 Months)</h2>
+        
+        <div class="trend-summary">
+          <div class="trend-indicator">
+            <span class="trend-icon">{{ getTrendIcon(history.trend) }}</span>
+            <span class="trend-label" [ngClass]="getTrendClass(history.trend)">
+              {{ history.trend | titlecase }}
+            </span>
+          </div>
+          <div class="current-balance">
+            Current Balance: <strong>{{ formatCurrency(history.currentBalance) }}</strong>
+          </div>
+        </div>
+
+        <div class="history-chart">
+          <div class="chart-container">
+            <div class="chart-bars">
+              <div 
+                *ngFor="let snapshot of history.snapshots" 
+                class="chart-bar-wrapper">
+                <div 
+                  class="chart-bar" 
+                  [style.height.%]="getBarHeight(snapshot.balance)">
+                  <span class="bar-label">{{ formatCurrency(snapshot.balance) }}</span>
+                </div>
+                <div class="chart-period">{{ snapshot.period }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="history-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Balance</th>
+                <th>Pending</th>
+                <th>Settled</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let snapshot of history.snapshots">
+                <td>{{ formatPeriod(snapshot.period) }}</td>
+                <td class="amount-cell" [ngClass]="getBalanceClass(snapshot.balance)">
+                  {{ formatCurrency(snapshot.balance) }}
+                </td>
+                <td class="amount-cell">{{ formatCurrency(snapshot.pending) }}</td>
+                <td class="amount-cell">{{ formatCurrency(snapshot.settled) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice Tab -->
+    <div *ngIf="selectedTab === 'invoice'" class="invoice-tab">
+      <div *ngIf="invoice">
+        <div class="invoice-header">
+          <h2>Invoice {{ invoice.id }}</h2>
+          <button class="download-btn" (click)="downloadInvoice()">
+            📄 Download Invoice
+          </button>
+        </div>
+
+        <div class="invoice-info">
+          <div class="invoice-meta">
+            <div><strong>Period:</strong> {{ formatPeriod(invoice.period) }}</div>
+            <div><strong>Generated:</strong> {{ formatDate(invoice.generatedAt) }}</div>
+            <div><strong>Due Date:</strong> {{ formatDate(invoice.dueDate) }}</div>
+            <div><strong>Status:</strong> {{ invoice.status }}</div>
+          </div>
+        </div>
+
+        <div class="invoice-items">
+          <h3>Line Items</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of invoice.lineItems">
+                <td>{{ item.description }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ formatCurrency(item.unitPrice) }}</td>
+                <td class="amount-cell" [ngClass]="getBalanceClass(item.amount)">
+                  {{ formatCurrency(item.amount) }}
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3"><strong>Total Earned:</strong></td>
+                <td class="amount-cell positive">{{ formatCurrency(invoice.totalEarned) }}</td>
+              </tr>
+              <tr>
+                <td colspan="3"><strong>Total Spent:</strong></td>
+                <td class="amount-cell negative">{{ formatCurrency(invoice.totalSpent) }}</td>
+              </tr>
+              <tr>
+                <td colspan="3"><strong>Internal Netting:</strong></td>
+                <td class="amount-cell">{{ formatCurrency(invoice.nettedInternal) }}</td>
+              </tr>
+              <tr>
+                <td colspan="3"><strong>Bilateral Netting:</strong></td>
+                <td class="amount-cell">{{ formatCurrency(invoice.nettedBilateral) }}</td>
+              </tr>
+              <tr class="total-row">
+                <td colspan="3"><strong>NET AMOUNT:</strong></td>
+                <td class="amount-cell" [ngClass]="getBalanceClass(invoice.netAmount)">
+                  <strong>{{ formatCurrency(invoice.netAmount) }}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage Report Tab -->
+    <div *ngIf="selectedTab === 'usage'" class="usage-tab">
+      <div *ngIf="usageReport">
+        <h2>Usage Report - {{ formatPeriod(usageReport.period) }}</h2>
+
+        <div class="usage-stats">
+          <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-value">{{ usageReport.tasksPosted }}</div>
+            <div class="stat-label">Tasks Posted</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value">{{ usageReport.tasksCompleted }}</div>
+            <div class="stat-label">Tasks Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value">{{ formatCurrency(usageReport.totalEarnings) }}</div>
+            <div class="stat-label">Total Earnings</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💸</div>
+            <div class="stat-value">{{ formatCurrency(usageReport.totalSpending) }}</div>
+            <div class="stat-label">Total Spending</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value">{{ usageReport.nettingEfficiency }}%</div>
+            <div class="stat-label">Netting Efficiency</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">{{ getTrendIcon(usageReport.balanceTrend) }}</div>
+            <div class="stat-value" [ngClass]="getTrendClass(usageReport.balanceTrend)">
+              {{ usageReport.balanceTrend | titlecase }}
+            </div>
+            <div class="stat-label">Balance Trend</div>
+          </div>
+        </div>
+
+        <div class="usage-summary">
+          <h3>Transaction Summary</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span>Total Transactions:</span>
+              <strong>{{ usageReport.transactionCount }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>Pending:</span>
+              <strong>{{ usageReport.summary.pendingCount }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>Netted:</span>
+              <strong>{{ usageReport.summary.nettedCount }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>Net Result:</span>
+              <strong [ngClass]="getBalanceClass(usageReport.netAmount)">
+                {{ formatCurrency(usageReport.netAmount) }}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-spinner" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Loading billing data...</p>
+  </div>
+</div>
