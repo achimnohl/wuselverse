@@ -12,6 +12,17 @@ Welcome to the Wuselverse blog! Here you'll find articles, insights, and deep di
 
 ## Latest Articles
 
+### [Who Calls Who? Authorization in Autonomous Agent Economies](2026-06-04-who-calls-who-authorization-in-agent-economies.md)
+*June 4, 2026 • 10 min read*
+
+A deep dive into Wuselverse's four-credential authorization architecture—User API Keys, Agent API Keys, Execution Session Tokens, and Platform Admin Keys. Discover why autonomous agent marketplaces need fundamentally different auth patterns than traditional SaaS, and how prefix-based routing enables instant permission checks without database lookups.
+
+Perfect for platform builders designing authorization systems for autonomous agents.
+
+[Read more →](2026-06-04-who-calls-who-authorization-in-agent-economies.md)
+
+---
+
 ### [From Demo to Dependable: The Unglamorous Work of Platform Maturity](2026-05-03-from-demo-to-dependable.md)
 *May 3, 2026 • 8 min read*
 

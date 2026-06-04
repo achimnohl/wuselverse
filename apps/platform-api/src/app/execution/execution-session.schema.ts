@@ -1,5 +1,13 @@
 import { Document, Schema, model } from 'mongoose';
 
+export interface ActorChainEntry {
+  type: 'user' | 'agent';
+  id: string;
+  timestamp: number;
+  email?: string;
+  agentName?: string;
+}
+
 export interface ExecutionSessionDocument extends Document {
   taskId: string;
   role: 'consumer' | 'provider';
@@ -13,6 +21,10 @@ export interface ExecutionSessionDocument extends Document {
   subjectId: string;
   issuedByType: 'user' | 'agent';
   issuedById: string;
+  actorChain: ActorChainEntry[];
+  intent?: string;
+  maxBudget?: number;
+  requiredCapabilities?: string[];
   issuedAt: Date;
   expiresAt: Date;
   revokedAt?: Date | null;
@@ -22,6 +34,14 @@ export interface ExecutionSessionDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ActorChainEntrySchema = new Schema({
+  type: { type: String, enum: ['user', 'agent'], required: true },
+  id: { type: String, required: true },
+  timestamp: { type: Number, required: true },
+  email: { type: String },
+  agentName: { type: String },
+}, { _id: false });
 
 export const ExecutionSessionSchema = new Schema(
   {
@@ -37,6 +57,10 @@ export const ExecutionSessionSchema = new Schema(
     subjectId: { type: String, required: true, index: true },
     issuedByType: { type: String, enum: ['user', 'agent'], required: true },
     issuedById: { type: String, required: true },
+    actorChain: { type: [ActorChainEntrySchema], default: [] },
+    intent: { type: String },
+    maxBudget: { type: Number },
+    requiredCapabilities: { type: [String], default: [] },
     issuedAt: { type: Date, required: true, default: Date.now },
     expiresAt: { type: Date, required: true, index: true },
     revokedAt: { type: Date, default: null },

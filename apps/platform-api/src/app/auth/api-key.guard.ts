@@ -58,6 +58,10 @@ export class ApiKeyGuard implements CanActivate {
         executionSession: true,
         boundTaskId: session.taskId,
         sessionId: session.id,
+        actorChain: session.actorChain, // Propagate delegation chain
+        intent: session.intent, // Propagate task intent
+        maxBudget: session.maxBudget, // Propagate budget scope
+        requiredCapabilities: session.requiredCapabilities, // Propagate capability requirements
       };
       return true;
     }
