@@ -19,6 +19,23 @@ export class ExecutionSessionsController {
   })
   async create(@Body() dto: CreateExecutionSessionDto, @Request() req: any) {
     const principal = this.getPrincipal(req);
+    
+    // Auto-propagate actor chain from est_* token context if not explicitly provided in DTO
+    if (!dto.actorChain && req.principal?.actorChain) {
+      dto.actorChain = req.principal.actorChain;
+    }
+    
+    // Auto-propagate intent, maxBudget, requiredCapabilities if available in request context
+    if (!dto.intent && req.principal?.intent) {
+      dto.intent = req.principal.intent;
+    }
+    if (!dto.maxBudget && req.principal?.maxBudget) {
+      dto.maxBudget = req.principal.maxBudget;
+    }
+    if (!dto.requiredCapabilities && req.principal?.requiredCapabilities) {
+      dto.requiredCapabilities = req.principal.requiredCapabilities;
+    }
+    
     return this.executionSessionsService.createSession(principal, dto);
   }
 

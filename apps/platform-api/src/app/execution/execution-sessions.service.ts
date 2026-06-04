@@ -58,6 +58,18 @@ export class ExecutionSessionsService {
     const tokenHash = this.hashToken(rawToken);
     const tokenPreview = `${rawToken.slice(0, 18)}...`;
 
+    // Build actor chain: inherit from DTO or create new entry for current principal
+    let actorChain = dto.actorChain || [];
+    
+    // Append current principal to the chain
+    const currentEntry = {
+      type: principal.type,
+      id: principal.id,
+      timestamp: Date.now(),
+      ...(principal.type === 'user' && principal.email ? { email: principal.email } : {}),
+    };
+    actorChain = [...actorChain, currentEntry];
+
     const created = await new this.executionSessionModel({
       taskId: task._id.toString(),
       role: dto.role,
@@ -71,6 +83,10 @@ export class ExecutionSessionsService {
       subjectId: principal.id,
       issuedByType: principal.type,
       issuedById: principal.id,
+      actorChain,
+      intent: dto.intent,
+      maxBudget: dto.maxBudget,
+      requiredCapabilities: dto.requiredCapabilities,
       issuedAt,
       expiresAt,
       metadata: {
@@ -90,6 +106,10 @@ export class ExecutionSessionsService {
         scopes: created.scopes,
         audience: created.audience,
         cnfJkt: created.cnfJkt,
+        actorChain: created.actorChain,
+        intent: created.intent,
+        maxBudget: created.maxBudget,
+        requiredCapabilities: created.requiredCapabilities,
         expiresAt: created.expiresAt,
       },
     };
@@ -173,6 +193,10 @@ export class ExecutionSessionsService {
         cnfJkt: session.cnfJkt,
         subjectType: session.subjectType,
         subjectId: session.subjectId,
+        actorChain: session.actorChain || [],
+        intent: session.intent,
+        maxBudget: session.maxBudget,
+        requiredCapabilities: session.requiredCapabilities,
         tokenPreview: session.tokenPreview,
         issuedAt: session.issuedAt,
         expiresAt: session.expiresAt,
@@ -209,6 +233,10 @@ export class ExecutionSessionsService {
       cnfJkt: session.cnfJkt,
       subjectType: session.subjectType,
       subjectId: session.subjectId,
+      actorChain: session.actorChain || [],
+      intent: session.intent,
+      maxBudget: session.maxBudget,
+      requiredCapabilities: session.requiredCapabilities,
       expiresAt: session.expiresAt,
     };
   }

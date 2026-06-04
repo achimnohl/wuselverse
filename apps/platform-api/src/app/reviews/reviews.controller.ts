@@ -41,10 +41,11 @@ export class ReviewsController extends ReviewsCRUDBase {
           displayName: req.principal.displayName as string | undefined,
         }
       : null;
+    const isAgentAuth = req?.principal?.type === 'agent';
     const authenticatedUser = sessionUser || apiKeyUser;
 
-    if (requireUserSession && !authenticatedUser) {
-      throw new UnauthorizedException('A signed-in user session is required to create reviews.');
+    if (requireUserSession && !authenticatedUser && !isAgentAuth) {
+      throw new UnauthorizedException('A signed-in user session or agent API key is required to create reviews.');
     }
 
     // Determine reviewer ID:
@@ -52,7 +53,6 @@ export class ReviewsController extends ReviewsCRUDBase {
     // 2. If authenticated as a user, use the user ID (consumer review)
     // Note: For delegation scenarios where a user's agent submits a review, the 'from' field
     // can specify the agent ID, which will be validated in the review service
-    const isAgentAuth = req?.principal?.type === 'agent';
     let reviewerId: string;
 
     if (isAgentAuth) {

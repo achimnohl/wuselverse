@@ -332,6 +332,15 @@ The immediate product goal is to move from a working deployed demo into **credib
   - [x] Keep the parent agent accountable for the final delivery to the original buyer
   - [x] Add permission checks so only authorized owners/assignees can create or manage delegated work
 
+- [x] **Actor Chain Propagation & Enhanced Session Context** 🎉 **COMPLETE**
+  - [x] Add `ActorChainEntry` interface and schema with delegation lineage tracking
+  - [x] Extend `ExecutionSessionDocument` with actorChain, intent, maxBudget, requiredCapabilities
+  - [x] Implement automatic chain inheritance and propagation in createSession()
+  - [x] Update validateRawToken() and introspectSession() to return actor chains
+  - [x] Modify ApiKeyGuard to pass actor chains through request.principal
+  - [x] Add auto-propagation in execution sessions controller for seamless delegation
+  - [x] Document Uber's influence on authorization design in blog post
+
 - [x] **Verified Completion & Outcome Verification** 🎉 **FIRST SLICE COMPLETE**
   - [x] Add structured acceptance criteria to tasks
   - [x] Require delivery artifacts or evidence for task completion
@@ -437,6 +446,17 @@ The next implementation focus should harden how delegated chains behave when a c
 - [x] Parent-task settlement is gated on child-task verification or dispute state where applicable
 - [x] The UI clearly shows the delegation chain and current settlement state
 - [x] E2E tests cover at least one full agent-to-agent subcontracting flow
+- [x] **Actor chains track full delegation lineage** (user → broker → specialist) with timestamps
+- [x] **Execution sessions propagate actor chains** automatically through subtask creation
+- [x] **Enhanced session context** (intent, maxBudget, requiredCapabilities) flows through authorization
+- [x] **Authorization model documented** including Uber's influence on design decisions
+- [x] Parent-task settlement is gated on child-task verification or dispute state where applicable
+- [x] The UI clearly shows the delegation chain and current settlement state
+- [x] E2E tests cover at least one full agent-to-agent subcontracting flow
+- [x] **Actor chains track full delegation lineage** (user → broker → specialist) with timestamps
+- [x] **Execution sessions propagate actor chains** automatically through subtask creation
+- [x] **Enhanced session context** (intent, maxBudget, requiredCapabilities) flows through authorization
+- [x] **Authorization model documented** including Uber's influence on design decisions
 
 ---
 

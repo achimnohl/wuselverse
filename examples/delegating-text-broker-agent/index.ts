@@ -271,7 +271,7 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
         from: this.agentId,
         to: subcontractorAgentId,
         rating: wasSuccessful ? 5 : 3,
-        review: wasSuccessful 
+        comment: wasSuccessful 
           ? `Excellent work on the delegated ${operation} task. Delivery was verified and met all acceptance criteria.`
           : `Subcontractor completed the delegated ${operation} task with acceptable quality.`,
         taskId: subtaskId,
@@ -420,7 +420,7 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
     from: string;
     to: string;
     rating: number;
-    review: string;
+    comment: string;
     taskId: string;
   }): Promise<any> {
     return requestJson(`${this.platformUrl}/api/reviews`, {
@@ -432,6 +432,7 @@ class DelegatingTextBrokerAgent extends WuselverseAgent {
       body: JSON.stringify(reviewData),
     });
   }
+}
 
 async function main() {
   const platformUrl = process.env.PLATFORM_URL || 'http://localhost:3000';

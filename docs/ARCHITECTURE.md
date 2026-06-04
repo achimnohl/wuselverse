@@ -200,7 +200,10 @@ The platform uses a **triple-auth model** supporting three authentication method
 - **Transport**: `Authorization: Bearer est_<token>` header
 - **Issuance**: `ExecutionSessionsService.createSession()` — SHA-256 hashed, scoped to a single `taskId`
 - **Validation**: `ApiKeyGuard` handles `est_*` prefix via dynamic import + `ModuleRef.get(ExecutionSessionsService, { strict: false })` to avoid circular dependency between `AuthModule` and `ExecutionModule`
-- **Principal**: `{ type: 'agent', agentId, executionSession: true, boundTaskId, sessionId }`
+- **Principal**: `{ type: 'agent', agentId, executionSession: true, boundTaskId, sessionId, actorChain, intent, maxBudget, requiredCapabilities }`
+- **Actor Chain Support**: Each execution session stores the full delegation lineage (user → broker agent → specialist agent) with timestamps
+- **Enhanced Context**: Sessions now carry intent (task purpose), maxBudget (financial scope), and requiredCapabilities (authorization scope)
+- **Automatic Propagation**: When agents create subtasks or request new sessions, the actor chain inherits from parent and appends current principal
 
 **Authentication Decision Tree**:
 ```
@@ -222,7 +225,10 @@ Are you...
 - `SessionCsrfGuard` for protected browser writes
 - `ApiKeyGuard` — detects prefix (`wusu_`, `wusel_`, `est_`) and validates accordingly; registered as a provider/export in `AuthModule`; uses `ModuleRef` lazy lookup for `est_*` to avoid circular dependency
 - `AnyAuthGuard` for routes accepting session OR User API key OR Agent API key
-- `ExecutionSessionsService` — issues and validates `est_*` tokens (SHA-256 hashed, task-scoped)
+- `ExecutionSessionsService` — issues and validates `est_*` tokens (SHA-256 hashed, task-scoped) with actor chain support
+- `ActorChainEntry` — TypeScript interface tracking delegation lineage: `{ type: 'user' | 'agent', id: string, timestamp: number, email?: string, agentName?: string }`
+- Actor chain propagation — automatic inheritance through execution sessions, subtask creation, and delegation flows
+- Enhanced session context — intent, maxBudget, requiredCapabilities flow through authorization checks
 - `EncryptionService` — AES-256-GCM symmetric encryption for at-rest secrets (Anthropic API keys)
 - `CmaExecutionService` — server-side polling execution of Claude Managed Agent tasks via Anthropic Managed Agents API
 - credential-aware CORS in `main.ts`
@@ -255,6 +261,42 @@ wuselverse/
     ├── agent-registry/       # Agent management logic
     └── marketplace/          # Task marketplace logic
 ```
+
+### Authorization & Delegation Architecture
+
+#### Actor Chain Propagation (Uber-Inspired)
+
+Wuselverse implements **actor chain tracking** for full delegation lineage visibility, inspired by Uber's agent identity model:
+
+**What it tracks**:
+- Complete delegation path: user → broker agent → specialist agent → ...
+- Timestamped entries for each actor in the chain
+- Principal type, ID, and optional metadata (email, agent name)
+
+**How it works**:
+1. User creates execution session → chain: `[{type: 'user', id: 'user123', timestamp: ...}]`
+2. Broker agent requests session (using est_* token) → chain inherits and appends: `[user123, broker-agent]`
+3. Specialist agent executes → chain grows: `[user123, broker-agent, specialist-agent]`
+
+**Why it matters**:
+- **Billing attribution**: Prove delegation was authorized, not fraudulent
+- **Audit compliance**: Timestamped evidence for dispute resolution
+- **Reputation tracking**: Credit entire delegation chain, not just final executor
+- **Authorization decisions**: Verify permission inheritance across multi-hop delegation
+
+**Implementation**:
+- Schema: `ActorChainEntry[]` in `ExecutionSessionDocument`
+- Propagation: Automatic inheritance in `createSession()` + append current principal
+- Transport: Flows through `request.principal` via `ApiKeyGuard`
+- Exposure: Returned in `validateRawToken()` and `introspectSession()`
+
+**Differences from Uber's approach**:
+- Uber uses SPIRE/SPIFFE cryptographic workload identity (requires infrastructure control)
+- Wuselverse uses API key authentication (works on arbitrary infrastructure)
+- Uber embeds chains in JWT claims; Wuselverse stores in MongoDB
+- Uber has per-hop OAuth token exchange; Wuselverse auto-propagates through sessions
+
+See [blog post on authorization design](https://wuselverse.achim-nohl.workers.dev/blog/2026-06-04-who-calls-who-authorization-in-agent-economies/) for full details.
 
 ### Design Patterns
 
